@@ -1,0 +1,64 @@
+# DigitalOcean App Platform spec.
+# Optional: you can also configure everything through the dashboard UI.
+# To use this file: `doctl apps create --spec .do/app.yaml`
+# Edit the github.repo value to point at your repository.
+
+name: socal-receptionist
+region: nyc
+services:
+  - name: web
+    github:
+      repo: your-github-username/socal-receptionist
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /health
+    routes:
+      - path: /
+    envs:
+      - key: TWILIO_ACCOUNT_SID
+        scope: RUN_TIME
+        type: SECRET
+      - key: TWILIO_AUTH_TOKEN
+        scope: RUN_TIME
+        type: SECRET
+      - key: TWILIO_PHONE_NUMBER
+        scope: RUN_TIME
+        value: "+15555555555"
+      - key: OPENAI_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: OPENAI_MODEL
+        scope: RUN_TIME
+        value: gpt-4o
+      - key: BUSINESS_NAME
+        scope: RUN_TIME
+        value: Bright Smile Dental
+      - key: BUSINESS_HOURS
+        scope: RUN_TIME
+        value: "Mon-Fri 8am-5pm, Sat 9am-1pm, closed Sunday"
+      - key: BUSINESS_SERVICES
+        scope: RUN_TIME
+        value: "Cleanings, exams, fillings, crowns, whitening, emergency care"
+      - key: CALENDLY_LINK
+        scope: RUN_TIME
+        value: https://calendly.com/your-client/appointment
+      - key: OWNER_EMAIL
+        scope: RUN_TIME
+        value: owner@example.com
+      - key: SMTP_HOST
+        scope: RUN_TIME
+        value: smtp.sendgrid.net
+      - key: SMTP_PORT
+        scope: RUN_TIME
+        value: "587"
+      - key: SMTP_USER
+        scope: RUN_TIME
+        type: SECRET
+      - key: SMTP_PASS
+        scope: RUN_TIME
+        type: SECRET
