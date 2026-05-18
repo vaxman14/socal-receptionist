@@ -1,0 +1,53 @@
+require('dotenv').config();
+
+function required(name) {
+  const value = process.env[name];
+  if (!value || !value.trim()) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value.trim();
+}
+
+function optional(name, fallback = '') {
+  const value = process.env[name];
+  return value && value.trim() ? value.trim() : fallback;
+}
+
+const config = {
+  port: parseInt(process.env.PORT || '8080', 10),
+
+  twilio: {
+    accountSid: required('TWILIO_ACCOUNT_SID'),
+    authToken: required('TWILIO_AUTH_TOKEN'),
+    phoneNumber: required('TWILIO_PHONE_NUMBER'),
+    // Set TWILIO_VALIDATE_SIGNATURE=false only for local testing.
+    validateSignature: optional('TWILIO_VALIDATE_SIGNATURE', 'true') !== 'false',
+  },
+
+  openai: {
+    apiKey: required('OPENAI_API_KEY'),
+    model: optional('OPENAI_MODEL', 'gpt-4o'),
+  },
+
+  business: {
+    name: required('BUSINESS_NAME'),
+    hours: required('BUSINESS_HOURS'),
+    services: required('BUSINESS_SERVICES'),
+    calendlyLink: required('CALENDLY_LINK'),
+    ownerEmail: required('OWNER_EMAIL'),
+  },
+
+  email: {
+    host: required('SMTP_HOST'),
+    port: parseInt(optional('SMTP_PORT', '587'), 10),
+    user: required('SMTP_USER'),
+    pass: required('SMTP_PASS'),
+    from: optional('SMTP_FROM', ''),
+  },
+};
+
+if (!config.email.from) {
+  config.email.from = `"${config.business.name} Receptionist" <${config.email.user}>`;
+}
+
+module.exports = config;
