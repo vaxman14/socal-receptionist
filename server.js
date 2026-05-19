@@ -14,13 +14,12 @@ const app = express();
 app.set('trust proxy', true);
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
 });
 
-// Coming Soon mode — set COMING_SOON=true in DO env vars to activate
+// Coming Soon mode — must be before static middleware so it intercepts /
 if (process.env.COMING_SOON === 'true') {
   app.get('*', (req, res, next) => {
     if (req.path === '/health' || req.path.startsWith('/sms') || req.path.startsWith('/voice')) return next();
@@ -51,6 +50,8 @@ if (process.env.COMING_SOON === 'true') {
 </html>`);
   });
 }
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Inject analytics tags into the landing page HTML at request time so
 // GTM_ID / GA_ID / FB_PIXEL_ID env vars take effect without a redeploy.
