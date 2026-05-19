@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoCal Receptionist — AI Receptionist for Temecula Valley Businesses</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #0f1f3d;
+      --blue: #1a3a6e;
+      --orange: #f47c20;
+      --orange-dark: #d96a10;
+      --light: #f5f7fa;
+      --text: #1a1a2e;
+      --muted: #6b7280;
+      --white: #ffffff;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text); background: var(--white); }
+
+    /* NAV */
+    nav { background: var(--navy); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .nav-logo { color: var(--white); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.3px; }
+    .nav-logo span { color: var(--orange); }
+    .btn-nav { background: var(--orange); color: var(--white); border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; text-decoration: none; }
+    .btn-nav:hover { background: var(--orange-dark); }
+
+    /* HERO */
+    .hero { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%); color: var(--white); padding: 80px 24px 90px; text-align: center; }
+    .hero-badge { display: inline-block; background: rgba(244,124,32,0.2); border: 1px solid var(--orange); color: var(--orange); padding: 6px 16px; border-radius: 100px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 24px; text-transform: uppercase; }
+    .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.15; max-width: 760px; margin: 0 auto 20px; }
+    .hero h1 span { color: var(--orange); }
+    .hero p { font-size: 1.15rem; color: rgba(255,255,255,0.8); max-width: 560px; margin: 0 auto 36px; line-height: 1.6; }
+    .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary { background: var(--orange); color: var(--white); border: none; padding: 16px 32px; border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.2s, transform 0.1s; }
+    .btn-primary:hover { background: var(--orange-dark); transform: translateY(-1px); }
+    .btn-secondary { background: transparent; color: var(--white); border: 2px solid rgba(255,255,255,0.4); padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; transition: border-color 0.2s; }
+    .btn-secondary:hover { border-color: var(--white); }
+    .hero-note { margin-top: 20px; font-size: 0.85rem; color: rgba(255,255,255,0.5); }
+
+    /* PAIN */
+    .pain { background: var(--light); padding: 64px 24px; text-align: center; }
+    .pain h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 16px; }
+    .pain p { font-size: 1.05rem; color: var(--muted); max-width: 580px; margin: 0 auto 40px; line-height: 1.6; }
+    .pain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; max-width: 900px; margin: 0 auto; }
+    .pain-card { background: var(--white); border-radius: 10px; padding: 24px; border-left: 4px solid var(--orange); box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: left; }
+    .pain-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .pain-card p { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+
+    /* HOW IT WORKS */
+    .how { padding: 72px 24px; text-align: center; }
+    .section-label { font-size: 0.8rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--orange); margin-bottom: 12px; }
+    .how h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 48px; }
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; max-width: 900px; margin: 0 auto; }
+    .step { text-align: center; }
+    .step-num { width: 52px; height: 52px; background: var(--navy); color: var(--white); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; margin: 0 auto 16px; }
+    .step h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .step p { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+
+    /* CALCULATOR */
+    .calc-section { background: var(--navy); color: var(--white); padding: 72px 24px; }
+    .calc-section .section-label { color: var(--orange); }
+    .calc-section h2 { font-size: 1.8rem; font-weight: 800; text-align: center; margin-bottom: 8px; }
+    .calc-section > p { text-align: center; color: rgba(255,255,255,0.7); margin-bottom: 48px; }
+    .calc-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; max-width: 860px; margin: 0 auto; align-items: center; }
+    @media (max-width: 640px) { .calc-wrapper { grid-template-columns: 1fr; } }
+    .calc-inputs { display: flex; flex-direction: column; gap: 24px; }
+    .calc-field label { display: block; font-size: 0.85rem; font-weight: 600; color: rgba(255,255,255,0.7); margin-bottom: 8px; }
+    .calc-field input[type=range] { width: 100%; accent-color: var(--orange); cursor: pointer; }
+    .calc-field .range-val { font-size: 1.3rem; font-weight: 700; color: var(--orange); margin-top: 4px; }
+    .calc-result { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 32px; text-align: center; }
+    .calc-result .their-cost { margin-bottom: 24px; }
+    .calc-result .their-cost .label { font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+    .calc-result .their-cost .amount { font-size: 2.2rem; font-weight: 800; color: #ff6b6b; }
+    .calc-result .our-cost { margin-bottom: 24px; }
+    .calc-result .our-cost .label { font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+    .calc-result .our-cost .amount { font-size: 2.2rem; font-weight: 800; color: #4ade80; }
+    .savings-banner { background: var(--orange); border-radius: 8px; padding: 16px; }
+    .savings-banner .label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.85; margin-bottom: 4px; }
+    .savings-banner .amount { font-size: 1.8rem; font-weight: 800; }
+    .calc-note { font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 12px; }
+
+    /* PRICING */
+    .pricing { padding: 72px 24px; text-align: center; background: var(--light); }
+    .pricing h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
+    .pricing > p { color: var(--muted); margin-bottom: 48px; }
+    .price-card { background: var(--white); border-radius: 14px; padding: 40px; max-width: 440px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 2px solid var(--orange); position: relative; }
+    .price-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--orange); color: var(--white); font-size: 0.78rem; font-weight: 700; padding: 6px 18px; border-radius: 100px; white-space: nowrap; }
+    .price-name { font-size: 1.1rem; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+    .price-amount { font-size: 3.2rem; font-weight: 800; color: var(--navy); line-height: 1; }
+    .price-amount span { font-size: 1.2rem; font-weight: 600; color: var(--muted); vertical-align: super; }
+    .price-period { font-size: 0.9rem; color: var(--muted); margin-bottom: 8px; }
+    .price-setup { font-size: 0.85rem; color: var(--muted); margin-bottom: 28px; }
+    .price-features { list-style: none; text-align: left; margin-bottom: 32px; display: flex; flex-direction: column; gap: 10px; }
+    .price-features li { display: flex; align-items: flex-start; gap: 10px; font-size: 0.95rem; }
+    .price-features li::before { content: "✓"; color: var(--orange); font-weight: 800; flex-shrink: 0; margin-top: 1px; }
+    .price-cta { width: 100%; padding: 16px; font-size: 1rem; }
+
+    /* DEMO FORM */
+    .demo { padding: 72px 24px; text-align: center; }
+    .demo h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
+    .demo > p { color: var(--muted); margin-bottom: 40px; }
+    .demo-form { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; text-align: left; }
+    .demo-form input, .demo-form select { width: 100%; padding: 14px 16px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.95rem; color: var(--text); outline: none; transition: border-color 0.2s; }
+    .demo-form input:focus, .demo-form select:focus { border-color: var(--orange); }
+    .demo-form label { font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 4px; display: block; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-success { display: none; background: #d1fae5; border: 1px solid #34d399; color: #065f46; padding: 16px; border-radius: 8px; text-align: center; font-weight: 600; }
+    .form-error { display: none; background: #fee2e2; border: 1px solid #f87171; color: #991b1b; padding: 16px; border-radius: 8px; text-align: center; }
+
+    /* FOOTER */
+    footer { background: var(--navy); color: rgba(255,255,255,0.5); text-align: center; padding: 24px; font-size: 0.85rem; }
+    footer a { color: rgba(255,255,255,0.5); text-decoration: none; }
+    footer a:hover { color: var(--white); }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">SoCal <span>Receptionist</span></div>
+  <a href="#demo" class="btn-nav">Book a Free Demo</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">Temecula Valley's AI Receptionist</div>
+  <h1>Never Miss a Customer Call <span>Again</span></h1>
+  <p>Your 24/7 AI receptionist answers texts, qualifies leads, and books appointments — while you focus on running your business.</p>
+  <div class="hero-cta">
+    <a href="#demo" class="btn-primary">Book a Free Demo →</a>
+    <a href="#calculator" class="btn-secondary">See Your Savings</a>
+  </div>
+  <p class="hero-note">No contracts. Cancel anytime.</p>
+</section>
+
+<!-- PAIN -->
+<section class="pain">
+  <h2>Every Unanswered Text Is a Lost Customer</h2>
+  <p>Small businesses in Temecula lose thousands of dollars a month to missed inquiries. Hiring help is expensive. Doing it yourself isn't sustainable.</p>
+  <div class="pain-grid">
+    <div class="pain-card">
+      <h3>Customers text, you're busy</h3>
+      <p>You're with a client, on a job, or finally eating lunch. The lead texts once and moves on to your competitor.</p>
+    </div>
+    <div class="pain-card">
+      <h3>After-hours inquiries go cold</h3>
+      <p>Most people text after 5pm. Without an instant reply, that warm lead is ice cold by morning.</p>
+    </div>
+    <div class="pain-card">
+      <h3>Hiring is expensive and risky</h3>
+      <p>A part-time receptionist at $20/hr costs $4,500+ per month after taxes — before any benefits.</p>
+    </div>
+    <div class="pain-card">
+      <h3>You're the bottleneck</h3>
+      <p>When every message requires your personal attention, you can't scale. Your phone becomes your second job.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how">
+  <div class="section-label">How It Works</div>
+  <h2>Set It Up Once. It Works Forever.</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Customer Texts In</h3>
+      <p>Your customer texts your business number — any time, day or night.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>AI Handles the Conversation</h3>
+      <p>The AI answers questions, collects their name and contact info, and learns what they need.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>You Get a Qualified Lead</h3>
+      <p>You receive an email with the lead's details and a booking link in their hands. You just show up.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CALCULATOR -->
+<section class="calc-section" id="calculator">
+  <div class="section-label" style="text-align:center">Savings Calculator</div>
+  <h2>See What a Human Receptionist Really Costs</h2>
+  <p>Slide to match your situation — see what you'd actually save.</p>
+  <div class="calc-wrapper">
+    <div class="calc-inputs">
+      <div class="calc-field">
+        <label>Receptionist hourly wage</label>
+        <input type="range" id="wage" min="16" max="35" value="20" step="1">
+        <div class="range-val" id="wage-val">$20 / hour</div>
+      </div>
+      <div class="calc-field">
+        <label>Hours per week needed</label>
+        <input type="range" id="hours" min="10" max="50" value="40" step="5">
+        <div class="range-val" id="hours-val">40 hrs / week</div>
+      </div>
+    </div>
+    <div class="calc-result">
+      <div class="their-cost">
+        <div class="label">Human receptionist cost / month</div>
+        <div class="amount" id="human-cost">$4,347</div>
+      </div>
+      <div class="our-cost">
+        <div class="label">SoCal Receptionist cost / month</div>
+        <div class="amount">$500</div>
+      </div>
+      <div class="savings-banner">
+        <div class="label">You save every month</div>
+        <div class="amount" id="savings">$3,847</div>
+      </div>
+      <div class="calc-note">* Human cost includes 7.65% employer payroll tax. Does not include health insurance, PTO, or training.</div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="section-label">Pricing</div>
+  <h2>Simple, Transparent Pricing</h2>
+  <p>One plan. Everything included. No hidden fees.</p>
+  <div class="price-card">
+    <div class="price-badge">Most Popular in Temecula Valley</div>
+    <div class="price-name">Monthly Plan</div>
+    <div class="price-amount"><span>$</span>500</div>
+    <div class="price-period">per month</div>
+    <div class="price-setup">+ $1,500 one-time setup fee</div>
+    <ul class="price-features">
+      <li>24/7 AI receptionist via SMS</li>
+      <li>Unlimited inbound messages</li>
+      <li>Instant lead qualification & capture</li>
+      <li>Email alerts for every new lead</li>
+      <li>Appointment booking integration</li>
+      <li>Custom AI trained on your business</li>
+      <li>TCPA-compliant opt-in flow</li>
+      <li>No contracts — cancel anytime</li>
+    </ul>
+    <a href="#demo" class="btn-primary price-cta">Get Started Today →</a>
+  </div>
+</section>
+
+<!-- DEMO FORM -->
+<section class="demo" id="demo">
+  <div class="section-label">Get Started</div>
+  <h2>Book Your Free 15-Minute Demo</h2>
+  <p>We'll show you the AI in action and set it up for your business. No pressure, no sales pitch.</p>
+  <form class="demo-form" id="demo-form">
+    <div class="form-group">
+      <label for="f-name">Your Name</label>
+      <input type="text" id="f-name" name="name" placeholder="Jane Smith" required>
+    </div>
+    <div class="form-group">
+      <label for="f-business">Business Name</label>
+      <input type="text" id="f-business" name="business" placeholder="Smith's Salon" required>
+    </div>
+    <div class="form-group">
+      <label for="f-phone">Phone Number</label>
+      <input type="tel" id="f-phone" name="phone" placeholder="(951) 555-0100" required>
+    </div>
+    <div class="form-group">
+      <label for="f-type">Type of Business</label>
+      <select id="f-type" name="type">
+        <option value="">Select your industry...</option>
+        <option>Salon / Spa</option>
+        <option>Auto Repair</option>
+        <option>Landscaping / Pest Control</option>
+        <option>Real Estate</option>
+        <option>Medical / Dental</option>
+        <option>Restaurant / Food</option>
+        <option>Home Services (HVAC, Plumbing, etc.)</option>
+        <option>Fitness / Yoga</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <button type="submit" class="btn-primary price-cta" id="submit-btn">Book My Free Demo →</button>
+    <div class="form-success" id="form-success">🎉 Got it! We'll reach out within a few hours to schedule your demo.</div>
+    <div class="form-error" id="form-error">Something went wrong. Please try again or text us directly.</div>
+  </form>
+</section>
+
+<footer>
+  <p>© 2026 SoCal Receptionist, LLC · Temecula, CA · <a href="/privacy">SMS Privacy Policy</a></p>
+</footer>
+
+<script>
+  // Calculator
+  const wageSlider = document.getElementById('wage');
+  const hoursSlider = document.getElementById('hours');
+  const wageVal = document.getElementById('wage-val');
+  const hoursVal = document.getElementById('hours-val');
+  const humanCost = document.getElementById('human-cost');
+  const savings = document.getElementById('savings');
+
+  function updateCalc() {
+    const wage = parseInt(wageSlider.value);
+    const hours = parseInt(hoursSlider.value);
+    wageVal.textContent = '$' + wage + ' / hour';
+    hoursVal.textContent = hours + ' hrs / week';
+    const monthly = wage * hours * 4.333 * 1.0765;
+    const save = monthly - 500;
+    humanCost.textContent = '$' + Math.round(monthly).toLocaleString();
+    savings.textContent = '$' + Math.round(save).toLocaleString();
+  }
+
+  wageSlider.addEventListener('input', updateCalc);
+  hoursSlider.addEventListener('input', updateCalc);
+  updateCalc();
+
+  // Demo form
+  document.getElementById('demo-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+
+    const data = {
+      name: document.getElementById('f-name').value,
+      business: document.getElementById('f-business').value,
+      phone: document.getElementById('f-phone').value,
+      type: document.getElementById('f-type').value,
+    };
+
+    try {
+      const res = await fetch('/demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        document.getElementById('form-success').style.display = 'block';
+        document.getElementById('demo-form').reset();
+      } else {
+        throw new Error('bad response');
+      }
+    } catch (err) {
+      document.getElementById('form-error').style.display = 'block';
+    } finally {
+      btn.textContent = 'Book My Free Demo →';
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

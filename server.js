@@ -1,9 +1,11 @@
 const express = require('express');
+const path = require('path');
 const twilio = require('twilio');
 const config = require('./src/config');
 const { handleMessage } = require('./src/ai');
 const { isValidTwilioRequest } = require('./src/twilio');
 const consent = require('./src/consent');
+const { notifyOwner } = require('./src/email');
 
 const app = express();
 
@@ -12,13 +14,31 @@ const app = express();
 app.set('trust proxy', true);
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-
-app.get('/', (req, res) => {
-  res.send('SoCal Receptionist is running.');
-});
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
+});
+
+// Landing page demo request form
+app.post('/demo', async (req, res) => {
+  const { name, business, phone, type } = req.body;
+  if (!name || !phone) return res.status(400).json({ error: 'Missing required fields' });
+
+  const body =
+    `New demo request from the SoCal Receptionist landing page.\n\n` +
+    `Name:     ${name}\n` +
+    `Business: ${business || '-'}\n` +
+    `Phone:    ${phone}\n` +
+    `Industry: ${type || '-'}`;
+
+  try {
+    await notifyOwner(`Demo request: ${name} — ${business || phone}`, body);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Demo notification email failed:', err.message);
+    res.status(500).json({ error: 'Email failed' });
+  }
 });
 
 app.get('/privacy', (req, res) => {
