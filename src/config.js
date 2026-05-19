@@ -1,11 +1,13 @@
 require('dotenv').config();
 
+const comingSoon = process.env.COMING_SOON === 'true';
+
 function required(name) {
   const value = process.env[name];
-  if (!value || !value.trim()) {
+  if (!comingSoon && (!value || !value.trim())) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
-  return value.trim();
+  return value ? value.trim() : '';
 }
 
 function optional(name, fallback = '') {
