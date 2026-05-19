@@ -20,6 +20,63 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
 });
 
+// Inject analytics tags into the landing page HTML at request time so
+// GTM_ID / GA_ID / FB_PIXEL_ID env vars take effect without a redeploy.
+app.use((req, res, next) => {
+  if (req.path !== '/' && req.path !== '/index.html') return next();
+
+  const { gtmId, gaId, fbPixelId } = config.analytics;
+  if (!gtmId && !gaId && !fbPixelId) return next();
+
+  const fs = require('fs');
+  const indexPath = require('path').join(__dirname, 'public', 'index.html');
+  let html = fs.readFileSync(indexPath, 'utf8');
+
+  if (gtmId) {
+    html = html.replace(
+      '<script id="gtm-head-snippet"></script>',
+      `<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');</script>`
+    );
+    html = html.replace(
+      '<noscript id="gtm-body-snippet"></noscript>',
+      `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${gtmId}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>`
+    );
+  }
+
+  if (gaId) {
+    html = html.replace(
+      '<script id="ga-snippet"></script>',
+      `<script async src="https://www.googletagmanager.com/gtag/js?id=${gaId}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${gaId}');</script>`
+    );
+  }
+
+  if (fbPixelId) {
+    html = html.replace(
+      '<script id="fb-pixel-snippet"></script>',
+      `<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');fbq('track','PageView');</script><noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${fbPixelId}&ev=PageView&noscript=1"/></noscript>`
+    );
+  }
+
+  res.type('text/html').send(html);
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const base = 'https://www.socalreceptionist.com';
+  const pages = ['/', '/privacy', '/terms', '/cookies', '/accessibility'];
+  const urls = pages.map(p =>
+    `  <url><loc>${base}${p}</loc><changefreq>${p === '/' ? 'weekly' : 'monthly'}</changefreq><priority>${p === '/' ? '1.0' : '0.5'}</priority></url>`
+  ).join('\n');
+  res.type('application/xml').send(
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`
+  );
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send(
+    `User-agent: *\nAllow: /\nDisallow: /health\nDisallow: /sms\nDisallow: /voice\nSitemap: https://www.socalreceptionist.com/sitemap.xml\n`
+  );
+});
+
 // Landing page demo request form
 app.post('/demo', async (req, res) => {
   const { name, business, phone, type } = req.body;

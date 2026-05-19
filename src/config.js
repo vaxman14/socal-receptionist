@@ -44,6 +44,12 @@ const config = {
     pass: required('SMTP_PASS'),
     from: optional('SMTP_FROM', ''),
   },
+
+  analytics: {
+    gtmId: optional('GTM_ID', ''),
+    gaId: optional('GA_ID', ''),
+    fbPixelId: optional('FB_PIXEL_ID', ''),
+  },
 };
 
 if (!config.email.from) {
