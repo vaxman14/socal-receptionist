@@ -34,7 +34,7 @@ if (process.env.COMING_SOON === 'true') {
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1f3d;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
-    img{height:52px;margin-bottom:32px}
+    img{height:52px;margin-bottom:32px;mix-blend-mode:multiply;}
     h1{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;margin-bottom:16px}
     p{font-size:1.1rem;color:rgba(255,255,255,0.7);max-width:440px;line-height:1.6;margin:0 auto 32px}
     a{display:inline-block;background:#f47c20;color:#fff;padding:14px 28px;border-radius:8px;font-weight:700;text-decoration:none;font-size:1rem}
@@ -43,7 +43,7 @@ if (process.env.COMING_SOON === 'true') {
 </head>
 <body>
   <div>
-    <img src="/images/logo-dark.png" alt="SoCal Receptionist">
+    <img src="/images/logo-transparent.png" alt="SoCal Receptionist">
     <h1>Something big is coming.</h1>
     <p>SoCal Receptionist — AI-powered 24/7 SMS answering for Temecula Valley small businesses. Launching soon.</p>
     <a href="mailto:vaxman14@gmail.com">Get Early Access</a>
