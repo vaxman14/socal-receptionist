@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
 const config = require('./config');
 const store = require('./store');
-const { notifyOwner } = require('./email');
+const { notifyLead, notifyFollowup } = require('./email');
 
 const openai = new OpenAI({ apiKey: config.openai.apiKey });
 
@@ -77,16 +77,15 @@ async function runTool(call, fromNumber) {
   }
 
   if (call.function.name === 'capture_lead') {
-    const body =
-      `New lead captured by the ${config.business.name} AI receptionist.\n\n` +
-      `Name:        ${args.name || '-'}\n` +
-      `Contact:     ${args.contact || '-'}\n` +
-      `SMS number:  ${fromNumber}\n` +
-      `Service:     ${args.service || '-'}\n` +
-      `Notes:       ${args.notes || '-'}\n\n` +
-      `The customer was sent the Calendly booking link: ${config.business.calendlyLink}`;
     try {
-      await notifyOwner(`New lead: ${args.name || 'Unknown'} — ${args.service || 'inquiry'}`, body);
+      await notifyLead({
+        name: args.name,
+        contact: args.contact,
+        phone: fromNumber,
+        service: args.service,
+        notes: args.notes,
+        calendlyLink: config.business.calendlyLink,
+      });
     } catch (err) {
       console.error('Lead notification email failed:', err.message);
     }
@@ -94,13 +93,12 @@ async function runTool(call, fromNumber) {
   }
 
   if (call.function.name === 'request_human_followup') {
-    const body =
-      `The AI receptionist for ${config.business.name} needs a human to follow up.\n\n` +
-      `Customer SMS number: ${fromNumber}\n` +
-      `Reason:              ${args.reason || '-'}\n` +
-      `Customer question:   ${args.customer_question || '-'}`;
     try {
-      await notifyOwner(`Follow-up needed — ${fromNumber}`, body);
+      await notifyFollowup({
+        phone: fromNumber,
+        reason: args.reason,
+        question: args.customer_question,
+      });
     } catch (err) {
       console.error('Follow-up notification email failed:', err.message);
     }

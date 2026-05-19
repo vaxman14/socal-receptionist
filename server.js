@@ -5,7 +5,7 @@ const config = require('./src/config');
 const { handleMessage } = require('./src/ai');
 const { isValidTwilioRequest } = require('./src/twilio');
 const consent = require('./src/consent');
-const { notifyOwner } = require('./src/email');
+const { notifyDemoRequest, notifyOptIn } = require('./src/email');
 
 const app = express();
 
@@ -90,7 +90,7 @@ app.post('/demo', async (req, res) => {
     `Industry: ${type || '-'}`;
 
   try {
-    await notifyOwner(`Demo request: ${name} — ${business || phone}`, body);
+    await notifyDemoRequest({ name, business, phone, type });
     res.json({ ok: true });
   } catch (err) {
     console.error('Demo notification email failed:', err.message);
@@ -391,6 +391,7 @@ app.post('/sms', async (req, res) => {
     if (normalizedBody === 'YES' || normalizedBody === 'Y') {
       consent.setStatus(from, 'opted_in');
       twiml.message(`You're all set! How can I help you today?`);
+      notifyOptIn(from).catch(err => console.error('Opt-in notification failed:', err.message));
     } else {
       twiml.message(`Reply YES to continue or STOP to opt out.`);
     }
