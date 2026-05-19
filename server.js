@@ -21,6 +21,46 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
 });
 
+app.get('/privacy', (req, res) => {
+  res.type('text/html').send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMS Privacy Policy — ${config.business.name}</title>
+  <style>
+    body { font-family: sans-serif; max-width: 680px; margin: 40px auto; padding: 0 20px; color: #222; line-height: 1.6; }
+    h1 { font-size: 1.4rem; }
+    h2 { font-size: 1.1rem; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <h1>SMS Messaging — Consent &amp; Privacy Policy</h1>
+  <p><strong>${config.business.name}</strong> provides an automated SMS receptionist service to help customers get information and schedule appointments.</p>
+
+  <h2>How You Opt In</h2>
+  <p>When you text our number, you will receive a consent prompt asking you to reply <strong>YES</strong> to receive automated messages. No messages are sent until you confirm consent.</p>
+
+  <h2>Message Frequency</h2>
+  <p>Message frequency varies based on your inquiries. Typically 1–5 messages per conversation.</p>
+
+  <h2>How to Opt Out</h2>
+  <p>Reply <strong>STOP</strong> at any time to stop receiving messages. You will receive one confirmation message and no further messages will be sent.</p>
+
+  <h2>Help</h2>
+  <p>Reply <strong>HELP</strong> for assistance, or contact us directly.</p>
+
+  <h2>Cost</h2>
+  <p>Message and data rates may apply depending on your mobile carrier plan.</p>
+
+  <h2>Data &amp; Privacy</h2>
+  <p>Your phone number and conversation content are used only to respond to your inquiries and connect you with the business. We do not sell or share your information with third parties.</p>
+
+  <p style="margin-top:2rem; font-size:0.85rem; color:#666;">Last updated: May 2026</p>
+</body>
+</html>`);
+});
+
 // Twilio inbound SMS webhook. Twilio POSTs the message here and expects a
 // TwiML response, which it delivers back to the customer as the outbound SMS.
 app.post('/sms', async (req, res) => {
