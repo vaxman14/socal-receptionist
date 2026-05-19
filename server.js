@@ -72,6 +72,53 @@ function legalPage(title, bodyHtml) {
   </nav>
   ${bodyHtml}
   <div class="meta">SoCal Receptionist &nbsp;·&nbsp; Murrieta, CA &nbsp;·&nbsp; <a href="mailto:vaxman14@gmail.com">Contact</a></div>
+
+<style>
+  #a11y-btn{position:fixed;bottom:24px;left:24px;z-index:9999;width:48px;height:48px;border-radius:50%;background:#4f46e5;color:#fff;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:22px;display:flex;align-items:center;justify-content:center;transition:background .2s}
+  #a11y-btn:hover{background:#3730a3}
+  #a11y-btn:focus-visible{outline:3px solid #f47c20;outline-offset:3px}
+  #a11y-panel{position:fixed;bottom:82px;left:24px;z-index:9999;background:#fff;border:2px solid #4f46e5;border-radius:12px;padding:16px;width:220px;box-shadow:0 8px 24px rgba(0,0,0,.15);display:none;flex-direction:column;gap:10px}
+  #a11y-panel.open{display:flex}
+  #a11y-panel h3{font-size:.85rem;font-weight:700;color:#4f46e5;margin:0 0 4px}
+  .a11y-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .a11y-label{font-size:.8rem;color:#374151;flex:1}
+  .a11y-controls{display:flex;gap:4px}
+  .a11y-controls button,#a11y-reset{background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:.8rem;padding:3px 8px;color:#1a1a2e;transition:background .15s}
+  .a11y-controls button:hover,#a11y-reset:hover{background:#e5e7eb}
+  .a11y-toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+  .a11y-toggle input{opacity:0;width:0;height:0}
+  .a11y-toggle .slider{position:absolute;inset:0;background:#d1d5db;border-radius:22px;cursor:pointer;transition:background .2s}
+  .a11y-toggle .slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:transform .2s}
+  .a11y-toggle input:checked+.slider{background:#4f46e5}
+  .a11y-toggle input:checked+.slider:before{transform:translateX(18px)}
+  #a11y-reset{width:100%;margin-top:4px}
+  body.a11y-high-contrast{filter:contrast(1.5) saturate(0)}
+  body.a11y-reduce-motion *,body.a11y-reduce-motion *::before,body.a11y-reduce-motion *::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+  body.a11y-dyslexia{font-family:Arial,Helvetica,sans-serif!important;letter-spacing:.05em;word-spacing:.1em;line-height:1.9!important}
+</style>
+<button id="a11y-btn" aria-label="Accessibility options" aria-expanded="false" aria-controls="a11y-panel">♿</button>
+<div id="a11y-panel" role="dialog" aria-label="Accessibility options" aria-modal="false">
+  <h3>Accessibility</h3>
+  <div class="a11y-row"><span class="a11y-label">Text size</span><div class="a11y-controls"><button id="a11y-dec" aria-label="Decrease text size">A−</button><button id="a11y-inc" aria-label="Increase text size">A+</button></div></div>
+  <div class="a11y-row"><label class="a11y-label" for="a11y-contrast">High contrast</label><label class="a11y-toggle"><input type="checkbox" id="a11y-contrast"/><span class="slider"></span></label></div>
+  <div class="a11y-row"><label class="a11y-label" for="a11y-motion">Reduce motion</label><label class="a11y-toggle"><input type="checkbox" id="a11y-motion"/><span class="slider"></span></label></div>
+  <div class="a11y-row"><label class="a11y-label" for="a11y-dyslexia">Dyslexia-friendly</label><label class="a11y-toggle"><input type="checkbox" id="a11y-dyslexia"/><span class="slider"></span></label></div>
+  <button id="a11y-reset">Reset all</button>
+</div>
+<script>
+(function(){var btn=document.getElementById('a11y-btn'),panel=document.getElementById('a11y-panel'),body=document.body,KEY='a11y_prefs',fs=100;
+function applyFs(){body.style.fontSize=fs===100?'':fs+'%'}
+function save(){localStorage.setItem(KEY,JSON.stringify({fontSize:fs,contrast:document.getElementById('a11y-contrast').checked,motion:document.getElementById('a11y-motion').checked,dyslexia:document.getElementById('a11y-dyslexia').checked}))}
+function load(){try{var p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p.fontSize){fs=p.fontSize;applyFs()}if(p.contrast){document.getElementById('a11y-contrast').checked=true;body.classList.add('a11y-high-contrast')}if(p.motion){document.getElementById('a11y-motion').checked=true;body.classList.add('a11y-reduce-motion')}if(p.dyslexia){document.getElementById('a11y-dyslexia').checked=true;body.classList.add('a11y-dyslexia')}}catch(e){}}
+btn.addEventListener('click',function(){var o=panel.classList.toggle('open');btn.setAttribute('aria-expanded',o)});
+document.addEventListener('click',function(e){if(!panel.contains(e.target)&&e.target!==btn){panel.classList.remove('open');btn.setAttribute('aria-expanded','false')}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){panel.classList.remove('open');btn.setAttribute('aria-expanded','false');btn.focus()}});
+document.getElementById('a11y-inc').addEventListener('click',function(){fs=Math.min(fs+10,150);applyFs();save()});
+document.getElementById('a11y-dec').addEventListener('click',function(){fs=Math.max(fs-10,80);applyFs();save()});
+['contrast','motion','dyslexia'].forEach(function(id){document.getElementById('a11y-'+id).addEventListener('change',function(){body.classList.toggle('a11y-'+(id==='contrast'?'high-contrast':id==='motion'?'reduce-motion':'dyslexia'),this.checked);save()})});
+document.getElementById('a11y-reset').addEventListener('click',function(){fs=100;applyFs();['contrast','motion','dyslexia'].forEach(function(id){document.getElementById('a11y-'+id).checked=false});body.classList.remove('a11y-high-contrast','a11y-reduce-motion','a11y-dyslexia');localStorage.removeItem(KEY)});
+load()})();
+</script>
 </body>
 </html>`;
 }
