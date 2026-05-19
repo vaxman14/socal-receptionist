@@ -23,6 +23,8 @@ app.get('/health', (req, res) => {
 if (process.env.COMING_SOON === 'true') {
   app.get('*', (req, res, next) => {
     if (req.path === '/health' || req.path.startsWith('/sms') || req.path.startsWith('/voice')) return next();
+    if (req.path.startsWith('/images/') || req.path.startsWith('/favicon')) return next();
+    if (req.query.preview === 'socal2026') return next();
     res.type('text/html').send(`<!DOCTYPE html>
 <html lang="en">
 <head>
