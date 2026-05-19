@@ -3,6 +3,7 @@ const twilio = require('twilio');
 const config = require('./src/config');
 const { handleMessage } = require('./src/ai');
 const { isValidTwilioRequest } = require('./src/twilio');
+const consent = require('./src/consent');
 
 const app = express();
 
@@ -38,6 +39,43 @@ app.post('/sms', async (req, res) => {
     return res.send(twiml.toString());
   }
 
+  const status = consent.getStatus(from);
+  const normalizedBody = body.toUpperCase();
+
+  // Always honor STOP regardless of consent state (Twilio also handles this
+  // automatically for toll-free numbers, but we track it ourselves too).
+  if (normalizedBody === 'STOP' || normalizedBody === 'UNSUBSCRIBE') {
+    consent.setStatus(from, 'opted_out');
+    res.type('text/xml');
+    return res.send(twiml.toString()); // send empty TwiML; Twilio sends its own STOP reply
+  }
+
+  if (status === 'opted_out') {
+    res.type('text/xml');
+    return res.send(twiml.toString()); // silently drop — they opted out
+  }
+
+  if (status === 'unknown') {
+    consent.setStatus(from, 'pending');
+    twiml.message(
+      `Hi! You've reached ${config.business.name}. Reply YES to receive automated messages from our virtual receptionist, or STOP to opt out. Msg & data rates may apply.`
+    );
+    res.type('text/xml');
+    return res.send(twiml.toString());
+  }
+
+  if (status === 'pending') {
+    if (normalizedBody === 'YES' || normalizedBody === 'Y') {
+      consent.setStatus(from, 'opted_in');
+      twiml.message(`You're all set! How can I help you today?`);
+    } else {
+      twiml.message(`Reply YES to continue or STOP to opt out.`);
+    }
+    res.type('text/xml');
+    return res.send(twiml.toString());
+  }
+
+  // status === 'opted_in' — hand off to AI
   try {
     const reply = await handleMessage(from, body);
     twiml.message(reply);
