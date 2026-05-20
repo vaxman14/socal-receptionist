@@ -398,13 +398,13 @@ app.post('/sms', async (req, res) => {
     return res.send(twiml.toString());
   }
 
-  const status = consent.getStatus(from);
+  const status = await consent.getStatus(from);
   const normalizedBody = body.toUpperCase();
 
   // Always honor STOP regardless of consent state (Twilio also handles this
   // automatically for toll-free numbers, but we track it ourselves too).
   if (normalizedBody === 'STOP' || normalizedBody === 'UNSUBSCRIBE') {
-    consent.setStatus(from, 'opted_out');
+    await consent.setStatus(from, 'opted_out');
     res.type('text/xml');
     return res.send(twiml.toString()); // send empty TwiML; Twilio sends its own STOP reply
   }
@@ -415,7 +415,7 @@ app.post('/sms', async (req, res) => {
   }
 
   if (status === 'unknown') {
-    consent.setStatus(from, 'pending');
+    await consent.setStatus(from, 'pending');
     twiml.message(
       `Hi! You've reached ${config.business.name}. Reply YES to receive automated messages from our virtual receptionist, or STOP to opt out. Msg & data rates may apply.`
     );
@@ -425,7 +425,7 @@ app.post('/sms', async (req, res) => {
 
   if (status === 'pending') {
     if (normalizedBody === 'YES' || normalizedBody === 'Y') {
-      consent.setStatus(from, 'opted_in');
+      await consent.setStatus(from, 'opted_in');
       twiml.message(`You're all set! How can I help you today?`);
       notifyOptIn(from).catch(err => console.error('Opt-in notification failed:', err.message));
     } else {
