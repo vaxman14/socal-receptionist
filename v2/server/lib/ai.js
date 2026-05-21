@@ -9,7 +9,15 @@ const { supabase } = require('./supabase');
 const { loadTranscript, appendMessage } = require('./conversations');
 const { recordUsage, estimateOpenaiCostCents } = require('./usage');
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Lazily constructed: the OpenAI SDK throws if the API key is missing, so
+// building the client at import time would crash the whole service whenever
+// OPENAI_API_KEY is unset. Deferring it lets the billing / onboarding / admin
+// routes boot fine; only the SMS path needs the key.
+let _openai;
+function openaiClient() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 const MAX_TOOL_ROUNDS = 3;
 
@@ -119,7 +127,7 @@ async function runTool(call, tenant, conversation, customerPhone) {
 }
 
 function completion(model, messages) {
-  return openai.chat.completions.create({
+  return openaiClient().chat.completions.create({
     model,
     messages,
     tools,
