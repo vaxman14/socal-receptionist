@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B35;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#E91E8C;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7B2FBE;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Background rounded square -->
+  <rect width="64" height="64" rx="14" ry="14" fill="url(#iconGrad)"/>
+  <!-- Speech bubble -->
+  <rect x="10" y="12" width="44" height="30" rx="8" ry="8" fill="white" opacity="0.95"/>
+  <!-- Bubble tail -->
+  <polygon points="16,42 10,54 28,42" fill="white" opacity="0.95"/>
+  <!-- Dots -->
+  <circle cx="22" cy="27" r="4" fill="url(#iconGrad)"/>
+  <circle cx="32" cy="27" r="4" fill="url(#iconGrad)"/>
+  <circle cx="42" cy="27" r="4" fill="url(#iconGrad)"/>
+</svg>

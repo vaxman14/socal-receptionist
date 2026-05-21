@@ -20,6 +20,11 @@ const EDITABLE_FIELDS = [
   'calendly_link',
   'timezone',
   'ai_system_prompt',
+  // Voice receptionist config.
+  'voice_enabled',
+  'staff_phone',      // "press 2 / speak to staff" transfer target
+  'voice_greeting',
+  'voicemail_email',
 ];
 
 router.use(requireAuth, requireTenant);
@@ -91,6 +96,18 @@ router.get('/conversations/:id/messages', async (req, res) => {
     .order('created_at', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
   res.json({ messages: data });
+});
+
+// GET /admin/calls — this tenant's inbound calls, newest first.
+router.get('/calls', async (req, res) => {
+  const { data, error } = await supabase
+    .from('calls')
+    .select('*')
+    .eq('tenant_id', req.tenant.id)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ calls: data });
 });
 
 // POST /admin/billing/checkout — start a subscription (7-day trial).

@@ -8,10 +8,12 @@
 require('dotenv').config();
 const express = require('express');
 const smsRouter = require('./sms/webhook');
+const voiceRouter = require('./voice/webhook');
 const billingWebhookRouter = require('./billing/webhook');
 const clientAdminRouter = require('./admin/client');
 const ownerAdminRouter = require('./admin/owner');
 const onboardingAgreementRouter = require('./onboarding/agreement');
+const onboardingRegisterRouter = require('./onboarding/register');
 
 const app = express();
 app.set('trust proxy', true); // behind the DigitalOcean / Cloudflare proxy
@@ -29,8 +31,11 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/', smsRouter);
+app.use('/', voiceRouter);
 
-// Onboarding API — service-agreement e-signature (gates provisioning).
+// Onboarding API — business registration, then service-agreement e-signature
+// (which gates provisioning). Register is mounted first; both share /onboarding.
+app.use('/onboarding', onboardingRegisterRouter);
 app.use('/onboarding', onboardingAgreementRouter);
 
 // Admin API. The owner router is mounted first so /admin/owner/* never falls
