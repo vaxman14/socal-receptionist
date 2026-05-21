@@ -1,0 +1,48 @@
+// SoCal Receptionist V2 — backend web service entry point.
+//
+// Hosts the Twilio SMS webhook. Kept as a dedicated Node service (not Netlify
+// Functions) so the latency-sensitive /sms path has no cold starts — Codex
+// review #3. The provisioning worker can run in-process (RUN_WORKER=true) for
+// single-dyno deployments, or as its own process via run-worker.js.
+
+require('dotenv').config();
+const express = require('express');
+const smsRouter = require('./sms/webhook');
+const billingWebhookRouter = require('./billing/webhook');
+const clientAdminRouter = require('./admin/client');
+const ownerAdminRouter = require('./admin/owner');
+const onboardingAgreementRouter = require('./onboarding/agreement');
+
+const app = express();
+app.set('trust proxy', true); // behind the DigitalOcean / Cloudflare proxy
+
+// The Stripe webhook needs the raw request body for signature verification, so
+// it is mounted BEFORE the JSON/urlencoded parsers. Its route applies its own
+// express.raw; all other requests fall through to the parsers below.
+app.use('/', billingWebhookRouter);
+
+app.use(express.urlencoded({ extended: false })); // Twilio posts form-encoded
+app.use(express.json());
+
+app.get('/health', (req, res) => {
+  res.json({ ok: true, service: 'socal-receptionist-v2', ts: new Date().toISOString() });
+});
+
+app.use('/', smsRouter);
+
+// Onboarding API — service-agreement e-signature (gates provisioning).
+app.use('/onboarding', onboardingAgreementRouter);
+
+// Admin API. The owner router is mounted first so /admin/owner/* never falls
+// into the client router's requireTenant middleware.
+app.use('/admin/owner', ownerAdminRouter);
+app.use('/admin', clientAdminRouter);
+
+const port = Number(process.env.PORT) || 8080;
+app.listen(port, () => {
+  console.log(`[v2] SMS service listening on :${port}`);
+});
+
+if (process.env.RUN_WORKER === 'true') {
+  require('./provisioning/run-worker');
+}

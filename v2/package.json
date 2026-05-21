@@ -1,0 +1,22 @@
+{
+  "name": "socal-receptionist-v2",
+  "version": "2.0.0",
+  "private": true,
+  "description": "SoCal Receptionist V2 — multi-tenant backend (SMS pipeline + provisioning state machine)",
+  "main": "server/provisioning/run-worker.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "worker": "node server/provisioning/run-worker.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "openai": "^4.56.0",
+    "stripe": "^17.7.0",
+    "twilio": "^5.2.3"
+  }
+}
