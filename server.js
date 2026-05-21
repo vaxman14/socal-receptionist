@@ -47,7 +47,7 @@ if (process.env.COMING_SOON === 'true') {
     <div class="logo">SoCal<span>Receptionist</span></div>
     <h1>Something big is coming.</h1>
     <p>SoCal Receptionist — AI-powered 24/7 SMS answering for Temecula Valley small businesses. Launching soon.</p>
-    <a href="mailto:vaxman14@gmail.com">Get Early Access</a>
+    <a href="mailto:info@socalreceptionist.com">Get Early Access</a>
   </div>
 </body>
 </html>`);
@@ -98,7 +98,7 @@ app.use((req, res, next) => {
 
 app.get('/sitemap.xml', (req, res) => {
   const base = 'https://www.socalreceptionist.com';
-  const pages = ['/', '/privacy', '/terms', '/cookies', '/accessibility'];
+  const pages = ['/', '/faq', '/support', '/privacy', '/terms', '/cookies', '/accessibility'];
   const urls = pages.map(p =>
     `  <url><loc>${base}${p}</loc><changefreq>${p === '/' ? 'weekly' : 'monthly'}</changefreq><priority>${p === '/' ? '1.0' : '0.5'}</priority></url>`
   ).join('\n');
@@ -158,13 +158,15 @@ function legalPage(title, bodyHtml) {
 <body>
   <nav>
     <a href="/">← Home</a>
+    <a href="/faq">FAQ</a>
+    <a href="/support">Support</a>
     <a href="/privacy">Privacy Policy</a>
     <a href="/terms">Terms of Use</a>
     <a href="/cookies">Cookie Policy</a>
     <a href="/accessibility">Accessibility</a>
   </nav>
   ${bodyHtml}
-  <div class="meta">SoCal Receptionist &nbsp;·&nbsp; Murrieta, CA &nbsp;·&nbsp; <a href="mailto:vaxman14@gmail.com">Contact</a></div>
+  <div class="meta">SoCal Receptionist &nbsp;·&nbsp; Murrieta, CA &nbsp;·&nbsp; <a href="mailto:info@socalreceptionist.com">Contact</a></div>
 
 <style>
   #a11y-btn{position:fixed;bottom:24px;left:24px;z-index:9999;width:48px;height:48px;border-radius:50%;background:#4f46e5;color:#fff;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:22px;display:flex;align-items:center;justify-content:center;transition:background .2s}
@@ -262,7 +264,7 @@ app.get('/privacy', (req, res) => {
   <p>We may update this policy periodically. Continued use of the service after changes constitutes acceptance of the updated policy.</p>
 
   <h2>Contact</h2>
-  <p>Questions? Email us at <a href="mailto:vaxman14@gmail.com">vaxman14@gmail.com</a>.</p>
+  <p>Questions? Email us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>.</p>
   `));
 });
 
@@ -303,7 +305,7 @@ app.get('/terms', (req, res) => {
   <p>We may update these terms at any time. Continued use of the service constitutes acceptance of the updated terms.</p>
 
   <h2>Contact</h2>
-  <p>Questions? Email us at <a href="mailto:vaxman14@gmail.com">vaxman14@gmail.com</a>.</p>
+  <p>Questions? Email us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>.</p>
   `));
 });
 
@@ -339,7 +341,7 @@ app.get('/cookies', (req, res) => {
   <p>We may update this policy periodically. Check this page for the latest version.</p>
 
   <h2>Contact</h2>
-  <p>Questions? Email us at <a href="mailto:vaxman14@gmail.com">vaxman14@gmail.com</a>.</p>
+  <p>Questions? Email us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>.</p>
   `));
 });
 
@@ -371,12 +373,119 @@ app.get('/accessibility', (req, res) => {
   <h2>Feedback &amp; Contact</h2>
   <p>We welcome your feedback on the accessibility of our website and service. If you experience any barriers or have suggestions:</p>
   <ul>
-    <li>Email: <a href="mailto:vaxman14@gmail.com">vaxman14@gmail.com</a></li>
+    <li>Email: <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a></li>
   </ul>
   <p>We aim to respond to accessibility feedback within 2 business days.</p>
 
   <h2>Formal Complaints</h2>
   <p>If you are not satisfied with our response, you may contact the <a href="https://www.ada.gov" target="_blank" rel="noopener">ADA National Network</a> or file a complaint with the U.S. Department of Justice.</p>
+  `));
+});
+
+app.get('/faq', (req, res) => {
+  res.type('text/html').send(legalPage('FAQ', `
+  <style>
+    details{border:1px solid #e5e7eb;border-radius:8px;margin:.5rem 0;padding:0 1rem;background:#fafafa}
+    details[open]{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+    summary{cursor:pointer;font-weight:600;font-size:.95rem;padding:.85rem 0;color:#1a1a2e;list-style:none}
+    summary::-webkit-details-marker{display:none}
+    summary::before{content:'+';color:#4f46e5;font-weight:700;margin-right:.6rem;display:inline-block;width:1rem}
+    details[open] summary::before{content:'\\2212'}
+    details > p, details > ul{margin-top:0;padding-bottom:.85rem}
+  </style>
+  <h1>Frequently Asked Questions</h1>
+  <p>Last updated: May 2026</p>
+
+  <h2>For Customers</h2>
+
+  <details><summary>What is SoCal Receptionist?</summary>
+  <p>SoCal Receptionist is an AI-powered virtual receptionist that participating Southern California businesses use to answer text messages. When you text a business that uses our service, our AI helps answer your questions, share business information, and schedule appointments — usually within seconds, day or night.</p></details>
+
+  <details><summary>Am I talking to a real person?</summary>
+  <p>No — responses are generated by an AI assistant on behalf of the business. The AI handles general inquiries, but anything it can't resolve is passed along to the business directly. For legal, medical, financial, or safety matters, always confirm details with the business itself.</p></details>
+
+  <details><summary>How do I stop receiving messages?</summary>
+  <p>Reply <strong>STOP</strong> at any time. You'll get one confirmation message and then no further automated messages. You can opt back in later by texting the business again and replying <strong>YES</strong> to the consent prompt.</p></details>
+
+  <details><summary>Will I be charged to text?</summary>
+  <p>SoCal Receptionist does not charge you anything. Standard message and data rates from your mobile carrier may apply, depending on your plan. Message frequency is typically 1–5 messages per conversation.</p></details>
+
+  <details><summary>How do I get help?</summary>
+  <p>Reply <strong>HELP</strong> to any message for assistance, or email <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>. See our <a href="/support">Support page</a> for more.</p></details>
+
+  <h2>For Businesses</h2>
+
+  <details><summary>What does the service do for my business?</summary>
+  <p>It answers customer texts instantly, 24/7 — fielding common questions, sharing hours and pricing, and helping book appointments — so you stop losing leads to missed messages and after-hours inquiries.</p></details>
+
+  <details><summary>Can I keep my existing phone number?</summary>
+  <p>Yes. You don't have to change the number you already advertise. For voice, you can forward calls from your current carrier to your service line. For texting, we can text-enable your existing number — even a landline — without disrupting your voice service. We'll walk you through the options during onboarding.</p></details>
+
+  <details><summary>How fast can I get set up?</summary>
+  <p>The product setup itself is quick. The one regulatory step is carrier registration for business texting (A2P 10DLC), which is required for <em>every</em> SMS provider in the U.S. and typically takes a few business days to clear. We handle that registration for you and can bring voice features online first while it processes.</p></details>
+
+  <details><summary>What does it cost?</summary>
+  <p>Pricing is a one-time setup fee plus a flat monthly rate — no per-message surprises. Contact us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a> for a current quote tailored to your business.</p></details>
+
+  <details><summary>Does it work for my industry?</summary>
+  <p>The AI is configured with your business's specific information — services, hours, pricing, policies, and tone. It works well for service businesses such as salons, clinics, gyms, contractors, auto shops, and professional offices.</p></details>
+
+  <details><summary>Is customer data kept secure?</summary>
+  <p>Yes. We collect only what's needed to run the service, never sell personal information, and retain conversation content only as long as needed to maintain context. See our <a href="/privacy">Privacy Policy</a> for details.</p></details>
+
+  <details><summary>Is it texting only, or voice too?</summary>
+  <p>SMS is the core of the service today, with voice answering available as part of onboarding. Reach out and we'll tell you what's live for your setup.</p></details>
+
+  <h2>Still have questions?</h2>
+  <p>Email us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a> or visit our <a href="/support">Support page</a>.</p>
+  `));
+});
+
+app.get('/support', (req, res) => {
+  res.type('text/html').send(legalPage('Support', `
+  <h1>Support</h1>
+  <p>Last updated: May 2026</p>
+  <p>Need help with SoCal Receptionist? We're here for both the customers who text our participating businesses and the business owners who use our service.</p>
+
+  <h2>Contact Us</h2>
+  <ul>
+    <li><strong>Email:</strong> <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a></li>
+    <li><strong>Location:</strong> Murrieta, CA</li>
+  </ul>
+  <p>We aim to respond to all support requests within <strong>1 business day</strong>.</p>
+
+  <h2>Text-Message Keywords</h2>
+  <p>While texting a business that uses our service, you can reply with these keywords at any time:</p>
+  <ul>
+    <li><strong>STOP</strong> — opt out of all automated messages. You'll get one confirmation and nothing further.</li>
+    <li><strong>HELP</strong> — get assistance and our contact information.</li>
+    <li><strong>YES</strong> — opt in to automated messaging after the consent prompt.</li>
+  </ul>
+
+  <h2>Common Questions</h2>
+
+  <h2>I'm not receiving any replies</h2>
+  <p>Check that you haven't previously replied STOP to that business — if so, you've been opted out. Text the business again and reply YES to the consent prompt to opt back in. Also confirm you have cell signal and aren't blocking the number. If it still doesn't work, email us.</p>
+
+  <h2>I replied STOP by mistake</h2>
+  <p>No problem. Simply text the business again — you'll receive a fresh consent prompt. Reply YES and you're opted back in.</p>
+
+  <h2>I'm getting too many messages</h2>
+  <p>Automated messages are sent only in response to your inquiries — typically 1–5 per conversation. If something seems wrong, reply STOP to halt all messages and email us so we can look into it.</p>
+
+  <h2>For Business Owners</h2>
+  <ul>
+    <li><strong>Updating your business info</strong> — to change hours, pricing, services, or how the AI responds, email us with the updates and we'll apply them.</li>
+    <li><strong>Billing questions</strong> — email <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a> with "Billing" in the subject line.</li>
+    <li><strong>Phone number changes</strong> — whether you're forwarding calls or text-enabling an existing number, contact us and we'll coordinate it with you.</li>
+    <li><strong>Service issues</strong> — if the AI is responding incorrectly or messages aren't going through, email us right away with examples and we'll investigate.</li>
+  </ul>
+
+  <h2>Urgent Issues</h2>
+  <p>For service-affecting problems, email <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a> with "URGENT" in the subject line and we'll prioritize it.</p>
+
+  <h2>More Answers</h2>
+  <p>Many common questions are answered on our <a href="/faq">FAQ page</a>.</p>
   `));
 });
 
