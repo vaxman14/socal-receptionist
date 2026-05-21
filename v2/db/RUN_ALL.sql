@@ -590,6 +590,15 @@ create policy calls_select on calls for select
   using (owns_tenant(tenant_id) or is_platform_admin());
 
 -- =============================================================================
+-- MIGRATION 005 — setup fee + 14-day refund tracking
+-- =============================================================================
+
+alter table subscriptions
+  add column if not exists setup_payment_intent text,
+  add column if not exists setup_paid_at        timestamptz,
+  add column if not exists setup_refunded_at    timestamptz;
+
+-- =============================================================================
 -- PLATFORM_ADMIN — run AFTER Roman signs up through the web app once.
 -- Find the user id in Supabase Auth > Users, then:
 --   insert into platform_admins (user_id) values ('<roman-auth-user-uuid>');
