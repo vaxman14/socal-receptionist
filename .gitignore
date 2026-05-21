@@ -5,3 +5,6 @@ npm-debug.log
 !.env.example
 .DS_Store
 data/
+
+# Local Netlify folder
+.netlify
