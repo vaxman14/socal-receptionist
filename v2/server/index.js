@@ -7,6 +7,7 @@
 
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const smsRouter = require('./sms/webhook');
 const voiceRouter = require('./voice/webhook');
 const billingWebhookRouter = require('./billing/webhook');
@@ -17,6 +18,12 @@ const onboardingRegisterRouter = require('./onboarding/register');
 
 const app = express();
 app.set('trust proxy', true); // behind the DigitalOcean / Cloudflare proxy
+
+// The browser SPA (admin + onboarding wizard) is served from a separate origin
+// (Netlify / app.socalreceptionist.com), so its API calls are cross-origin and
+// need CORS. Auth is bearer-token (Supabase access_token), not cookies, so
+// reflecting any origin is safe — tighten to APP_BASE_URL post-launch if wanted.
+app.use(cors());
 
 // The Stripe webhook needs the raw request body for signature verification, so
 // it is mounted BEFORE the JSON/urlencoded parsers. Its route applies its own
