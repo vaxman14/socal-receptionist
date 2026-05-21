@@ -1,0 +1,91 @@
+# DigitalOcean App Platform spec — SoCal Receptionist V2 (multi-tenant backend).
+#
+# This is a SEPARATE app from V1 (.do/app.yaml). V1 stays live tracking its
+# branch; this V2 app tracks `v2` and is a standalone backend API service.
+#
+# Create:  doctl apps create --spec .do/app-v2.yaml
+# Update:  doctl apps update <APP_ID> --spec .do/app-v2.yaml
+#
+# After creation DO assigns a URL like:
+#   https://socal-receptionist-v2-xxxxx.ondigitalocean.app
+# The Stripe webhook endpoint is that URL + /billing/webhook
+#
+# Secrets (type: SECRET) are intentionally valueless — set them in the DO
+# dashboard (or via `doctl`) after the app is created. The app will not boot
+# until at least the Supabase + Stripe secrets are populated.
+
+name: socal-receptionist-v2
+region: nyc
+
+services:
+  - name: api
+    github:
+      repo: vaxman14/socal-receptionist
+      branch: v2
+      # Pre-launch: deploy deliberately, not on every push to v2.
+      deploy_on_push: false
+    source_dir: v2
+    dockerfile_path: v2/Dockerfile
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /health
+    routes:
+      - path: /
+    envs:
+      # --- Supabase -----------------------------------------------------------
+      - key: SUPABASE_URL
+        scope: RUN_TIME
+        value: https://YOUR-PROJECT.supabase.co
+      - key: SUPABASE_SERVICE_KEY
+        scope: RUN_TIME
+        type: SECRET
+      # --- Twilio (shared ISV platform account) -------------------------------
+      - key: TWILIO_ACCOUNT_SID
+        scope: RUN_TIME
+        type: SECRET
+      - key: TWILIO_AUTH_TOKEN
+        scope: RUN_TIME
+        type: SECRET
+      - key: TWILIO_VALIDATE_SIGNATURE
+        scope: RUN_TIME
+        value: "true"
+      # --- OpenAI -------------------------------------------------------------
+      - key: OPENAI_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      # --- Stripe (TEST-mode price IDs — swap for live IDs at launch) ---------
+      - key: STRIPE_SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: STRIPE_WEBHOOK_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: STRIPE_PRICE_ID
+        scope: RUN_TIME
+        value: price_1TZds9Appbh3fhcDIq1oPHq4
+      - key: STRIPE_SETUP_PRICE_ID
+        scope: RUN_TIME
+        value: price_1TZds9Appbh3fhcDmgLmH2RF
+      # --- Frontend / Stripe return URLs --------------------------------------
+      - key: APP_BASE_URL
+        scope: RUN_TIME
+        value: https://app.socalreceptionist.com
+      # --- Rate limiting / abuse detection ------------------------------------
+      - key: RATE_TENANT_PER_MIN
+        scope: RUN_TIME
+        value: "60"
+      - key: RATE_CUSTOMER_PER_MIN
+        scope: RUN_TIME
+        value: "12"
+      - key: ABUSE_PER_MIN
+        scope: RUN_TIME
+        value: "30"
+      # --- Provisioning worker (runs in-process on this single service) -------
+      - key: WORKER_INTERVAL_MS
+        scope: RUN_TIME
+        value: "5000"
+      - key: RUN_WORKER
+        scope: RUN_TIME
+        value: "true"

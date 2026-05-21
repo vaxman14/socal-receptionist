@@ -9,6 +9,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "start": "node server/index.js",
     "worker": "node server/provisioning/run-worker.js"
   },
   "dependencies": {
