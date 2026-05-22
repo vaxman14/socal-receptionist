@@ -46,7 +46,7 @@ if (process.env.COMING_SOON === 'true') {
   <div>
     <div class="logo">SoCal<span>Receptionist</span></div>
     <h1>Something big is coming.</h1>
-    <p>SoCal Receptionist — AI-powered 24/7 SMS answering for Temecula Valley small businesses. Launching soon.</p>
+    <p>SoCal Receptionist — AI-powered 24/7 call answering for Temecula Valley small businesses. Launching soon.</p>
     <a href="mailto:info@socalreceptionist.com">Get Early Access</a>
   </div>
 </body>
