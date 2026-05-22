@@ -5,7 +5,7 @@ const config = require('./src/config');
 const { handleMessage } = require('./src/ai');
 const { isValidTwilioRequest } = require('./src/twilio');
 const consent = require('./src/consent');
-const { notifyDemoRequest, notifyOptIn } = require('./src/email');
+const { notifyDemoRequest, notifyOptIn, notifyEarlyAccess } = require('./src/email');
 
 const app = express();
 
@@ -37,9 +37,17 @@ if (process.env.COMING_SOON === 'true') {
     .logo{font-size:1.6rem;font-weight:800;margin-bottom:32px;background:linear-gradient(90deg,#f47c20,#e040a0,#9c40e0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-0.5px}
     .logo span{-webkit-text-fill-color:rgba(255,255,255,0.85);font-size:0.55em;font-weight:600;letter-spacing:2px;text-transform:uppercase;display:block;margin-top:2px}
     h1{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;margin-bottom:16px}
-    p{font-size:1.1rem;color:rgba(255,255,255,0.7);max-width:440px;line-height:1.6;margin:0 auto 32px}
-    a{display:inline-block;background:#f47c20;color:#fff;padding:14px 28px;border-radius:8px;font-weight:700;text-decoration:none;font-size:1rem}
-    a:hover{background:#d96a10}
+    p{font-size:1.1rem;color:rgba(255,255,255,0.7);max-width:440px;line-height:1.6;margin:0 auto 28px}
+    form{display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto}
+    input{width:100%;padding:13px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.06);color:#fff;font-size:1rem;font-family:inherit}
+    input::placeholder{color:rgba(255,255,255,0.45)}
+    input:focus{outline:none;border-color:#e040a0;background:rgba(255,255,255,0.1)}
+    button{width:100%;margin-top:4px;background:#f47c20;color:#fff;padding:14px 28px;border:none;border-radius:8px;font-weight:700;font-size:1rem;font-family:inherit;cursor:pointer}
+    button:hover{background:#d96a10}
+    button:disabled{opacity:0.6;cursor:default}
+    .msg{font-size:0.95rem;max-width:340px;margin:18px auto 0;min-height:1.2em}
+    .msg.ok{color:#4ade80}
+    .msg.err{color:#f87171}
   </style>
 </head>
 <body>
@@ -47,8 +55,32 @@ if (process.env.COMING_SOON === 'true') {
     <div class="logo">SoCal<span>Receptionist</span></div>
     <h1>Something big is coming.</h1>
     <p>SoCal Receptionist — AI-powered 24/7 call answering for Temecula Valley small businesses. Launching soon.</p>
-    <a href="mailto:info@socalreceptionist.com">Get Early Access</a>
+    <form id="ea-form">
+      <input type="text" name="name" placeholder="Your name" required>
+      <input type="text" name="business" placeholder="Business name">
+      <input type="email" name="email" placeholder="Email address" required>
+      <input type="tel" name="phone" placeholder="Phone (optional)">
+      <button type="submit">Get Early Access</button>
+    </form>
+    <p id="ea-msg" class="msg"></p>
   </div>
+  <script>
+    var f=document.getElementById('ea-form'),m=document.getElementById('ea-msg');
+    f.addEventListener('submit',function(e){
+      e.preventDefault();
+      var b=f.querySelector('button');
+      var data={name:f.elements['name'].value.trim(),business:f.elements['business'].value.trim(),email:f.elements['email'].value.trim(),phone:f.elements['phone'].value.trim()};
+      if(!data.name||!data.email){m.className='msg err';m.textContent='Please enter your name and email.';return;}
+      b.disabled=true;b.textContent='Sending...';m.className='msg';m.textContent='';
+      fetch('/early-access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+        .then(function(r){return r.json();})
+        .then(function(j){
+          if(j&&j.ok){f.style.display='none';m.className='msg ok';m.textContent='Thanks — you are on the list. We will reach out the moment we launch.';}
+          else{throw new Error('fail');}
+        })
+        .catch(function(){b.disabled=false;b.textContent='Get Early Access';m.className='msg err';m.textContent='Something went wrong. Try again or email info@socalreceptionist.com.';});
+    });
+  </script>
 </body>
 </html>`);
   });
@@ -130,6 +162,20 @@ app.post('/demo', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('Demo notification email failed:', err.message);
+    res.status(500).json({ error: 'Email failed' });
+  }
+});
+
+// Coming-soon page early-access capture form
+app.post('/early-access', async (req, res) => {
+  const { name, business, email, phone } = req.body;
+  if (!name || !email) return res.status(400).json({ error: 'Missing required fields' });
+
+  try {
+    await notifyEarlyAccess({ name, business, email, phone });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Early-access notification email failed:', err.message);
     res.status(500).json({ error: 'Email failed' });
   }
 });

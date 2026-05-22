@@ -145,4 +145,23 @@ async function notifyDemoRequest({ name, business, phone, type }) {
   await send({ subject, text, html });
 }
 
-module.exports = { notifyOwner, notifyOptIn, notifyLead, notifyFollowup, notifyDemoRequest };
+// Early-access signup from the coming-soon holding page
+async function notifyEarlyAccess({ name, business, email, phone }) {
+  const subject = `Early access signup: ${name}${business ? ' — ' + business : ''}`;
+  const text =
+    `New early-access signup from the SoCal Receptionist coming-soon page.\n\n` +
+    `Name:     ${name}\nBusiness: ${business || '-'}\nEmail:    ${email}\nPhone:    ${phone || '-'}`;
+  const html = htmlWrap('New Early-Access Signup', `
+    <p>Someone signed up for early access on your coming-soon page! 🎯</p>
+    <table class="data">
+      <tr><td>Name</td><td>${name}</td></tr>
+      <tr><td>Business</td><td>${business || '-'}</td></tr>
+      <tr><td>Email</td><td>${email}</td></tr>
+      <tr><td>Phone</td><td>${phone || '-'}</td></tr>
+    </table>
+    <p>Add them to your launch list and follow up when you go live.</p>
+  `);
+  await send({ subject, text, html });
+}
+
+module.exports = { notifyOwner, notifyOptIn, notifyLead, notifyFollowup, notifyDemoRequest, notifyEarlyAccess };
