@@ -74,7 +74,7 @@ if (process.env.COMING_SOON === 'true') {
     <div class="call-card">
       <div class="label">Test me now</div>
       <div class="tagline">Talk to the AI that would answer your calls.</div>
-      <a class="number" href="tel:+19513958400" id="cta-call">(951) 395-8400</a>
+      <a class="number" href="tel:+19513958776" id="cta-call">(951) 395-8776</a>
       <div class="footnote">2-minute call. Roman follows up within 24 hours.</div>
     </div>
     <div class="divider"><span>or</span></div>
