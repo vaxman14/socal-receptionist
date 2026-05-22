@@ -6,6 +6,7 @@ const { handleMessage } = require('./src/ai');
 const { isValidTwilioRequest } = require('./src/twilio');
 const consent = require('./src/consent');
 const { notifyDemoRequest, notifyOptIn, notifyEarlyAccess } = require('./src/email');
+const sales = require('./src/voice-sales');
 
 const app = express();
 
@@ -34,18 +35,33 @@ if (process.env.COMING_SOON === 'true') {
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1f3d;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
-    .logo{font-size:1.6rem;font-weight:800;margin-bottom:32px;background:linear-gradient(90deg,#f47c20,#e040a0,#9c40e0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-0.5px}
+    .logo{font-size:1.6rem;font-weight:800;margin-bottom:28px;background:linear-gradient(90deg,#f47c20,#e040a0,#9c40e0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-0.5px}
     .logo span{-webkit-text-fill-color:rgba(255,255,255,0.85);font-size:0.55em;font-weight:600;letter-spacing:2px;text-transform:uppercase;display:block;margin-top:2px}
-    h1{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;margin-bottom:16px}
-    p{font-size:1.1rem;color:rgba(255,255,255,0.7);max-width:440px;line-height:1.6;margin:0 auto 28px}
-    form{display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto}
+    h1{font-size:clamp(1.9rem,4.5vw,3rem);font-weight:800;margin-bottom:14px;line-height:1.15}
+    .sub{font-size:1.05rem;color:rgba(255,255,255,0.72);max-width:460px;line-height:1.55;margin:0 auto 28px}
+    .call-card{max-width:380px;margin:0 auto 24px;padding:22px 22px 20px;border-radius:14px;background:linear-gradient(135deg,rgba(244,124,32,.18),rgba(224,64,160,.14),rgba(156,64,224,.18));border:1px solid rgba(244,124,32,.35)}
+    .call-card .label{font-size:.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#f47c20;margin-bottom:8px}
+    .call-card .tagline{font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:14px;line-height:1.35}
+    .call-card .number{display:block;font-size:1.65rem;font-weight:800;color:#fff;text-decoration:none;letter-spacing:-.5px;padding:14px 18px;background:#f47c20;border-radius:10px;transition:background .15s,transform .1s}
+    .call-card .number:hover{background:#d96a10}
+    .call-card .number:active{transform:translateY(1px)}
+    .call-card .footnote{font-size:.78rem;color:rgba(255,255,255,.55);margin-top:10px}
+    .divider{display:flex;align-items:center;max-width:340px;margin:14px auto 14px;color:rgba(255,255,255,.4);font-size:.75rem;text-transform:uppercase;letter-spacing:2px}
+    .divider::before,.divider::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.15)}
+    .divider span{padding:0 12px}
+    details{max-width:340px;margin:0 auto;text-align:left}
+    summary{cursor:pointer;text-align:center;color:rgba(255,255,255,.75);font-size:.9rem;padding:8px;list-style:none;outline:none}
+    summary::-webkit-details-marker{display:none}
+    summary:hover{color:#fff}
+    details[open] summary{margin-bottom:10px}
+    form{display:flex;flex-direction:column;gap:10px}
     input{width:100%;padding:13px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.06);color:#fff;font-size:1rem;font-family:inherit}
     input::placeholder{color:rgba(255,255,255,0.45)}
     input:focus{outline:none;border-color:#e040a0;background:rgba(255,255,255,0.1)}
-    button{width:100%;margin-top:4px;background:#f47c20;color:#fff;padding:14px 28px;border:none;border-radius:8px;font-weight:700;font-size:1rem;font-family:inherit;cursor:pointer}
-    button:hover{background:#d96a10}
-    button:disabled{opacity:0.6;cursor:default}
-    .msg{font-size:0.95rem;max-width:340px;margin:18px auto 0;min-height:1.2em}
+    button{width:100%;margin-top:4px;background:transparent;color:#fff;padding:13px 24px;border:1px solid rgba(255,255,255,0.4);border-radius:8px;font-weight:600;font-size:.95rem;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s}
+    button:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.7)}
+    button:disabled{opacity:0.5;cursor:default}
+    .msg{font-size:0.9rem;max-width:340px;margin:14px auto 0;min-height:1.2em}
     .msg.ok{color:#4ade80}
     .msg.err{color:#f87171}
   </style>
@@ -53,16 +69,26 @@ if (process.env.COMING_SOON === 'true') {
 <body>
   <div>
     <div class="logo">SoCal<span>Receptionist</span></div>
-    <h1>Something big is coming.</h1>
-    <p>SoCal Receptionist — AI-powered 24/7 call answering for Temecula Valley small businesses. Launching soon.</p>
-    <form id="ea-form">
-      <input type="text" name="name" placeholder="Your name" required>
-      <input type="text" name="business" placeholder="Business name">
-      <input type="email" name="email" placeholder="Email address" required>
-      <input type="tel" name="phone" placeholder="Phone (optional)">
-      <button type="submit">Get Early Access</button>
-    </form>
-    <p id="ea-msg" class="msg"></p>
+    <h1>Don't read about it.<br>Call the AI yourself.</h1>
+    <p class="sub">Tap the number. Our AI receptionist will answer, pitch you on what it does, and book your demo — exactly like it would for your business 24/7.</p>
+    <div class="call-card">
+      <div class="label">Test me now</div>
+      <div class="tagline">Talk to the AI that would answer your calls.</div>
+      <a class="number" href="tel:+19513958400" id="cta-call">(951) 395-8400</a>
+      <div class="footnote">2-minute call. Roman follows up within 24 hours.</div>
+    </div>
+    <div class="divider"><span>or</span></div>
+    <details>
+      <summary>Prefer to leave info instead? &nbsp;↓</summary>
+      <form id="ea-form">
+        <input type="text" name="name" placeholder="Your name" required>
+        <input type="text" name="business" placeholder="Business name">
+        <input type="email" name="email" placeholder="Email address" required>
+        <input type="tel" name="phone" placeholder="Phone (optional)">
+        <button type="submit">Get Early Access</button>
+      </form>
+      <p id="ea-msg" class="msg"></p>
+    </details>
   </div>
   <script>
     var f=document.getElementById('ea-form'),m=document.getElementById('ea-msg');
@@ -533,6 +559,114 @@ app.get('/support', (req, res) => {
   <h2>More Answers</h2>
   <p>Many common questions are answered on our <a href="/faq">FAQ page</a>.</p>
   `));
+});
+
+// Twilio inbound voice webhook for the "test me now" sales line. Twilio
+// dials POST /voice/sales when a prospect calls. We greet them, gather
+// speech, and let voice-sales.js drive the AI conversation turn-by-turn.
+app.post('/voice/sales', (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    console.warn('Rejected /voice/sales request: invalid Twilio signature');
+    return res.status(403).send('Invalid Twilio signature');
+  }
+
+  const twiml = new twilio.twiml.VoiceResponse();
+  const greeting =
+    "Hey, you've reached SoCal Receptionist — and yes, I'm an A.I. " +
+    "I'm exactly what would answer calls for your business. " +
+    "Mind if I ask your name first?";
+  const gather = twiml.gather({
+    input: 'speech',
+    action: '/voice/sales/turn',
+    method: 'POST',
+    speechTimeout: 'auto',
+    speechModel: 'phone_call',
+  });
+  gather.say({ voice: 'Polly.Joanna-Neural' }, greeting);
+  // If they say nothing, re-route into the turn handler so we can re-prompt.
+  twiml.redirect({ method: 'POST' }, '/voice/sales/turn');
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
+
+app.post('/voice/sales/turn', async (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    console.warn('Rejected /voice/sales/turn request: invalid Twilio signature');
+    return res.status(403).send('Invalid Twilio signature');
+  }
+
+  const callSid = req.body.CallSid;
+  const from = req.body.From;
+  const speech = (req.body.SpeechResult || '').trim();
+  const twiml = new twilio.twiml.VoiceResponse();
+
+  if (!callSid) {
+    twiml.say({ voice: 'Polly.Joanna-Neural' }, "Sorry, something went wrong on our end. Please call back in a moment.");
+    twiml.hangup();
+    res.type('text/xml');
+    return res.send(twiml.toString());
+  }
+
+  // Silence/timeout: ask once if they're still there, then hang up if still silent.
+  if (!speech) {
+    const gather = twiml.gather({
+      input: 'speech',
+      action: '/voice/sales/turn',
+      method: 'POST',
+      speechTimeout: 'auto',
+      speechModel: 'phone_call',
+    });
+    gather.say({ voice: 'Polly.Joanna-Neural' }, "Sorry, I didn't catch that. Are you still there?");
+    twiml.say({ voice: 'Polly.Joanna-Neural' }, "Looks like we got disconnected. Feel free to call back anytime.");
+    twiml.hangup();
+    res.type('text/xml');
+    return res.send(twiml.toString());
+  }
+
+  let reply = '';
+  try {
+    const result = await sales.turn(callSid, from, speech);
+    reply = result.reply;
+  } catch (err) {
+    console.error('Sales voice turn failed:', err.message);
+    reply = "Sorry, I had trouble there — could you say that again?";
+  }
+
+  const gather = twiml.gather({
+    input: 'speech',
+    action: '/voice/sales/turn',
+    method: 'POST',
+    speechTimeout: 'auto',
+    speechModel: 'phone_call',
+  });
+  gather.say({ voice: 'Polly.Joanna-Neural' }, reply);
+  // If they go silent after our response, give them one more chance, then hang up.
+  twiml.redirect({ method: 'POST' }, '/voice/sales/turn');
+
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
+
+// Twilio status callback — fires when the call ends. We use this to send a
+// "partial" lead notification if the caller hung up before we captured them.
+app.post('/voice/sales/status', async (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    console.warn('Rejected /voice/sales/status request: invalid Twilio signature');
+    return res.status(403).send('Invalid Twilio signature');
+  }
+  const callSid = req.body.CallSid;
+  const from = req.body.From;
+  const status = req.body.CallStatus;
+  const duration = parseInt(req.body.CallDuration || '0', 10);
+
+  if (callSid && status === 'completed') {
+    try {
+      await sales.onCallEnded(callSid, from, duration);
+    } catch (err) {
+      console.error('Sales call onCallEnded failed:', err.message);
+    }
+  }
+  res.sendStatus(204);
 });
 
 // Twilio inbound SMS webhook. Twilio POSTs the message here and expects a

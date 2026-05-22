@@ -164,4 +164,44 @@ async function notifyEarlyAccess({ name, business, email, phone }) {
   await send({ subject, text, html });
 }
 
-module.exports = { notifyOwner, notifyOptIn, notifyLead, notifyFollowup, notifyDemoRequest, notifyEarlyAccess };
+// Sales-call lead from the "test me now" 951 line. The AI is both
+// pitching and qualifying — by the time we're emailing, the prospect
+// has experienced the product.
+async function notifySalesLead({ name, business, contact, pain_point, notes, fromNumber, callSid, partial }) {
+  const tag = partial ? '⚠️ Sales call ended (no full capture)' : '🔥 New sales lead — test-me-now call';
+  const subject = partial
+    ? `Sales call hung up early: ${fromNumber || 'unknown'}`
+    : `New sales lead: ${name || 'Unknown'} — ${business || 'business'}`;
+  const text =
+    `${tag}\n\n` +
+    `Name:     ${name || '-'}\n` +
+    `Business: ${business || '-'}\n` +
+    `Contact:  ${contact || '-'}\n` +
+    `Pain:     ${pain_point || '-'}\n` +
+    `Notes:    ${notes || '-'}\n` +
+    `Called from: ${fromNumber || '-'}\n` +
+    `CallSid:  ${callSid || '-'}`;
+  const html = htmlWrap(partial ? 'Sales call ended early' : 'New Sales Lead Captured', `
+    <p>${partial
+      ? 'A prospect called the sales line but hung up before all info was captured. Transcript is in the notes — follow up if it looks worth it.'
+      : 'A prospect called the sales line, talked with the AI, and the AI just qualified them. 🚀'}</p>
+    <table class="data">
+      <tr><td>Name</td><td>${name || '-'}</td></tr>
+      <tr><td>Business</td><td>${business || '-'}</td></tr>
+      <tr><td>Contact</td><td>${contact || '-'}</td></tr>
+      <tr><td>Pain point</td><td>${pain_point || '-'}</td></tr>
+      ${notes ? `<tr><td>Notes</td><td><pre style="margin:0;white-space:pre-wrap;font-family:inherit;font-size:.85rem">${escapeHtml(notes)}</pre></td></tr>` : ''}
+      <tr><td>Called from</td><td>${fromNumber || '-'}</td></tr>
+      <tr><td>CallSid</td><td><code>${callSid || '-'}</code></td></tr>
+      <tr><td>Status</td><td><span class="badge ${partial ? 'badge-orange' : 'badge-green'}">${partial ? 'Partial' : 'Qualified'}</span></td></tr>
+    </table>
+    <p>${partial ? 'Reach out to the caller directly to recover the lead.' : 'Reach out within 24 hours with pricing and a setup walkthrough.'}</p>
+  `);
+  await send({ subject, text, html });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+module.exports = { notifyOwner, notifyOptIn, notifyLead, notifyFollowup, notifyDemoRequest, notifyEarlyAccess, notifySalesLead };
