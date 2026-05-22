@@ -15,6 +15,7 @@ const clientAdminRouter = require('./admin/client');
 const ownerAdminRouter = require('./admin/owner');
 const onboardingAgreementRouter = require('./onboarding/agreement');
 const onboardingRegisterRouter = require('./onboarding/register');
+const mfaRouter = require('./auth/mfa');
 
 const app = express();
 app.set('trust proxy', true); // behind the DigitalOcean / Cloudflare proxy
@@ -44,6 +45,11 @@ app.use('/', voiceRouter);
 // (which gates provisioning). Register is mounted first; both share /onboarding.
 app.use('/onboarding', onboardingRegisterRouter);
 app.use('/onboarding', onboardingAgreementRouter);
+
+// MFA API — trusted-device ("trust this device for 30 days") issue / verify /
+// revoke. The TOTP + passkey factors themselves are handled by Supabase Auth
+// directly from the browser; this only owns the app-side trust ledger.
+app.use('/auth/mfa', mfaRouter);
 
 // Admin API. The owner router is mounted first so /admin/owner/* never falls
 // into the client router's requireTenant middleware.

@@ -4,7 +4,9 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { useFetch } from '../../lib/useFetch';
+import { SMS_ENABLED } from '../../lib/config';
 import { Loading, ErrorState } from '../../components/States';
+import MfaSettings from '../../components/MfaSettings';
 
 const TIMEZONES = [
   'America/Los_Angeles',
@@ -204,6 +206,12 @@ export default function Settings() {
           {saved && <span className="muted" style={{ fontSize: '0.86rem' }}>All changes saved.</span>}
         </div>
       </form>
+
+      {/* Security / MFA — its own card; not part of the tenant config form
+          above (factors live in Supabase Auth, not the tenants table). */}
+      <div className="stack" style={{ marginTop: 16 }}>
+        <MfaSettings />
+      </div>
     </>
   );
 }

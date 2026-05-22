@@ -495,6 +495,34 @@ table.data tbody tr.clickable:hover { background: var(--light); }
 .pull-right { margin-left: auto; }
 audio { width: 100%; margin-top: 8px; }
 
+/* ---------- MFA / security settings ---------- */
+.mfa-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.mfa-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.mfa-row:last-child { border-bottom: none; }
+.mfa-enroll {
+  background: var(--light);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-top: 8px;
+}
+.mfa-enroll code.mono {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 3px 7px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  letter-spacing: 0.04em;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 860px) {
   .sidebar { display: none; }

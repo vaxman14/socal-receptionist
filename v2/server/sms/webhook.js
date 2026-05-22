@@ -23,10 +23,23 @@ const STOP_WORDS = new Set(['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', '
 const START_WORDS = new Set(['START', 'YES', 'Y', 'UNSTOP']);
 const HELP_WORDS = new Set(['HELP', 'INFO']);
 
+// Voice-first launch gate. The SMS channel stays dark until A2P 10DLC carrier
+// review clears — until then SMS_ENABLED is false (the default) and the webhook
+// only sends a "call us instead" auto-reply. Voice is unaffected.
+const SMS_ENABLED = process.env.SMS_ENABLED === 'true';
+
 router.post('/sms', async (req, res) => {
   if (!isValidTwilioRequest(req)) {
     console.warn('[sms] rejected: invalid Twilio signature');
     return res.status(403).send('Invalid Twilio signature');
+  }
+
+  // SMS disabled platform-wide (pre-A2P launch). Still 200 to Twilio so it does
+  // not retry, but skip all processing and point the customer at the phone.
+  if (!SMS_ENABLED) {
+    const twiml = new twilio.twiml.MessagingResponse();
+    twiml.message("SMS isn't available yet — please call us instead.");
+    return res.type('text/xml').send(twiml.toString());
   }
 
   const from = req.body.From;

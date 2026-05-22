@@ -43,6 +43,41 @@ async function requirePlatformAdmin(req, res, next) {
   }
 }
 
+// Require the caller's session to be at Authenticator Assurance Level 2 — i.e.
+// they have signed in AND cleared an MFA factor (or are on a trusted device
+// that elevated them). Use after requireAuth.
+//
+// Supabase encodes the assurance level in the access token's `aal` claim
+// ('aal1' = password only, 'aal2' = a second factor was presented). This is an
+// OPT-IN middleware: existing routes keep using requireAuth and are unchanged.
+// It is provided for any future route that must be MFA-gated server-side.
+async function requireAal2(req, res, next) {
+  try {
+    const header = req.header('authorization') || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'missing bearer token' });
+
+    // Decode (not verify) the JWT payload — requireAuth already verified the
+    // token with Supabase; here we only need to read the `aal` claim.
+    const parts = token.split('.');
+    if (parts.length !== 3) return res.status(401).json({ error: 'invalid token' });
+    let claims;
+    try {
+      claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    } catch {
+      return res.status(401).json({ error: 'invalid token' });
+    }
+
+    if (claims.aal !== 'aal2') {
+      return res.status(403).json({ error: 'mfa required', code: 'aal2_required' });
+    }
+    return next();
+  } catch (err) {
+    console.error('[auth] requireAal2 failed:', err.message);
+    return res.status(500).json({ error: 'auth check failed' });
+  }
+}
+
 // Load the tenant owned by the caller and attach req.tenant. Use after requireAuth.
 async function requireTenant(req, res, next) {
   try {
@@ -63,4 +98,4 @@ async function requireTenant(req, res, next) {
   }
 }
 
-module.exports = { requireAuth, requirePlatformAdmin, requireTenant };
+module.exports = { requireAuth, requirePlatformAdmin, requireTenant, requireAal2 };

@@ -60,6 +60,15 @@ async function provisionTenant(job) {
 //   3. submit the A2P brand + campaign (Sole Proprietor path for small biz),
 //   4. enqueue `finalize_onboarding`.
 async function setupMessaging(job) {
+  // Voice-first launch gate. While SMS is dark platform-wide (SMS_ENABLED
+  // false — the default), there is no Twilio messaging to set up: skip this
+  // step cleanly and hand straight to finalize_onboarding so the onboarding
+  // pipeline still completes (the tenant goes live voice-only).
+  if (process.env.SMS_ENABLED !== 'true') {
+    await enqueue(job.tenant_id, 'finalize_onboarding', {});
+    return;
+  }
+
   throw new ManualReviewRequired(
     'Twilio A2P / Messaging setup is not yet automatable — pending ISV Trust Hub ' +
       'registration (see A2P_SPIKE_FINDINGS.md). Provision this tenant manually, ' +

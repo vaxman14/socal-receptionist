@@ -2,6 +2,7 @@
 
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '../../components/Sidebar';
+import { SMS_ENABLED } from '../../lib/config';
 import Overview from './Overview';
 import Leads from './Leads';
 import Conversations from './Conversations';
@@ -9,10 +10,13 @@ import Calls from './Calls';
 import Settings from './Settings';
 import Billing from './Billing';
 
+// Conversations is the SMS surface — hidden from the nav until SMS launches.
+// The route stays mounted so a bookmarked URL still resolves (to a "coming
+// soon" state); it just is not advertised.
 const LINKS = [
   { to: '/', label: 'Overview', end: true },
   { to: '/leads', label: 'Leads' },
-  { to: '/conversations', label: 'Conversations' },
+  ...(SMS_ENABLED ? [{ to: '/conversations', label: 'Conversations' }] : []),
   { to: '/calls', label: 'Calls' },
   { to: '/settings', label: 'Settings' },
   { to: '/billing', label: 'Billing' },

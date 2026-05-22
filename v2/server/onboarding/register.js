@@ -13,6 +13,8 @@
 const express = require('express');
 const { supabase } = require('../lib/supabase');
 const { requireAuth } = require('../lib/auth');
+const { sendEmail } = require('../lib/email');
+const { onboardingConfirmation } = require('../lib/email-templates');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -91,7 +93,16 @@ router.post('/business', async (req, res) => {
       .insert({ ...row, slug })
       .select()
       .single();
-    if (!error) return res.status(201).json({ tenant: data });
+    if (!error) {
+      // Best-effort onboarding-confirmation email. sendEmail never throws and
+      // no-ops without RESEND_API_KEY, so this can't block or fail the request;
+      // we don't await it so the response isn't held on the mail round-trip.
+      if (data.owner_email) {
+        const mail = onboardingConfirmation({ businessName: data.business_name });
+        sendEmail({ to: data.owner_email, ...mail }).catch(() => {});
+      }
+      return res.status(201).json({ tenant: data });
+    }
     lastError = error;
     // 23505 = unique_violation — retry with a fresh slug; anything else, stop.
     if (error.code !== '23505') break;

@@ -3,12 +3,36 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { useFetch } from '../../lib/useFetch';
+import { SMS_ENABLED } from '../../lib/config';
 import { Loading, ErrorState, EmptyState } from '../../components/States';
 import { Badge } from '../../components/Badge';
 import { Transcript } from '../../components/Transcript';
 import { formatDate } from '../../lib/format';
 
 export default function Conversations() {
+  // SMS is a voice-first launch gate — the text channel is dark until A2P
+  // 10DLC clears. Skip the fetch and show a "coming soon" state.
+  if (!SMS_ENABLED) {
+    return (
+      <>
+        <div className="page-head">
+          <h1>Conversations</h1>
+          <p>Text-message threads with your AI receptionist.</p>
+        </div>
+        <div className="card">
+          <EmptyState
+            title="Text messaging is coming soon"
+            message="Your AI receptionist currently answers phone calls. SMS conversations will be enabled once carrier registration is complete — no action needed on your part."
+          />
+        </div>
+      </>
+    );
+  }
+
+  return <ConversationsList />;
+}
+
+function ConversationsList() {
   const { data, loading, error, reload } = useFetch('/admin/conversations');
   const [selected, setSelected] = useState(null);
   const [messages, setMessages] = useState([]);

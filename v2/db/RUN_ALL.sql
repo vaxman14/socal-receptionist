@@ -1,7 +1,8 @@
 -- =============================================================================
 -- SoCal Receptionist V2 — FULL SCHEMA BUNDLE
 -- Paste this whole file into the Supabase SQL editor and Run.
--- Order: 001 init -> 002 agreements -> 003 documents -> 004 voice.
+-- Order: 001 init -> 002 agreements -> 003 documents -> 004 voice ->
+--        005 billing refund -> 006 mfa.
 -- Safe on a fresh project. See PLATFORM_ADMIN note at the bottom.
 -- =============================================================================
 
@@ -597,6 +598,28 @@ alter table subscriptions
   add column if not exists setup_payment_intent text,
   add column if not exists setup_paid_at        timestamptz,
   add column if not exists setup_refunded_at    timestamptz;
+
+-- =============================================================================
+-- MIGRATION 006 — MFA trusted devices
+--
+-- TOTP / passkey factors live in Supabase Auth; only the app-owned "trust this
+-- device for 30 days" ledger needs a table here. See db/006_mfa.sql.
+-- =============================================================================
+
+create table trusted_devices (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  token_hash    text not null unique,
+  label         text,
+  user_agent    text,
+  created_at    timestamptz not null default now(),
+  last_seen_at  timestamptz not null default now(),
+  expires_at    timestamptz not null
+);
+
+create index trusted_devices_user_idx on trusted_devices (user_id, created_at desc);
+
+alter table trusted_devices enable row level security;
 
 -- =============================================================================
 -- PLATFORM_ADMIN — run AFTER Roman signs up through the web app once.
