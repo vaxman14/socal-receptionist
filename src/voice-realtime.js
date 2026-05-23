@@ -1,21 +1,9 @@
-// OpenAI Realtime API + Twilio Media Streams bridge.
-// Replaces the old Record→Whisper→GPT-4o→Polly loop with true bidirectional
-// streaming audio — no round-trip latency between turns.
-//
-// How it works:
-//   1. Twilio calls POST /voice/sales → TwiML <Connect><Stream> → opens WS to us
-//   2. We open a second WS to OpenAI Realtime API in parallel
-//   3. Twilio sends mulaw audio chunks → we forward to OpenAI
-//   4. OpenAI sends audio response chunks → we forward back to Twilio
-//   5. OpenAI fires tool call events → we handle capture_lead
-
 const WebSocket = require('ws');
 const config = require('./config');
 const { notifySalesLead } = require('./email');
 const { sendTelegram } = require('./telegram');
 
-const REALTIME_URL =
-  'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01';
+const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01';
 
 const SYSTEM_PROMPT = `You are Josi, the AI sales agent for SoCal Receptionist — an AI-powered 24/7 receptionist for small businesses in Southern California (Murrieta, Temecula, Riverside County area).
 
@@ -45,31 +33,22 @@ Voice rules (THIS IS A PHONE CALL, NOT TEXT):
 
 Stay focused: this is a 2-3 minute discovery call, not a chat session.`;
 
-const TOOLS = [
-  {
-    type: 'function',
-    name: 'capture_lead',
-    description:
-      'Record the prospect once you have name + business + a contact method (email or callback number). This emails Roman and pings him on Telegram.',
-    parameters: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', description: "Caller's name" },
-        business: { type: 'string', description: 'Business name + what they do' },
-        contact: { type: 'string', description: 'Email or callback phone number' },
-        pain_point: {
-          type: 'string',
-          description: 'What problem they want solved (missed calls, after-hours, etc.)',
-        },
-        notes: {
-          type: 'string',
-          description: 'Anything else relevant — interest level, urgency, objections',
-        },
-      },
-      required: ['name', 'business', 'contact'],
+const CAPTURE_LEAD_TOOL = {
+  type: 'function',
+  name: 'capture_lead',
+  description: 'Record the prospect once you have name + business + a contact method (email or callback number). This emails Roman and pings him on Telegram.',
+  parameters: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: "Caller's name" },
+      business: { type: 'string', description: 'Business name + what they do' },
+      contact: { type: 'string', description: 'Email or callback phone number' },
+      pain_point: { type: 'string', description: 'What problem they want solved (missed calls, after-hours, etc.)' },
+      notes: { type: 'string', description: 'Anything else relevant — interest level, urgency, objections' },
     },
+    required: ['name', 'business', 'contact'],
   },
-];
+};
 
 function formatTelegramLead({ name, business, contact, pain_point, notes, fromNumber, callSid }) {
   return [
@@ -85,92 +64,23 @@ function formatTelegramLead({ name, business, contact, pain_point, notes, fromNu
   ].join('\n');
 }
 
-function fireLead(args, fromNumber, callSid) {
-  const payload = {
-    name: args.name,
-    business: args.business,
-    contact: args.contact,
-    pain_point: args.pain_point,
-    notes: args.notes,
-    fromNumber,
-    callSid,
-  };
-  notifySalesLead(payload).catch(err =>
-    console.error('[realtime] Lead email failed:', err.message)
-  );
-  sendTelegram(formatTelegramLead(payload)).catch(err =>
-    console.error('[realtime] Lead Telegram failed:', err.message)
-  );
-}
-
-function firePartialLead(fromNumber, callSid, transcript) {
-  notifySalesLead({
-    name: '(call ended before capture)',
-    business: '-',
-    contact: fromNumber || '-',
-    pain_point: '-',
-    notes: `Caller hung up without a captured lead.\n\n${transcript || '(no transcript)'}`,
-    fromNumber,
-    callSid,
-    partial: true,
-  }).catch(err => console.error('[realtime] Partial lead email failed:', err.message));
-
-  sendTelegram(
-    [
-      '⚠️ *Sales call ended without lead capture*',
-      '',
-      `*From:* ${fromNumber || '-'}`,
-      `*CallSid:* \`${callSid}\``,
-      '',
-      transcript
-        ? `*Transcript:*\n\`\`\`\n${transcript.slice(0, 1500)}\n\`\`\``
-        : '(no transcript)',
-    ].join('\n')
-  ).catch(err => console.error('[realtime] Partial lead Telegram failed:', err.message));
-}
-
 function handleRealtimeCall(twilioWs, callSid, fromNumber) {
   let streamSid = null;
   let leadCaptured = false;
-  let partialFired = false;
+  let callEnded = false;
+  const transcript = [];
 
-  // Accumulate transcript for partial-lead notifications
-  const transcriptLines = [];
-
-  // Buffer incremental tool-call arguments across delta events
-  let pendingCallId = null;
-  let pendingCallName = null;
-  let pendingArgs = '';
-
-  function maybeFirePartial() {
-    if (!leadCaptured && !partialFired) {
-      partialFired = true;
-      firePartialLead(fromNumber, callSid, transcriptLines.join('\n'));
-    }
-  }
-
-  const openaiWs = new WebSocket(REALTIME_URL, {
+  const oaiWs = new WebSocket(REALTIME_URL, {
     headers: {
-      Authorization: `Bearer ${config.openai.apiKey}`,
+      'Authorization': `Bearer ${config.openai.apiKey}`,
       'OpenAI-Beta': 'realtime=v1',
     },
   });
 
-  function sendToOpenAI(obj) {
-    if (openaiWs.readyState === WebSocket.OPEN) {
-      openaiWs.send(JSON.stringify(obj));
-    }
-  }
+  oaiWs.on('open', () => {
+    console.log(`[voice-realtime] OpenAI WS open callSid=${callSid}`);
 
-  function sendToTwilio(obj) {
-    if (twilioWs.readyState === WebSocket.OPEN) {
-      twilioWs.send(JSON.stringify(obj));
-    }
-  }
-
-  openaiWs.on('open', () => {
-    console.log(`[realtime] OpenAI WS open CallSid=${callSid}`);
-    sendToOpenAI({
+    oaiWs.send(JSON.stringify({
       type: 'session.update',
       session: {
         modalities: ['audio', 'text'],
@@ -183,144 +93,161 @@ function handleRealtimeCall(twilioWs, callSid, fromNumber) {
           silence_duration_ms: 700,
           threshold: 0.5,
           prefix_padding_ms: 300,
-          create_response: true,
         },
-        tools: TOOLS,
+        tools: [CAPTURE_LEAD_TOOL],
         tool_choice: 'auto',
         instructions: SYSTEM_PROMPT,
+        temperature: 0.6,
       },
-    });
+    }));
+
+    // Kick off with the AI's opening greeting immediately
+    oaiWs.send(JSON.stringify({ type: 'response.create' }));
   });
 
-  openaiWs.on('message', (raw) => {
-    let event;
-    try { event = JSON.parse(raw); }
-    catch { return; }
+  oaiWs.on('message', (raw) => {
+    let msg;
+    try { msg = JSON.parse(raw); } catch { return; }
 
-    switch (event.type) {
-      case 'session.created':
-      case 'session.updated':
-        console.log(`[realtime] ${event.type} CallSid=${callSid}`);
-        break;
-
-      // Forward audio chunks to Twilio as they arrive (true streaming)
+    switch (msg.type) {
       case 'response.audio.delta':
-        if (event.delta && streamSid) {
-          sendToTwilio({ event: 'media', streamSid, media: { payload: event.delta } });
+        if (streamSid && msg.delta) {
+          try {
+            twilioWs.send(JSON.stringify({
+              event: 'media',
+              streamSid,
+              media: { payload: msg.delta },
+            }));
+          } catch {}
         }
         break;
 
-      // Caller started speaking — clear queued AI audio so they can interrupt
-      case 'input_audio_buffer.speech_started':
-        if (streamSid) {
-          sendToTwilio({ event: 'clear', streamSid });
-        }
-        break;
-
-      // Accumulate caller transcript for partial-lead notes
-      case 'conversation.item.input_audio_transcription.completed':
-        if (event.transcript) {
-          transcriptLines.push(`CALLER: ${event.transcript}`);
-        }
-        break;
-
-      // Accumulate AI transcript for partial-lead notes
       case 'response.audio_transcript.done':
-        if (event.transcript) {
-          transcriptLines.push(`AI: ${event.transcript}`);
+        if (msg.transcript) transcript.push({ role: 'assistant', text: msg.transcript });
+        break;
+
+      case 'conversation.item.input_audio_transcription.completed':
+        if (msg.transcript) transcript.push({ role: 'user', text: msg.transcript });
+        break;
+
+      case 'response.function_call_arguments.done':
+        if (msg.name === 'capture_lead') {
+          handleCaptureLead(msg.call_id, msg.arguments);
         }
         break;
-
-      // Buffer incremental tool-call argument chunks
-      case 'response.function_call_arguments.delta':
-        pendingArgs += (event.delta || '');
-        if (!pendingCallId) pendingCallId = event.call_id;
-        if (!pendingCallName) pendingCallName = event.name;
-        break;
-
-      // Tool call complete — execute it and return result to OpenAI
-      case 'response.function_call_arguments.done': {
-        const callId = event.call_id || pendingCallId;
-        const fnName = event.name || pendingCallName;
-        const argsStr = event.arguments || pendingArgs;
-        pendingCallId = null;
-        pendingCallName = null;
-        pendingArgs = '';
-
-        let args = {};
-        try { args = JSON.parse(argsStr); } catch { /* use empty args */ }
-
-        let output = 'Unknown tool.';
-        if (fnName === 'capture_lead') {
-          leadCaptured = true;
-          fireLead(args, fromNumber, callSid);
-          output =
-            'Lead captured and Roman has been notified by email + Telegram. Close warmly and ask if there is anything else before they hang up.';
-        }
-
-        sendToOpenAI({
-          type: 'conversation.item.create',
-          item: { type: 'function_call_output', call_id: callId, output },
-        });
-        sendToOpenAI({ type: 'response.create' });
-        break;
-      }
 
       case 'error':
-        console.error('[realtime] OpenAI error:', JSON.stringify(event.error));
+        console.error('[voice-realtime] OpenAI error:', JSON.stringify(msg.error));
         break;
     }
   });
 
-  openaiWs.on('close', () => {
-    console.log(`[realtime] OpenAI WS closed CallSid=${callSid}`);
-    if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close();
-  });
+  async function handleCaptureLead(callId, rawArgs) {
+    let args = {};
+    try { args = JSON.parse(rawArgs || '{}'); } catch {}
 
-  openaiWs.on('error', (err) => {
-    console.error('[realtime] OpenAI WS error:', err.message);
-    if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close();
-  });
+    leadCaptured = true;
 
-  // Inbound Twilio Media Streams events
+    const payload = {
+      name: args.name,
+      business: args.business,
+      contact: args.contact,
+      pain_point: args.pain_point,
+      notes: args.notes,
+      fromNumber,
+      callSid,
+    };
+
+    notifySalesLead(payload).catch(err => console.error('Sales lead email failed:', err.message));
+    sendTelegram(formatTelegramLead(payload)).catch(err => console.error('Sales lead Telegram failed:', err.message));
+
+    if (oaiWs.readyState === WebSocket.OPEN) {
+      oaiWs.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: {
+          type: 'function_call_output',
+          call_id: callId,
+          output: 'Lead captured and Roman has been notified by email + Telegram. Close warmly and ask if there is anything else before they hang up.',
+        },
+      }));
+      oaiWs.send(JSON.stringify({ type: 'response.create' }));
+    }
+  }
+
   twilioWs.on('message', (raw) => {
     let msg;
-    try { msg = JSON.parse(raw); }
-    catch { return; }
+    try { msg = JSON.parse(raw); } catch { return; }
 
     switch (msg.event) {
-      case 'connected':
-        console.log(`[realtime] Twilio connected CallSid=${callSid}`);
-        break;
-
       case 'start':
-        streamSid = msg.start && msg.start.streamSid;
-        console.log(`[realtime] Stream started streamSid=${streamSid} CallSid=${callSid}`);
+        streamSid = msg.start && msg.start.streamSid ? msg.start.streamSid : msg.streamSid;
+        console.log(`[voice-realtime] stream started callSid=${callSid} streamSid=${streamSid}`);
         break;
 
       case 'media':
-        sendToOpenAI({ type: 'input_audio_buffer.append', audio: msg.media.payload });
+        if (oaiWs.readyState === WebSocket.OPEN) {
+          oaiWs.send(JSON.stringify({
+            type: 'input_audio_buffer.append',
+            audio: msg.media.payload,
+          }));
+        }
         break;
 
       case 'stop':
-        console.log(`[realtime] Twilio stream stopped CallSid=${callSid}`);
-        maybeFirePartial();
-        if (openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
+        cleanup('twilio-stop');
         break;
     }
   });
 
-  twilioWs.on('close', () => {
-    console.log(`[realtime] Twilio WS closed CallSid=${callSid}`);
-    maybeFirePartial();
-    if (openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
+  twilioWs.on('close', () => cleanup('twilio-close'));
+  twilioWs.on('error', (err) => {
+    console.error('[voice-realtime] Twilio WS error:', err.message);
+    cleanup('twilio-error');
   });
 
-  twilioWs.on('error', (err) => {
-    console.error('[realtime] Twilio WS error:', err.message);
-    maybeFirePartial();
-    if (openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
+  oaiWs.on('close', () => cleanup('oai-close'));
+  oaiWs.on('error', (err) => {
+    console.error('[voice-realtime] OpenAI WS error:', err.message);
+    cleanup('oai-error');
   });
+
+  function cleanup(reason) {
+    if (callEnded) return;
+    callEnded = true;
+    console.log(`[voice-realtime] cleanup reason=${reason} callSid=${callSid} leadCaptured=${leadCaptured}`);
+
+    try { if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close(); } catch {}
+    try { if (oaiWs.readyState === WebSocket.OPEN) oaiWs.close(); } catch {}
+
+    if (!leadCaptured) {
+      const transcriptText = transcript
+        .map(t => `${t.role === 'user' ? 'CALLER' : 'AI'}: ${t.text}`)
+        .join('\n') || '(no transcript)';
+
+      notifySalesLead({
+        name: '(call ended before capture)',
+        business: '-',
+        contact: fromNumber || '-',
+        pain_point: '-',
+        notes: `Caller hung up without a captured lead.\n\n${transcriptText}`,
+        fromNumber,
+        callSid,
+        partial: true,
+      }).catch(err => console.error('Partial lead email failed:', err.message));
+
+      sendTelegram([
+        '⚠️ *Sales call ended without lead capture*',
+        '',
+        `*From:* ${fromNumber || '-'}`,
+        `*CallSid:* \`${callSid}\``,
+        '',
+        '*Transcript:*',
+        '```',
+        transcriptText.slice(0, 1500),
+        '```',
+      ].join('\n')).catch(err => console.error('Partial lead Telegram failed:', err.message));
+    }
+  }
 }
 
 module.exports = { handleRealtimeCall };

@@ -602,13 +602,7 @@ app.post('/voice/sales/status', async (req, res) => {
   const status = req.body.CallStatus;
   const duration = parseInt(req.body.CallDuration || '0', 10);
 
-  if (callSid && status === 'completed') {
-    try {
-      await sales.onCallEnded(callSid, from, duration);
-    } catch (err) {
-      console.error('Sales call onCallEnded failed:', err.message);
-    }
-  }
+  // Realtime module handles partial leads on WebSocket close — nothing to do here.
   res.sendStatus(204);
 });
 
