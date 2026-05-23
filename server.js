@@ -574,7 +574,8 @@ app.post('/voice/sales', (req, res) => {
   const host = req.headers.host;
   const from = encodeURIComponent(req.body.From || '');
   const callSid = encodeURIComponent(req.body.CallSid || '');
-  const streamUrl = `wss://${host}/voice/sales/stream?from=${from}&callSid=${callSid}`;
+  // & must be &amp; inside XML attribute values
+  const streamUrl = `wss://${host}/voice/sales/stream?from=${from}&amp;callSid=${callSid}`;
 
   res.type('text/xml');
   res.send(
