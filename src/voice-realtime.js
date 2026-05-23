@@ -3,7 +3,7 @@ const config = require('./config');
 const { notifySalesLead } = require('./email');
 const { sendTelegram } = require('./telegram');
 
-const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-realtime';
+const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-realtime-2';
 
 const SYSTEM_PROMPT = `You are Josi, the AI sales agent for SoCal Receptionist — an AI-powered 24/7 receptionist for small businesses in Southern California (Murrieta, Temecula, Riverside County area).
 
@@ -85,16 +85,16 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
       type: 'session.update',
       session: {
         type: 'realtime',
-        modalities: ['audio', 'text'],
-        voice: 'alloy',
-        input_audio_format: 'g711_ulaw',
-        output_audio_format: 'g711_ulaw',
-        input_audio_transcription: { model: 'whisper-1' },
-        turn_detection: {
-          type: 'server_vad',
-          silence_duration_ms: 700,
-          threshold: 0.5,
-          prefix_padding_ms: 300,
+        output_modalities: ['audio'],
+        audio: {
+          input: {
+            format: { type: 'audio/pcmu' },
+            turn_detection: { type: 'semantic_vad' },
+          },
+          output: {
+            format: { type: 'audio/pcmu' },
+            voice: 'alloy',
+          },
         },
         instructions: SYSTEM_PROMPT,
         tools: [CAPTURE_LEAD_TOOL],
@@ -111,7 +111,7 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
     try { msg = JSON.parse(raw); } catch { return; }
 
     switch (msg.type) {
-      case 'response.audio.delta':
+      case 'response.output_audio.delta':
         if (streamSid && msg.delta) {
           try {
             twilioWs.send(JSON.stringify({
@@ -123,8 +123,8 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
         }
         break;
 
-      case 'response.audio_transcript.done':
-        if (msg.transcript) transcript.push({ role: 'assistant', text: msg.transcript });
+      case 'response.output_audio_transcript.delta':
+        if (msg.delta) transcript.push({ role: 'assistant', text: msg.delta });
         break;
 
       case 'conversation.item.input_audio_transcription.completed':
