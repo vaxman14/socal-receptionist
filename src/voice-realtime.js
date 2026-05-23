@@ -75,6 +75,7 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
   const oaiWs = new WebSocket(REALTIME_URL, {
     headers: {
       'Authorization': `Bearer ${config.openai.apiKey}`,
+      'OpenAI-Beta': 'realtime=v1',
     },
   });
 
