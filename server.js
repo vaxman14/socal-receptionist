@@ -640,15 +640,22 @@ app.post('/voice/sales/transcribe', async (req, res) => {
   }
 
   let reply = '';
+  let turnFailed = false;
   try {
     const result = await sales.turn(callSid, from, speech);
     reply = result.reply;
   } catch (err) {
     console.error('Sales voice turn failed:', err.message);
-    reply = "Sorry, I had a moment there — could you say that again?";
+    turnFailed = true;
+    reply = "Sorry, we're having a technical issue right now. Please call back in a few minutes — Roman will make sure you're taken care of.";
   }
 
   twiml.say({ voice: 'Polly.Joanna-Neural' }, reply);
+  if (turnFailed) {
+    twiml.hangup();
+    res.type('text/xml');
+    return res.send(twiml.toString());
+  }
   twiml.record({
     action: '/voice/sales/transcribe',
     method: 'POST',
