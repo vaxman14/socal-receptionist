@@ -579,12 +579,12 @@ app.post('/voice/sales', (req, res) => {
     input: 'speech',
     action: '/voice/sales/turn',
     method: 'POST',
-    speechTimeout: '3',
+    speechTimeout: 'auto',
     speechModel: 'phone_call',
     enhanced: 'true',
     language: 'en-US',
   });
-  gather.say({ voice: 'Google.en-US-Journey-F' }, greeting);
+  gather.say({ voice: 'Polly.Joanna-Neural' }, greeting);
   // If they say nothing, re-route into the turn handler so we can re-prompt.
   twiml.redirect({ method: 'POST' }, '/voice/sales/turn');
   res.type('text/xml');
@@ -603,7 +603,7 @@ app.post('/voice/sales/turn', async (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
 
   if (!callSid) {
-    twiml.say({ voice: 'Google.en-US-Journey-F' }, "Sorry, something went wrong on our end. Please call back in a moment.");
+    twiml.say({ voice: 'Polly.Joanna-Neural' }, "Sorry, something went wrong on our end. Please call back in a moment.");
     twiml.hangup();
     res.type('text/xml');
     return res.send(twiml.toString());
@@ -615,13 +615,13 @@ app.post('/voice/sales/turn', async (req, res) => {
       input: 'speech',
       action: '/voice/sales/turn',
       method: 'POST',
-      speechTimeout: '3',
+      speechTimeout: 'auto',
       speechModel: 'phone_call',
       enhanced: 'true',
       language: 'en-US',
     });
-    gather.say({ voice: 'Google.en-US-Journey-F' }, "Sorry, I didn't catch that. Are you still there?");
-    twiml.say({ voice: 'Google.en-US-Journey-F' }, "Looks like we got disconnected. Feel free to call back anytime.");
+    gather.say({ voice: 'Polly.Joanna-Neural' }, "Sorry, I didn't catch that. Are you still there?");
+    twiml.say({ voice: 'Polly.Joanna-Neural' }, "Looks like we got disconnected. Feel free to call back anytime.");
     twiml.hangup();
     res.type('text/xml');
     return res.send(twiml.toString());
@@ -640,12 +640,12 @@ app.post('/voice/sales/turn', async (req, res) => {
     input: 'speech',
     action: '/voice/sales/turn',
     method: 'POST',
-    speechTimeout: '3',
+    speechTimeout: 'auto',
     speechModel: 'phone_call',
     enhanced: 'true',
     language: 'en-US',
   });
-  gather.say({ voice: 'Google.en-US-Journey-F' }, reply);
+  gather.say({ voice: 'Polly.Joanna-Neural' }, reply);
   // If they go silent after our response, give them one more chance, then hang up.
   twiml.redirect({ method: 'POST' }, '/voice/sales/turn');
 
