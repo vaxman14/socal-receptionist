@@ -31,6 +31,12 @@ const config = {
     model: optional('OPENAI_MODEL', 'gpt-4o'),
   },
 
+  groq: {
+    apiKey: optional('GROQ_API_KEY', ''),
+    model: optional('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+    baseURL: 'https://api.groq.com/openai/v1',
+  },
+
   business: {
     name: required('BUSINESS_NAME'),
     hours: required('BUSINESS_HOURS'),
