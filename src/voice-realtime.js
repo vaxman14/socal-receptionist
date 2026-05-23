@@ -89,7 +89,7 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
         output_modalities: ['audio'],
         audio: {
           input: {
-            format: 'g711_ulaw',
+            format: { type: 'audio/pcmu' },
             turn_detection: {
               type: 'server_vad',
               silence_duration_ms: 700,
@@ -99,7 +99,7 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
             transcription: { model: 'whisper-1' },
           },
           output: {
-            format: 'g711_ulaw',
+            format: { type: 'audio/pcmu' },
             voice: 'alloy',
           },
         },
