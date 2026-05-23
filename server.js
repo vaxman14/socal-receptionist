@@ -7,6 +7,7 @@ const { isValidTwilioRequest } = require('./src/twilio');
 const consent = require('./src/consent');
 const { notifyDemoRequest, notifyOptIn, notifyEarlyAccess } = require('./src/email');
 const sales = require('./src/voice-sales');
+const whisper = require('./src/whisper');
 
 const app = express();
 
@@ -561,9 +562,8 @@ app.get('/support', (req, res) => {
   `));
 });
 
-// Twilio inbound voice webhook for the "test me now" sales line. Twilio
-// dials POST /voice/sales when a prospect calls. We greet them, gather
-// speech, and let voice-sales.js drive the AI conversation turn-by-turn.
+// Twilio inbound voice webhook for the "test me now" sales line.
+// Flow: greet → <Record> → /voice/sales/transcribe (Groq Whisper) → AI → repeat.
 app.post('/voice/sales', (req, res) => {
   if (!isValidTwilioRequest(req)) {
     console.warn('Rejected /voice/sales request: invalid Twilio signature');
@@ -575,53 +575,65 @@ app.post('/voice/sales', (req, res) => {
     "Hey, you've reached SoCal Receptionist — and yes, I'm an A.I. " +
     "I'm exactly what would answer calls for your business. " +
     "Mind if I ask your name first?";
-  const gather = twiml.gather({
-    input: 'speech',
-    action: '/voice/sales/turn',
+  twiml.say({ voice: 'Polly.Joanna-Neural' }, greeting);
+  twiml.record({
+    action: '/voice/sales/transcribe',
     method: 'POST',
-    speechTimeout: 'auto',
-    speechModel: 'phone_call',
-    enhanced: 'true',
-    language: 'en-US',
+    maxLength: 30,
+    timeout: 3,
+    playBeep: false,
+    finishOnKey: '',
+    trim: 'trim-silence',
   });
-  gather.say({ voice: 'Polly.Joanna-Neural' }, greeting);
-  // If they say nothing, re-route into the turn handler so we can re-prompt.
-  twiml.redirect({ method: 'POST' }, '/voice/sales/turn');
+  // Fallback if Twilio fires no recording (immediate silence)
+  twiml.redirect({ method: 'POST' }, '/voice/sales/transcribe');
   res.type('text/xml');
   res.send(twiml.toString());
 });
 
-app.post('/voice/sales/turn', async (req, res) => {
+// Receives the Twilio recording after the caller stops speaking.
+// Transcribes via Groq Whisper, runs the AI turn, and returns next <Say>+<Record>.
+app.post('/voice/sales/transcribe', async (req, res) => {
   if (!isValidTwilioRequest(req)) {
-    console.warn('Rejected /voice/sales/turn request: invalid Twilio signature');
+    console.warn('Rejected /voice/sales/transcribe request: invalid Twilio signature');
     return res.status(403).send('Invalid Twilio signature');
   }
 
   const callSid = req.body.CallSid;
   const from = req.body.From;
-  const speech = (req.body.SpeechResult || '').trim();
+  const recordingUrl = req.body.RecordingUrl || '';
+  const duration = parseInt(req.body.RecordingDuration || '0', 10);
   const twiml = new twilio.twiml.VoiceResponse();
 
   if (!callSid) {
-    twiml.say({ voice: 'Polly.Joanna-Neural' }, "Sorry, something went wrong on our end. Please call back in a moment.");
+    twiml.say({ voice: 'Polly.Joanna-Neural' }, "Sorry, something went wrong. Please call back.");
     twiml.hangup();
     res.type('text/xml');
     return res.send(twiml.toString());
   }
 
-  // Silence/timeout: ask once if they're still there, then hang up if still silent.
+  let speech = '';
+  if (recordingUrl && duration >= 1) {
+    try {
+      speech = await whisper.transcribe(recordingUrl);
+      if (speech) console.log(`[sales] CallSid=${callSid} transcribed: "${speech}"`);
+    } catch (err) {
+      console.error('Whisper transcription failed:', err.message);
+    }
+  }
+
   if (!speech) {
-    const gather = twiml.gather({
-      input: 'speech',
-      action: '/voice/sales/turn',
+    twiml.say({ voice: 'Polly.Joanna-Neural' }, "Sorry, I didn't catch that. Are you still there?");
+    twiml.record({
+      action: '/voice/sales/transcribe',
       method: 'POST',
-      speechTimeout: 'auto',
-      speechModel: 'phone_call',
-      enhanced: 'true',
-      language: 'en-US',
+      maxLength: 30,
+      timeout: 3,
+      playBeep: false,
+      finishOnKey: '',
+      trim: 'trim-silence',
     });
-    gather.say({ voice: 'Polly.Joanna-Neural' }, "Sorry, I didn't catch that. Are you still there?");
-    twiml.say({ voice: 'Polly.Joanna-Neural' }, "Looks like we got disconnected. Feel free to call back anytime.");
+    twiml.say({ voice: 'Polly.Joanna-Neural' }, "Feel free to call back anytime.");
     twiml.hangup();
     res.type('text/xml');
     return res.send(twiml.toString());
@@ -633,24 +645,27 @@ app.post('/voice/sales/turn', async (req, res) => {
     reply = result.reply;
   } catch (err) {
     console.error('Sales voice turn failed:', err.message);
-    reply = "Sorry, I had trouble there — could you say that again?";
+    reply = "Sorry, I had a moment there — could you say that again?";
   }
 
-  const gather = twiml.gather({
-    input: 'speech',
-    action: '/voice/sales/turn',
+  twiml.say({ voice: 'Polly.Joanna-Neural' }, reply);
+  twiml.record({
+    action: '/voice/sales/transcribe',
     method: 'POST',
-    speechTimeout: 'auto',
-    speechModel: 'phone_call',
-    enhanced: 'true',
-    language: 'en-US',
+    maxLength: 30,
+    timeout: 3,
+    playBeep: false,
+    finishOnKey: '',
+    trim: 'trim-silence',
   });
-  gather.say({ voice: 'Polly.Joanna-Neural' }, reply);
-  // If they go silent after our response, give them one more chance, then hang up.
-  twiml.redirect({ method: 'POST' }, '/voice/sales/turn');
-
+  twiml.redirect({ method: 'POST' }, '/voice/sales/transcribe');
   res.type('text/xml');
   res.send(twiml.toString());
+});
+
+// Keep old /voice/sales/turn alive so any in-flight Twilio requests don't 404.
+app.post('/voice/sales/turn', (req, res) => {
+  res.redirect(307, '/voice/sales/transcribe');
 });
 
 // Twilio status callback — fires when the call ends. We use this to send a
