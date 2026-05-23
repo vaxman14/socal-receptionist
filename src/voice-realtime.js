@@ -84,6 +84,7 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
     oaiWs.send(JSON.stringify({
       type: 'session.update',
       session: {
+        type: 'realtime',
         modalities: ['audio', 'text'],
         voice: 'alloy',
         input_audio_format: 'g711_ulaw',
