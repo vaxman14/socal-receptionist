@@ -93,7 +93,7 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
           },
           output: {
             format: { type: 'audio/pcmu' },
-            voice: 'alloy',
+            voice: 'marin',
           },
         },
         instructions: SYSTEM_PROMPT,
