@@ -3,7 +3,7 @@ const config = require('./config');
 const { notifySalesLead } = require('./email');
 const { sendTelegram } = require('./telegram');
 
-const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview';
+const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-realtime-2025-08-28';
 
 const SYSTEM_PROMPT = `You are Josi, the AI sales agent for SoCal Receptionist — an AI-powered 24/7 receptionist for small businesses in Southern California (Murrieta, Temecula, Riverside County area).
 
