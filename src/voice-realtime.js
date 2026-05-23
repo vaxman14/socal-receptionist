@@ -3,7 +3,7 @@ const config = require('./config');
 const { notifySalesLead } = require('./email');
 const { sendTelegram } = require('./telegram');
 
-const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01';
+const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17';
 
 const SYSTEM_PROMPT = `You are Josi, the AI sales agent for SoCal Receptionist — an AI-powered 24/7 receptionist for small businesses in Southern California (Murrieta, Temecula, Riverside County area).
 
@@ -64,8 +64,10 @@ function formatTelegramLead({ name, business, contact, pain_point, notes, fromNu
   ].join('\n');
 }
 
-function handleRealtimeCall(twilioWs, callSid, fromNumber) {
+function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
   let streamSid = null;
+  let callSid = callSidHint || 'unknown';
+  let fromNumber = fromNumberHint || '';
   let leadCaptured = false;
   let callEnded = false;
   const transcript = [];
@@ -73,7 +75,6 @@ function handleRealtimeCall(twilioWs, callSid, fromNumber) {
   const oaiWs = new WebSocket(REALTIME_URL, {
     headers: {
       'Authorization': `Bearer ${config.openai.apiKey}`,
-      'OpenAI-Beta': 'realtime=v1',
     },
   });
 
@@ -180,8 +181,13 @@ function handleRealtimeCall(twilioWs, callSid, fromNumber) {
 
     switch (msg.event) {
       case 'start':
-        streamSid = msg.start && msg.start.streamSid ? msg.start.streamSid : msg.streamSid;
-        console.log(`[voice-realtime] stream started callSid=${callSid} streamSid=${streamSid}`);
+        streamSid = (msg.start && msg.start.streamSid) || msg.streamSid;
+        // Twilio sends callSid and from directly in the start event — prefer these
+        if (msg.start && msg.start.callSid) callSid = msg.start.callSid;
+        if (msg.start && msg.start.customParameters && msg.start.customParameters.from) {
+          fromNumber = msg.start.customParameters.from;
+        }
+        console.log(`[voice-realtime] stream started callSid=${callSid} from=${fromNumber} streamSid=${streamSid}`);
         break;
 
       case 'media':

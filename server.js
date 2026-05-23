@@ -572,23 +572,18 @@ app.post('/voice/sales', (req, res) => {
   }
 
   const host = req.headers.host;
-  const from = encodeURIComponent(req.body.From || '');
-  const callSid = encodeURIComponent(req.body.CallSid || '');
-  // & must be &amp; inside XML attribute values
-  const streamUrl = `wss://${host}/voice/sales/stream?from=${from}&amp;callSid=${callSid}`;
+  const from = (req.body.From || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
   res.type('text/xml');
   res.send(
-    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="${streamUrl}"/></Connect></Response>`
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${host}/voice/sales/stream"><Parameter name="from" value="${from}"/></Stream></Connect></Response>`
   );
 });
 
 // WebSocket endpoint — Twilio Media Streams connects here after the above POST.
 // Bridges bidirectional mulaw audio between Twilio and OpenAI Realtime API.
-app.ws('/voice/sales/stream', (ws, req) => {
-  const fromNumber = decodeURIComponent(req.query.from || '');
-  const callSid = decodeURIComponent(req.query.callSid || 'unknown');
-  handleRealtimeCall(ws, callSid, fromNumber);
+app.ws('/voice/sales/stream', (ws) => {
+  handleRealtimeCall(ws);
 });
 
 // Twilio status callback — fires when the call ends. We use this to send a
