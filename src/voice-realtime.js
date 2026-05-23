@@ -3,7 +3,7 @@ const config = require('./config');
 const { notifySalesLead } = require('./email');
 const { sendTelegram } = require('./telegram');
 
-const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-realtime-2025-08-28';
+const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01';
 
 const SYSTEM_PROMPT = `You are Josi, the AI sales agent for SoCal Receptionist — an AI-powered 24/7 receptionist for small businesses in Southern California (Murrieta, Temecula, Riverside County area).
 
@@ -75,6 +75,7 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
   const oaiWs = new WebSocket(REALTIME_URL, {
     headers: {
       'Authorization': `Bearer ${config.openai.apiKey}`,
+      'OpenAI-Beta': 'realtime=v1',
     },
   });
 
@@ -84,25 +85,18 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
     oaiWs.send(JSON.stringify({
       type: 'session.update',
       session: {
-        type: 'realtime',
-        instructions: SYSTEM_PROMPT,
-        output_modalities: ['audio'],
-        audio: {
-          input: {
-            format: { type: 'audio/pcmu' },
-            turn_detection: {
-              type: 'server_vad',
-              silence_duration_ms: 700,
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-            },
-            transcription: { model: 'whisper-1' },
-          },
-          output: {
-            format: { type: 'audio/pcmu' },
-            voice: 'alloy',
-          },
+        modalities: ['audio', 'text'],
+        voice: 'alloy',
+        input_audio_format: 'g711_ulaw',
+        output_audio_format: 'g711_ulaw',
+        input_audio_transcription: { model: 'whisper-1' },
+        turn_detection: {
+          type: 'server_vad',
+          silence_duration_ms: 700,
+          threshold: 0.5,
+          prefix_padding_ms: 300,
         },
+        instructions: SYSTEM_PROMPT,
         tools: [CAPTURE_LEAD_TOOL],
         tool_choice: 'auto',
       },
