@@ -85,21 +85,26 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
       type: 'session.update',
       session: {
         type: 'realtime',
-        modalities: ['audio', 'text'],
-        voice: 'alloy',
-        input_audio_format: 'g711_ulaw',
-        output_audio_format: 'g711_ulaw',
-        input_audio_transcription: { model: 'whisper-1' },
-        turn_detection: {
-          type: 'server_vad',
-          silence_duration_ms: 700,
-          threshold: 0.5,
-          prefix_padding_ms: 300,
+        instructions: SYSTEM_PROMPT,
+        output_modalities: ['audio'],
+        audio: {
+          input: {
+            format: 'g711_ulaw',
+            turn_detection: {
+              type: 'server_vad',
+              silence_duration_ms: 700,
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+            },
+            transcription: { model: 'whisper-1' },
+          },
+          output: {
+            format: 'g711_ulaw',
+            voice: 'alloy',
+          },
         },
         tools: [CAPTURE_LEAD_TOOL],
         tool_choice: 'auto',
-        instructions: SYSTEM_PROMPT,
-        temperature: 0.6,
       },
     }));
 
