@@ -16,9 +16,8 @@ const config = require('./config');
 const { notifySalesLead } = require('./email');
 const { sendTelegram } = require('./telegram');
 
-const openai = config.groq.apiKey
-  ? new OpenAI({ apiKey: config.groq.apiKey, baseURL: config.groq.baseURL })
-  : new OpenAI({ apiKey: config.openai.apiKey });
+// Always use OpenAI for chat completions — Groq is only for Whisper STT (whisper.js).
+const openai = new OpenAI({ apiKey: config.openai.apiKey });
 
 const SYSTEM_PROMPT = `You are Josi, the AI sales agent for SoCal Receptionist — an AI-powered 24/7 receptionist for small businesses in Southern California (Murrieta, Temecula, Riverside County area).
 
@@ -95,7 +94,7 @@ setInterval(() => {
 
 async function complete(messages) {
   const response = await openai.chat.completions.create({
-    model: config.groq.apiKey ? config.groq.model : config.openai.model,
+    model: config.openai.model,
     messages,
     tools,
     temperature: 0.6,
