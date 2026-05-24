@@ -123,7 +123,7 @@ if (process.env.COMING_SOON === 'true') {
       <a class="number" href="tel:+19513958776" id="cta-call">(951) 395-8776</a>
       <div class="footnote">2-minute call. Roman follows up within 24 hours.</div>
     </div>
-    <a class="signup-btn" href="https://app.socalreceptionist.com">Get Started — Sign Up Now<small>Set up your AI receptionist in minutes</small></a>
+    <a class="signup-btn" href="https://socal-receptionist-v2-spbrw.ondigitalocean.app/register">Get Started — Sign Up Now<small>Set up your AI receptionist in minutes</small></a>
     <div class="divider"><span>or leave your info</span></div>
     <details>
       <summary>Prefer to leave info instead? &nbsp;↓</summary>
