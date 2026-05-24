@@ -6,6 +6,7 @@
 // single-dyno deployments, or as its own process via run-worker.js.
 
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const smsRouter = require('./sms/webhook');
@@ -55,6 +56,25 @@ app.use('/auth/mfa', mfaRouter);
 // into the client router's requireTenant middleware.
 app.use('/admin/owner', ownerAdminRouter);
 app.use('/admin', clientAdminRouter);
+
+// Serve the landing page (public/) and the React SPA (web/dist/).
+// API routes above take priority; everything else falls through to the SPA.
+const publicDir = path.join(__dirname, '../../public');
+const spaDir = path.join(__dirname, '../web/dist');
+
+app.use(express.static(publicDir));
+app.use(express.static(spaDir));
+
+// SPA fallback for /login, /signup, /dashboard, /app/* etc.
+const spaIndex = path.join(spaDir, 'index.html');
+const fs = require('fs');
+app.get(/^\/(login|signup|dashboard|app|settings|clients|onboarding-wizard)/, (req, res) => {
+  if (fs.existsSync(spaIndex)) {
+    res.sendFile(spaIndex);
+  } else {
+    res.status(503).send('App not built yet');
+  }
+});
 
 const port = Number(process.env.PORT) || 8080;
 app.listen(port, () => {
