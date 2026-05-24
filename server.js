@@ -88,6 +88,10 @@ if (process.env.COMING_SOON === 'true') {
     .call-card .number:hover{background:#d96a10}
     .call-card .number:active{transform:translateY(1px)}
     .call-card .footnote{font-size:.78rem;color:rgba(255,255,255,.55);margin-top:10px}
+    .signup-btn{display:block;max-width:380px;margin:18px auto 0;padding:16px 24px;background:linear-gradient(135deg,#f47c20,#e040a0);border-radius:12px;font-size:1.1rem;font-weight:700;color:#fff;text-decoration:none;letter-spacing:-.2px;transition:opacity .15s,transform .1s}
+    .signup-btn:hover{opacity:.9}
+    .signup-btn:active{transform:translateY(1px)}
+    .signup-btn small{display:block;font-size:.75rem;font-weight:500;opacity:.85;margin-top:3px}
     .divider{display:flex;align-items:center;max-width:340px;margin:14px auto 14px;color:rgba(255,255,255,.4);font-size:.75rem;text-transform:uppercase;letter-spacing:2px}
     .divider::before,.divider::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.15)}
     .divider span{padding:0 12px}
@@ -119,7 +123,8 @@ if (process.env.COMING_SOON === 'true') {
       <a class="number" href="tel:+19513958776" id="cta-call">(951) 395-8776</a>
       <div class="footnote">2-minute call. Roman follows up within 24 hours.</div>
     </div>
-    <div class="divider"><span>or</span></div>
+    <a class="signup-btn" href="https://app.socalreceptionist.com">Get Started — Sign Up Now<small>Set up your AI receptionist in minutes</small></a>
+    <div class="divider"><span>or leave your info</span></div>
     <details>
       <summary>Prefer to leave info instead? &nbsp;↓</summary>
       <form id="ea-form">
