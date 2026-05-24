@@ -50,16 +50,20 @@ const CAPTURE_LEAD_TOOL = {
   },
 };
 
+function escapeMd(str) {
+  return (str || '-').replace(/[_*`[]/g, '\\$&');
+}
+
 function formatTelegramLead({ name, business, contact, pain_point, notes, fromNumber, callSid }) {
   return [
     '🔥 *New sales lead from the test-me-now call!*',
     '',
-    `*Name:* ${name || '-'}`,
-    `*Business:* ${business || '-'}`,
-    `*Contact:* ${contact || '-'}`,
-    `*Pain point:* ${pain_point || '-'}`,
-    `*Notes:* ${notes || '-'}`,
-    `*Called from:* ${fromNumber || '-'}`,
+    `*Name:* ${escapeMd(name)}`,
+    `*Business:* ${escapeMd(business)}`,
+    `*Contact:* ${escapeMd(contact)}`,
+    `*Pain point:* ${escapeMd(pain_point)}`,
+    `*Notes:* ${escapeMd(notes)}`,
+    `*Called from:* ${escapeMd(fromNumber)}`,
     `*CallSid:* \`${callSid}\``,
   ].join('\n');
 }
@@ -70,6 +74,8 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
   let fromNumber = fromNumberHint || '';
   let leadCaptured = false;
   let callEnded = false;
+  let oaiReady = false;       // OpenAI session is configured and ready
+  let twilioStarted = false;  // Twilio stream start received
   const transcript = [];
 
   const oaiWs = new WebSocket(REALTIME_URL, {
@@ -77,6 +83,12 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
       'Authorization': `Bearer ${config.openai.apiKey}`,
     },
   });
+
+  function maybeStartGreeting() {
+    if (oaiReady && twilioStarted) {
+      oaiWs.send(JSON.stringify({ type: 'response.create' }));
+    }
+  }
 
   oaiWs.on('open', () => {
     console.log(`[voice-realtime] OpenAI WS open callSid=${callSid}`);
@@ -101,9 +113,6 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
         tool_choice: 'auto',
       },
     }));
-
-    // Kick off with the AI's opening greeting immediately
-    oaiWs.send(JSON.stringify({ type: 'response.create' }));
   });
 
   oaiWs.on('message', (raw) => {
@@ -137,6 +146,11 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
         }
         break;
 
+      case 'session.updated':
+        oaiReady = true;
+        maybeStartGreeting();
+        break;
+
       case 'error':
         console.error('[voice-realtime] OpenAI error:', JSON.stringify(msg.error));
         break;
@@ -144,6 +158,7 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
   });
 
   async function handleCaptureLead(callId, rawArgs) {
+    if (leadCaptured) return;
     let args = {};
     try { args = JSON.parse(rawArgs || '{}'); } catch {}
 
@@ -182,12 +197,13 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
     switch (msg.event) {
       case 'start':
         streamSid = (msg.start && msg.start.streamSid) || msg.streamSid;
-        // Twilio sends callSid and from directly in the start event — prefer these
         if (msg.start && msg.start.callSid) callSid = msg.start.callSid;
         if (msg.start && msg.start.customParameters && msg.start.customParameters.from) {
           fromNumber = msg.start.customParameters.from;
         }
         console.log(`[voice-realtime] stream started callSid=${callSid} from=${fromNumber} streamSid=${streamSid}`);
+        twilioStarted = true;
+        maybeStartGreeting();
         break;
 
       case 'media':
