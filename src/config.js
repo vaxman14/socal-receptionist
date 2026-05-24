@@ -22,8 +22,13 @@ const config = {
     accountSid: required('TWILIO_ACCOUNT_SID'),
     authToken: required('TWILIO_AUTH_TOKEN'),
     phoneNumber: required('TWILIO_PHONE_NUMBER'),
+    salesNumber: optional('TWILIO_SALES_NUMBER', ''),
     // Set TWILIO_VALIDATE_SIGNATURE=false only for local testing.
     validateSignature: optional('TWILIO_VALIDATE_SIGNATURE', 'true') !== 'false',
+  },
+
+  calendly: {
+    apiToken: optional('CALENDLY_API_TOKEN', ''),
   },
 
   openai: {

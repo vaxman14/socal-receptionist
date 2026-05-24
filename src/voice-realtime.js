@@ -3,6 +3,7 @@ const config = require('./config');
 const { notifySalesLead } = require('./email');
 const { sendTelegram } = require('./telegram');
 const { verifyStreamToken } = require('./stream-auth');
+const { getSchedulingUrl, sendBookingLink } = require('./calendly');
 
 const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-realtime-2';
 
@@ -19,7 +20,7 @@ Your job:
    - How many calls do you miss per week, or what's the biggest pain point?
    - Best email or callback number for Roman to send pricing to?
 4. Once you have name + business + contact (email or phone), call the capture_lead tool.
-5. After capture_lead returns, close warmly: "Perfect — Roman, our founder, will reach out within 24 hours with pricing and setup. Anything else before you go?"
+5. After capture_lead returns, ask: "Would you like me to text you a link right now so you can pick a time with Roman directly on his calendar?" If yes, call schedule_demo. If no, close normally: "Perfect — Roman will reach out within 24 hours. Anything else before you go?"
 6. If they ask about pricing, say: "$1,500 setup, $500/month — Roman can walk you through it. I'll have him follow up."
 7. If they push for human now, call capture_lead with what you have and tell them Roman will call back today.
 
@@ -51,6 +52,17 @@ const CAPTURE_LEAD_TOOL = {
   },
 };
 
+const SCHEDULE_DEMO_TOOL = {
+  type: 'function',
+  name: 'schedule_demo',
+  description: 'Text the caller a Calendly link to self-book a demo with Roman. Call this after capture_lead when the caller says yes to receiving a booking link.',
+  parameters: {
+    type: 'object',
+    properties: {},
+    required: [],
+  },
+};
+
 function escapeMd(str) {
   return (str || '-').replace(/[_*`[]/g, '\\$&');
 }
@@ -77,6 +89,7 @@ function handleRealtimeCall(twilioWs) {
   let leadCaptured = false;
   let callEnded = false;
   let oaiWs = null;
+  let schedulingUrl = null;
   const audioBuffer = []; // buffer audio arriving between 'start' and OpenAI open
   const transcript = [];
 
@@ -106,7 +119,7 @@ function handleRealtimeCall(twilioWs) {
             },
           },
           instructions: SYSTEM_PROMPT,
-          tools: [CAPTURE_LEAD_TOOL],
+          tools: [CAPTURE_LEAD_TOOL, SCHEDULE_DEMO_TOOL],
           tool_choice: 'auto',
         },
       }));
@@ -145,6 +158,8 @@ function handleRealtimeCall(twilioWs) {
         case 'response.function_call_arguments.done':
           if (msg.name === 'capture_lead') {
             handleCaptureLead(msg.call_id, msg.arguments);
+          } else if (msg.name === 'schedule_demo') {
+            handleScheduleDemo(msg.call_id);
           }
           break;
 
@@ -184,16 +199,47 @@ function handleRealtimeCall(twilioWs) {
     };
 
     notifySalesLead(payload).catch(err => console.error('Sales lead email failed:', err.message));
+
+    // Fetch Calendly URL in parallel with notifications
+    schedulingUrl = await getSchedulingUrl().catch(() => null);
+
     sendTelegram(formatTelegramLead(payload)).catch(err => console.error('Sales lead Telegram failed:', err.message));
 
     if (oaiWs && oaiWs.readyState === WebSocket.OPEN) {
+      const bookingReady = schedulingUrl
+        ? 'A Calendly booking link is ready to text them. Ask: "Would you like me to text you a link so you can pick a time with Roman directly on his calendar?"'
+        : 'Close warmly: "Roman will reach out within 24 hours with pricing and next steps. Anything else before you go?"';
       oaiWs.send(JSON.stringify({
         type: 'conversation.item.create',
         item: {
           type: 'function_call_output',
           call_id: callId,
-          output: 'Lead captured and Roman has been notified by email + Telegram. Close warmly and ask if there is anything else before they hang up.',
+          output: `Lead captured. Roman notified by email and Telegram. ${bookingReady}`,
         },
+      }));
+      oaiWs.send(JSON.stringify({ type: 'response.create' }));
+    }
+  }
+
+  async function handleScheduleDemo(callId) {
+    const url = schedulingUrl || await getSchedulingUrl().catch(() => null);
+    let output;
+
+    if (!url) {
+      output = 'Unable to retrieve booking link. Tell them: "Roman will reach out within 24 hours to get something on the calendar."';
+    } else {
+      const result = await sendBookingLink(fromNumber, url);
+      if (result.success) {
+        output = 'Booking link sent via SMS successfully. Tell them: "I just texted you a link — grab a time that works for you and Roman will be ready for the call!"';
+      } else {
+        output = `SMS failed (${result.error}). Tell them verbally: "You can book directly at socalreceptionist.com — Roman will also follow up within 24 hours."`;
+      }
+    }
+
+    if (oaiWs && oaiWs.readyState === WebSocket.OPEN) {
+      oaiWs.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: { type: 'function_call_output', call_id: callId, output },
       }));
       oaiWs.send(JSON.stringify({ type: 'response.create' }));
     }
