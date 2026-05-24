@@ -41,11 +41,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
 });
 
-// Temporary Google OAuth callback — captures refresh token, log it, then self-destruct after first use
-let _gcalAuthUsed = false;
+// Temporary Google OAuth callback — captures refresh tokens for multiple accounts
 app.get('/auth/google-callback', async (req, res) => {
-  if (_gcalAuthUsed) return res.send('Already used. Check app logs.');
   const code = req.query.code;
+  const state = req.query.state || 'unknown';
   if (!code) return res.send('No code in request.');
   try {
     const { google } = require('googleapis');
@@ -55,9 +54,8 @@ app.get('/auth/google-callback', async (req, res) => {
       'https://www.socalreceptionist.com/auth/google-callback'
     );
     const { tokens } = await oauth2.getToken(code);
-    _gcalAuthUsed = true;
-    console.log('[google-auth] REFRESH_TOKEN=' + tokens.refresh_token);
-    res.send('<h2>Authorized! ✅</h2><p>Josi has the refresh token. You can close this tab.</p>');
+    console.log(`[google-auth] ACCOUNT=${state} REFRESH_TOKEN=${tokens.refresh_token}`);
+    res.send(`<h2>Authorized ${state}! ✅</h2><p>Josi has the token. Close this tab and authorize the next account.</p>`);
   } catch (err) {
     res.send('Error: ' + err.message);
   }
