@@ -41,6 +41,28 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
 });
 
+// Temporary Google OAuth callback — captures refresh token, log it, then self-destruct after first use
+let _gcalAuthUsed = false;
+app.get('/auth/google-callback', async (req, res) => {
+  if (_gcalAuthUsed) return res.send('Already used. Check app logs.');
+  const code = req.query.code;
+  if (!code) return res.send('No code in request.');
+  try {
+    const { google } = require('googleapis');
+    const oauth2 = new google.auth.OAuth2(
+      config.gcal.clientId,
+      config.gcal.clientSecret,
+      'https://www.socalreceptionist.com/auth/google-callback'
+    );
+    const { tokens } = await oauth2.getToken(code);
+    _gcalAuthUsed = true;
+    console.log('[google-auth] REFRESH_TOKEN=' + tokens.refresh_token);
+    res.send('<h2>Authorized! ✅</h2><p>Josi has the refresh token. You can close this tab.</p>');
+  } catch (err) {
+    res.send('Error: ' + err.message);
+  }
+});
+
 // Coming Soon mode — must be before static middleware so it intercepts /
 if (process.env.COMING_SOON === 'true') {
   app.get('*', (req, res, next) => {
