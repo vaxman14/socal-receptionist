@@ -35,12 +35,29 @@ function rateLimit(maxHits, windowMs) {
   };
 }
 
-// --- Call tokens: ties POST /voice/sales metadata to the WS stream (one-time, 30s TTL) ---
-const _callTokens = new Map();
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, v] of _callTokens) if (v.expires < now) _callTokens.delete(k);
-}, 30_000).unref();
+// --- Stateless stream tokens (HMAC-signed) ---
+// Works across multiple instances — no shared Map needed.
+// Uses the OpenAI API key as the HMAC secret (already in env, never rotates mid-deploy).
+function makeStreamToken(callSid, from) {
+  const exp = Date.now() + 30_000;
+  const payload = Buffer.from(JSON.stringify({ callSid, from, exp })).toString('base64url');
+  const sig = crypto.createHmac('sha256', config.openai.apiKey).update(payload).digest('base64url');
+  return `${payload}.${sig}`;
+}
+function verifyStreamToken(raw) {
+  if (!raw) return null;
+  const dot = raw.lastIndexOf('.');
+  if (dot < 1) return null;
+  const payload = raw.slice(0, dot);
+  const sig = raw.slice(dot + 1);
+  const expected = crypto.createHmac('sha256', config.openai.apiKey).update(payload).digest('base64url');
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    if (!data.exp || data.exp < Date.now()) return null;
+    return data;
+  } catch { return null; }
+}
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
@@ -599,29 +616,24 @@ app.post('/voice/sales', rateLimit(5, 60_000), (req, res) => {
   const rawFrom = req.body.From || '';
   const callSid = req.body.CallSid || '';
 
-  // Mint a short-lived token so the WS handler can authenticate without re-checking
-  // the Twilio signature (WS upgrades don't carry POST body/headers).
-  const token = crypto.randomBytes(16).toString('hex');
-  _callTokens.set(token, { callSid, from: rawFrom, expires: Date.now() + 30_000 });
-
+  const token = makeStreamToken(callSid, rawFrom);
   const safeFrom = rawFrom.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   res.type('text/xml');
   res.send(
-    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${host}/voice/sales/stream?t=${token}"><Parameter name="from" value="${safeFrom}"/></Stream></Connect></Response>`
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${host}/voice/sales/stream?t=${encodeURIComponent(token)}"><Parameter name="from" value="${safeFrom}"/></Stream></Connect></Response>`
   );
 });
 
 // WebSocket endpoint — Twilio Media Streams connects here after the above POST.
-// Validates the one-time token before starting the OpenAI Realtime bridge.
+// HMAC token verified stateless — works across multiple instances.
 app.ws('/voice/sales/stream', (ws, req) => {
-  const token = req.query && req.query.t;
-  const meta = token ? _callTokens.get(token) : null;
-  if (!meta || meta.expires < Date.now()) {
-    console.warn('[voice-realtime] rejected WS: missing or expired token');
+  const raw = req.query && req.query.t;
+  const meta = verifyStreamToken(raw);
+  if (!meta) {
+    console.warn('[voice-realtime] rejected WS: invalid or expired token');
     ws.close(1008, 'Unauthorized');
     return;
   }
-  _callTokens.delete(token); // one-time use — replay protection
   handleRealtimeCall(ws, meta.callSid, meta.from);
 });
 
