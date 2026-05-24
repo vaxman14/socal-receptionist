@@ -5,18 +5,61 @@ const config = require('./src/config');
 const { handleMessage } = require('./src/ai');
 const { isValidTwilioRequest } = require('./src/twilio');
 const consent = require('./src/consent');
-const { notifyDemoRequest, notifyOptIn } = require('./src/email');
+const { notifyDemoRequest, notifyOptIn, notifyEarlyAccess } = require('./src/email');
+const { handleRealtimeCall } = require('./src/voice-realtime');
+const { makeStreamToken } = require('./src/stream-auth');
+const emailPoller = require('./src/email-poller');
+const crypto = require('crypto');
 
 const app = express();
+require('express-ws')(app);
 
-// Required so req.protocol resolves to https behind the DigitalOcean proxy,
-// which keeps Twilio signature validation correct.
-app.set('trust proxy', true);
+// Trust only the first proxy (DigitalOcean LB). `true` would trust any forged X-Forwarded-For.
+app.set('trust proxy', 1);
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
+// --- Rate limiting (in-memory, sliding window, per-IP) ---
+const _rlStore = new Map();
+setInterval(() => {
+  const cutoff = Date.now() - 3_600_000;
+  for (const [k, hits] of _rlStore) if (!hits.length || hits[hits.length - 1] < cutoff) _rlStore.delete(k);
+}, 300_000).unref();
+function rateLimit(maxHits, windowMs) {
+  return (req, res, next) => {
+    const key = `${req.path}:${req.ip}`;
+    const now = Date.now();
+    const hits = (_rlStore.get(key) || []).filter(t => t > now - windowMs);
+    if (hits.length >= maxHits) return res.status(429).type('text/plain').send('Too many requests. Try again later.');
+    hits.push(now);
+    _rlStore.set(key, hits);
+    next();
+  };
+}
+
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
+});
+
+// Temporary Google OAuth callback — captures refresh tokens for multiple accounts
+app.get('/auth/google-callback', async (req, res) => {
+  const code = req.query.code;
+  const state = req.query.state || 'unknown';
+  if (!code) return res.send('No code in request.');
+  try {
+    const { google } = require('googleapis');
+    const oauth2 = new google.auth.OAuth2(
+      config.gcal.clientId,
+      config.gcal.clientSecret,
+      'https://www.socalreceptionist.com/auth/google-callback'
+    );
+    const { tokens } = await oauth2.getToken(code);
+    console.log(`[google-auth] ACCOUNT=${state} REFRESH_TOKEN=${tokens.refresh_token}`);
+    res.send(`<h2>Authorized ${state}! ✅</h2><p>Josi has the token. Close this tab and authorize the next account.</p>`);
+  } catch (err) {
+    res.send('Error: ' + err.message);
+  }
 });
 
 // Coming Soon mode — must be before static middleware so it intercepts /
@@ -34,21 +77,78 @@ if (process.env.COMING_SOON === 'true') {
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1f3d;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
-    .logo{font-size:1.6rem;font-weight:800;margin-bottom:32px;background:linear-gradient(90deg,#f47c20,#e040a0,#9c40e0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-0.5px}
+    .logo{font-size:1.6rem;font-weight:800;margin-bottom:28px;background:linear-gradient(90deg,#f47c20,#e040a0,#9c40e0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-0.5px}
     .logo span{-webkit-text-fill-color:rgba(255,255,255,0.85);font-size:0.55em;font-weight:600;letter-spacing:2px;text-transform:uppercase;display:block;margin-top:2px}
-    h1{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;margin-bottom:16px}
-    p{font-size:1.1rem;color:rgba(255,255,255,0.7);max-width:440px;line-height:1.6;margin:0 auto 32px}
-    a{display:inline-block;background:#f47c20;color:#fff;padding:14px 28px;border-radius:8px;font-weight:700;text-decoration:none;font-size:1rem}
-    a:hover{background:#d96a10}
+    h1{font-size:clamp(1.9rem,4.5vw,3rem);font-weight:800;margin-bottom:14px;line-height:1.15}
+    .sub{font-size:1.05rem;color:rgba(255,255,255,0.72);max-width:460px;line-height:1.55;margin:0 auto 28px}
+    .call-card{max-width:380px;margin:0 auto 24px;padding:22px 22px 20px;border-radius:14px;background:linear-gradient(135deg,rgba(244,124,32,.18),rgba(224,64,160,.14),rgba(156,64,224,.18));border:1px solid rgba(244,124,32,.35)}
+    .call-card .label{font-size:.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#f47c20;margin-bottom:8px}
+    .call-card .tagline{font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:14px;line-height:1.35}
+    .call-card .number{display:block;font-size:1.65rem;font-weight:800;color:#fff;text-decoration:none;letter-spacing:-.5px;padding:14px 18px;background:#f47c20;border-radius:10px;transition:background .15s,transform .1s}
+    .call-card .number:hover{background:#d96a10}
+    .call-card .number:active{transform:translateY(1px)}
+    .call-card .footnote{font-size:.78rem;color:rgba(255,255,255,.55);margin-top:10px}
+    .divider{display:flex;align-items:center;max-width:340px;margin:14px auto 14px;color:rgba(255,255,255,.4);font-size:.75rem;text-transform:uppercase;letter-spacing:2px}
+    .divider::before,.divider::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.15)}
+    .divider span{padding:0 12px}
+    details{max-width:340px;margin:0 auto;text-align:left}
+    summary{cursor:pointer;text-align:center;color:rgba(255,255,255,.75);font-size:.9rem;padding:8px;list-style:none;outline:none}
+    summary::-webkit-details-marker{display:none}
+    summary:hover{color:#fff}
+    details[open] summary{margin-bottom:10px}
+    form{display:flex;flex-direction:column;gap:10px}
+    input{width:100%;padding:13px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.06);color:#fff;font-size:1rem;font-family:inherit}
+    input::placeholder{color:rgba(255,255,255,0.45)}
+    input:focus{outline:none;border-color:#e040a0;background:rgba(255,255,255,0.1)}
+    button{width:100%;margin-top:4px;background:transparent;color:#fff;padding:13px 24px;border:1px solid rgba(255,255,255,0.4);border-radius:8px;font-weight:600;font-size:.95rem;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s}
+    button:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.7)}
+    button:disabled{opacity:0.5;cursor:default}
+    .msg{font-size:0.9rem;max-width:340px;margin:14px auto 0;min-height:1.2em}
+    .msg.ok{color:#4ade80}
+    .msg.err{color:#f87171}
   </style>
 </head>
 <body>
   <div>
     <div class="logo">SoCal<span>Receptionist</span></div>
-    <h1>Something big is coming.</h1>
-    <p>SoCal Receptionist — AI-powered 24/7 SMS answering for Temecula Valley small businesses. Launching soon.</p>
-    <a href="mailto:info@socalreceptionist.com">Get Early Access</a>
+    <h1>Don't read about it.<br>Call the AI yourself.</h1>
+    <p class="sub">Tap the number. Our AI receptionist will answer, pitch you on what it does, and book your demo — exactly like it would for your business 24/7.</p>
+    <div class="call-card">
+      <div class="label">Test me now</div>
+      <div class="tagline">Talk to the AI that would answer your calls.</div>
+      <a class="number" href="tel:+19513958776" id="cta-call">(951) 395-8776</a>
+      <div class="footnote">2-minute call. Roman follows up within 24 hours.</div>
+    </div>
+    <div class="divider"><span>or</span></div>
+    <details>
+      <summary>Prefer to leave info instead? &nbsp;↓</summary>
+      <form id="ea-form">
+        <input type="text" name="name" placeholder="Your name" required>
+        <input type="text" name="business" placeholder="Business name">
+        <input type="email" name="email" placeholder="Email address" required>
+        <input type="tel" name="phone" placeholder="Phone (optional)">
+        <button type="submit">Get Early Access</button>
+      </form>
+      <p id="ea-msg" class="msg"></p>
+    </details>
   </div>
+  <script>
+    var f=document.getElementById('ea-form'),m=document.getElementById('ea-msg');
+    f.addEventListener('submit',function(e){
+      e.preventDefault();
+      var b=f.querySelector('button');
+      var data={name:f.elements['name'].value.trim(),business:f.elements['business'].value.trim(),email:f.elements['email'].value.trim(),phone:f.elements['phone'].value.trim()};
+      if(!data.name||!data.email){m.className='msg err';m.textContent='Please enter your name and email.';return;}
+      b.disabled=true;b.textContent='Sending...';m.className='msg';m.textContent='';
+      fetch('/early-access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+        .then(function(r){return r.json();})
+        .then(function(j){
+          if(j&&j.ok){f.style.display='none';m.className='msg ok';m.textContent='Thanks — you are on the list. We will reach out the moment we launch.';}
+          else{throw new Error('fail');}
+        })
+        .catch(function(){b.disabled=false;b.textContent='Get Early Access';m.className='msg err';m.textContent='Something went wrong. Try again or email info@socalreceptionist.com.';});
+    });
+  </script>
 </body>
 </html>`);
   });
@@ -114,7 +214,7 @@ app.get('/robots.txt', (req, res) => {
 });
 
 // Landing page demo request form
-app.post('/demo', async (req, res) => {
+app.post('/demo', rateLimit(5, 15 * 60_000), async (req, res) => {
   const { name, business, phone, type } = req.body;
   if (!name || !phone) return res.status(400).json({ error: 'Missing required fields' });
 
@@ -130,6 +230,20 @@ app.post('/demo', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('Demo notification email failed:', err.message);
+    res.status(500).json({ error: 'Email failed' });
+  }
+});
+
+// Coming-soon page early-access capture form
+app.post('/early-access', rateLimit(5, 15 * 60_000), async (req, res) => {
+  const { name, business, email, phone } = req.body;
+  if (!name || !email) return res.status(400).json({ error: 'Missing required fields' });
+
+  try {
+    await notifyEarlyAccess({ name, business, email, phone });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Early-access notification email failed:', err.message);
     res.status(500).json({ error: 'Email failed' });
   }
 });
@@ -489,9 +603,52 @@ app.get('/support', (req, res) => {
   `));
 });
 
+// Twilio inbound voice webhook for the "test me now" sales line.
+// Generates a one-time token so the WS stream can verify it came from a real Twilio POST.
+app.post('/voice/sales', rateLimit(5, 60_000), (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    console.warn('Rejected /voice/sales request: invalid Twilio signature');
+    return res.status(403).send('Invalid Twilio signature');
+  }
+
+  const host = req.headers.host;
+  const rawFrom = req.body.From || '';
+  const callSid = req.body.CallSid || '';
+
+  const token = makeStreamToken(callSid, rawFrom);
+  const safeFrom = rawFrom.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  // Auth passed as a Parameter (not URL query) — DO strips query params from WS upgrades
+  res.type('text/xml');
+  res.send(
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${host}/voice/sales/stream"><Parameter name="from" value="${safeFrom}"/><Parameter name="auth" value="${token}"/></Stream></Connect></Response>`
+  );
+});
+
+// WebSocket endpoint — auth token arrives in the Twilio 'start' event (customParameters.auth),
+// not in the URL (DO strips WS query params). voice-realtime.js verifies it before connecting OpenAI.
+app.ws('/voice/sales/stream', (ws) => {
+  handleRealtimeCall(ws);
+});
+
+// Twilio status callback — fires when the call ends. We use this to send a
+// "partial" lead notification if the caller hung up before we captured them.
+app.post('/voice/sales/status', async (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    console.warn('Rejected /voice/sales/status request: invalid Twilio signature');
+    return res.status(403).send('Invalid Twilio signature');
+  }
+  const callSid = req.body.CallSid;
+  const from = req.body.From;
+  const status = req.body.CallStatus;
+  const duration = parseInt(req.body.CallDuration || '0', 10);
+
+  // Realtime module handles partial leads on WebSocket close — nothing to do here.
+  res.sendStatus(204);
+});
+
 // Twilio inbound SMS webhook. Twilio POSTs the message here and expects a
 // TwiML response, which it delivers back to the customer as the outbound SMS.
-app.post('/sms', async (req, res) => {
+app.post('/sms', rateLimit(30, 60_000), async (req, res) => {
   if (!isValidTwilioRequest(req)) {
     console.warn('Rejected request: invalid Twilio signature');
     return res.status(403).send('Invalid Twilio signature');
@@ -563,4 +720,5 @@ app.listen(config.port, () => {
   console.log(
     `SoCal Receptionist for "${config.business.name}" listening on port ${config.port}`
   );
+  emailPoller.start();
 });

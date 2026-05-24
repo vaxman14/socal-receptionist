@@ -22,13 +22,32 @@ const config = {
     accountSid: required('TWILIO_ACCOUNT_SID'),
     authToken: required('TWILIO_AUTH_TOKEN'),
     phoneNumber: required('TWILIO_PHONE_NUMBER'),
+    salesNumber: optional('TWILIO_SALES_NUMBER', ''),
     // Set TWILIO_VALIDATE_SIGNATURE=false only for local testing.
     validateSignature: optional('TWILIO_VALIDATE_SIGNATURE', 'true') !== 'false',
+  },
+
+  calendly: {
+    apiToken: optional('CALENDLY_API_TOKEN', ''),
+  },
+
+  gcal: {
+    clientId: optional('GOOGLE_CLIENT_ID', ''),
+    clientSecret: optional('GOOGLE_CLIENT_SECRET', ''),
+    refreshToken: optional('GOOGLE_REFRESH_TOKEN', ''),
+    refreshTokenInfo: optional('GOOGLE_REFRESH_TOKEN_INFO', ''),
+    refreshTokenSupport: optional('GOOGLE_REFRESH_TOKEN_SUPPORT', ''),
   },
 
   openai: {
     apiKey: required('OPENAI_API_KEY'),
     model: optional('OPENAI_MODEL', 'gpt-4o'),
+  },
+
+  groq: {
+    apiKey: optional('GROQ_API_KEY', ''),
+    model: optional('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+    baseURL: 'https://api.groq.com/openai/v1',
   },
 
   business: {
