@@ -1,9 +1,9 @@
 const WebSocket = require('ws');
 const config = require('./config');
-const { notifySalesLead } = require('./email');
+const { notifySalesLead, sendCalendarInvite } = require('./email');
 const { sendTelegram } = require('./telegram');
 const { verifyStreamToken } = require('./stream-auth');
-const { getSchedulingUrl, sendBookingLink } = require('./calendly');
+const { getAvailableTimes, getSchedulingUrl } = require('./calendly');
 
 const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-realtime-2';
 
@@ -20,7 +20,8 @@ Your job:
    - How many calls do you miss per week, or what's the biggest pain point?
    - Best email or callback number for Roman to send pricing to?
 4. Once you have name + business + contact (email or phone), call the capture_lead tool.
-5. After capture_lead returns, ask: "Would you like me to text you a link right now so you can pick a time with Roman directly on his calendar?" If yes, call schedule_demo. If no, close normally: "Perfect — Roman will reach out within 24 hours. Anything else before you go?"
+5. After capture_lead returns, it will tell you Roman's available times. Read them off one by one and ask which works. Once they pick a slot, ask for their email address so you can send the calendar invite. Then call schedule_meeting with their choice and email.
+5b. If they don't have their email handy, offer to have Roman call them back instead and close warmly.
 6. If they ask about pricing, say: "$1,500 setup, $500/month — Roman can walk you through it. I'll have him follow up."
 7. If they push for human now, call capture_lead with what you have and tell them Roman will call back today.
 
@@ -52,14 +53,18 @@ const CAPTURE_LEAD_TOOL = {
   },
 };
 
-const SCHEDULE_DEMO_TOOL = {
+const SCHEDULE_MEETING_TOOL = {
   type: 'function',
-  name: 'schedule_demo',
-  description: 'Text the caller a Calendly link to self-book a demo with Roman. Call this after capture_lead when the caller says yes to receiving a booking link.',
+  name: 'schedule_meeting',
+  description: 'Book a 30-minute demo call on Roman\'s calendar. Call this once you have the caller\'s chosen time slot and their email address. This sends a real calendar invite to both the caller and Roman.',
   parameters: {
     type: 'object',
-    properties: {},
-    required: [],
+    properties: {
+      slot_index: { type: 'number', description: '0, 1, or 2 — index of the slot they chose from the list returned by capture_lead' },
+      caller_email: { type: 'string', description: "Caller's email address for the calendar invite" },
+      caller_name: { type: 'string', description: "Caller's full name" },
+    },
+    required: ['slot_index', 'caller_email', 'caller_name'],
   },
 };
 
@@ -89,7 +94,7 @@ function handleRealtimeCall(twilioWs) {
   let leadCaptured = false;
   let callEnded = false;
   let oaiWs = null;
-  let schedulingUrl = null;
+  let availableSlots = []; // { start, label }[]
   const audioBuffer = []; // buffer audio arriving between 'start' and OpenAI open
   const transcript = [];
 
@@ -119,7 +124,7 @@ function handleRealtimeCall(twilioWs) {
             },
           },
           instructions: SYSTEM_PROMPT,
-          tools: [CAPTURE_LEAD_TOOL, SCHEDULE_DEMO_TOOL],
+          tools: [CAPTURE_LEAD_TOOL, SCHEDULE_MEETING_TOOL],
           tool_choice: 'auto',
         },
       }));
@@ -158,8 +163,8 @@ function handleRealtimeCall(twilioWs) {
         case 'response.function_call_arguments.done':
           if (msg.name === 'capture_lead') {
             handleCaptureLead(msg.call_id, msg.arguments);
-          } else if (msg.name === 'schedule_demo') {
-            handleScheduleDemo(msg.call_id);
+          } else if (msg.name === 'schedule_meeting') {
+            handleScheduleMeeting(msg.call_id, msg.arguments);
           }
           break;
 
@@ -198,41 +203,57 @@ function handleRealtimeCall(twilioWs) {
       callSid,
     };
 
-    notifySalesLead(payload).catch(err => console.error('Sales lead email failed:', err.message));
-
-    // Fetch Calendly URL in parallel with notifications
-    schedulingUrl = await getSchedulingUrl().catch(() => null);
-
-    sendTelegram(formatTelegramLead(payload)).catch(err => console.error('Sales lead Telegram failed:', err.message));
+    // Fetch availability and send notifications in parallel
+    [availableSlots] = await Promise.all([
+      getAvailableTimes(3).catch(() => []),
+      notifySalesLead(payload).catch(err => console.error('Sales lead email failed:', err.message)),
+      sendTelegram(formatTelegramLead(payload)).catch(err => console.error('Sales lead Telegram failed:', err.message)),
+    ]);
 
     if (oaiWs && oaiWs.readyState === WebSocket.OPEN) {
-      const bookingReady = schedulingUrl
-        ? 'A Calendly booking link is ready to text them. Ask: "Would you like me to text you a link so you can pick a time with Roman directly on his calendar?"'
-        : 'Close warmly: "Roman will reach out within 24 hours with pricing and next steps. Anything else before you go?"';
+      let slotText;
+      if (availableSlots.length > 0) {
+        const list = availableSlots.map((s, i) => `${i + 1}. ${s.label}`).join('\n');
+        slotText = `Here are Roman's next available times:\n${list}\n\nAsk which slot works for them, then get their email to send the calendar invite, then call schedule_meeting.`;
+      } else {
+        slotText = 'No open slots found on Calendly right now. Close warmly: "Roman will reach out within 24 hours to get something on the calendar."';
+      }
+
       oaiWs.send(JSON.stringify({
         type: 'conversation.item.create',
         item: {
           type: 'function_call_output',
           call_id: callId,
-          output: `Lead captured. Roman notified by email and Telegram. ${bookingReady}`,
+          output: `Lead captured. Roman notified. ${slotText}`,
         },
       }));
       oaiWs.send(JSON.stringify({ type: 'response.create' }));
     }
   }
 
-  async function handleScheduleDemo(callId) {
-    const url = schedulingUrl || await getSchedulingUrl().catch(() => null);
-    let output;
+  async function handleScheduleMeeting(callId, rawArgs) {
+    let args = {};
+    try { args = JSON.parse(rawArgs || '{}'); } catch {}
 
-    if (!url) {
-      output = 'Unable to retrieve booking link. Tell them: "Roman will reach out within 24 hours to get something on the calendar."';
+    const { slot_index = 0, caller_email, caller_name } = args;
+    const slot = availableSlots[slot_index];
+
+    let output;
+    if (!slot || !caller_email) {
+      output = 'Missing slot or email — tell them Roman will follow up within 24 hours to confirm the time.';
     } else {
-      const result = await sendBookingLink(fromNumber, url);
-      if (result.success) {
-        output = 'Booking link sent via SMS successfully. Tell them: "I just texted you a link — grab a time that works for you and Roman will be ready for the call!"';
-      } else {
-        output = `SMS failed (${result.error}). Tell them verbally: "You can book directly at socalreceptionist.com — Roman will also follow up within 24 hours."`;
+      try {
+        await sendCalendarInvite({
+          callerName: caller_name || 'there',
+          callerEmail: caller_email,
+          startIso: slot.start,
+          hostEmail: 'vaxman14@gmail.com',
+          hostName: 'Roman Vaxman',
+        });
+        output = `Calendar invite sent to ${caller_email} for ${slot.label}. Confirm warmly: "Done! You'll get a calendar invite in your inbox in the next minute. We're all set for ${slot.label}. Anything else before you go?"`;
+      } catch (err) {
+        console.error('[voice-realtime] sendCalendarInvite failed:', err.message);
+        output = `Email failed. Tell them verbally: "The invite is booked for ${slot.label} — Roman will send a calendar confirmation to your email shortly."`;
       }
     }
 

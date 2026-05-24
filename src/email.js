@@ -198,4 +198,55 @@ async function notifySalesLead({ name, business, contact, pain_point, notes, fro
   await send({ subject, text, html });
 }
 
-module.exports = { notifyOwner, notifyOptIn, notifyLead, notifyFollowup, notifyDemoRequest, notifyEarlyAccess, notifySalesLead };
+async function sendCalendarInvite({ callerName, callerEmail, startIso, hostEmail, hostName }) {
+  const start = new Date(startIso);
+  const end = new Date(start.getTime() + 30 * 60 * 1000);
+
+  function icsDate(d) {
+    return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  }
+
+  const uid = `socal-demo-${Date.now()}@socalreceptionist.com`;
+  const now = icsDate(new Date());
+  const label = start.toLocaleString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+    timeZone: 'America/Los_Angeles', timeZoneName: 'short',
+  });
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//SoCal Receptionist//AI Receptionist//EN',
+    'METHOD:REQUEST',
+    'BEGIN:VEVENT',
+    `DTSTART:${icsDate(start)}`,
+    `DTEND:${icsDate(end)}`,
+    `DTSTAMP:${now}`,
+    `UID:${uid}`,
+    'SUMMARY:SoCal Receptionist Demo Call',
+    `DESCRIPTION:30-minute demo with ${hostName || 'Roman'} at SoCal Receptionist. He'll walk you through how the AI receptionist works and answer any questions.`,
+    `ORGANIZER;CN="SoCal Receptionist":mailto:${config.email.user}`,
+    `ATTENDEE;CN="${callerName}";RSVP=TRUE:mailto:${callerEmail}`,
+    `ATTENDEE;CN="${hostName || 'Roman'}";RSVP=TRUE:mailto:${hostEmail}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+
+  const subject = `Demo booked: ${label}`;
+  const text = `Hi ${callerName},\n\nYour 30-minute demo with Roman at SoCal Receptionist is booked for ${label}.\n\nThe calendar invite is attached — add it to your calendar and you're all set!\n\nSee you then,\nSoCal Receptionist`;
+
+  await transporter.sendMail({
+    from: config.email.from,
+    to: [callerEmail, hostEmail].filter(Boolean).join(', '),
+    subject,
+    text,
+    attachments: [{
+      filename: 'invite.ics',
+      content: ics,
+      contentType: 'text/calendar; method=REQUEST',
+    }],
+  });
+}
+
+module.exports = { notifyOwner, notifyOptIn, notifyLead, notifyFollowup, notifyDemoRequest, notifyEarlyAccess, notifySalesLead, sendCalendarInvite };

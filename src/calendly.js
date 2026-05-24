@@ -1,9 +1,10 @@
 const config = require('./config');
 
-let cachedUrl = null;
+let cachedEventTypeUri = null;
+let cachedSchedulingUrl = null;
 
-async function getSchedulingUrl() {
-  if (cachedUrl) return cachedUrl;
+async function fetchEventType() {
+  if (cachedEventTypeUri) return { uri: cachedEventTypeUri, url: cachedSchedulingUrl };
 
   const token = config.calendly.apiToken;
   if (!token) return null;
@@ -29,32 +30,70 @@ async function getSchedulingUrl() {
     const active = (et.collection || []).find(e => e.active);
     if (!active) return null;
 
-    cachedUrl = active.scheduling_url;
-    return cachedUrl;
+    cachedEventTypeUri = active.uri;
+    cachedSchedulingUrl = active.scheduling_url;
+    return { uri: cachedEventTypeUri, url: cachedSchedulingUrl };
   } catch (err) {
-    console.error('[calendly] getSchedulingUrl error:', err.message);
+    console.error('[calendly] fetchEventType error:', err.message);
     return null;
   }
 }
 
-async function sendBookingLink(toNumber, schedulingUrl) {
-  if (!toNumber || !schedulingUrl) return { success: false, error: 'missing args' };
+function formatSlotLabel(isoStart) {
+  const d = new Date(isoStart);
+  return d.toLocaleString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'America/Los_Angeles',
+    timeZoneName: 'short',
+  });
+}
 
-  const twilio = require('twilio');
-  const client = twilio(config.twilio.accountSid, config.twilio.authToken);
-  const from = config.twilio.salesNumber || config.twilio.phoneNumber;
+async function getAvailableTimes(count = 3) {
+  const et = await fetchEventType();
+  if (!et) return [];
+
+  const token = config.calendly.apiToken;
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+
+  // Look ahead 7 days
+  const start = new Date();
+  start.setHours(start.getHours() + 2); // earliest is 2h from now
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7);
 
   try {
-    await client.messages.create({
-      body: `Hi! Book your 30-min demo with Roman at SoCal Receptionist here: ${schedulingUrl}`,
-      from,
-      to: toNumber,
-    });
-    return { success: true };
+    const url = `https://api.calendly.com/event_type_available_times` +
+      `?event_type=${encodeURIComponent(et.uri)}` +
+      `&start_time=${start.toISOString()}` +
+      `&end_time=${end.toISOString()}`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw new Error(`Calendly /event_type_available_times ${res.status}`);
+    const data = await res.json();
+
+    return (data.collection || [])
+      .filter(s => s.status === 'available')
+      .slice(0, count)
+      .map(s => ({
+        start: s.start_time,
+        label: formatSlotLabel(s.start_time),
+      }));
   } catch (err) {
-    console.error('[calendly] sendBookingLink error:', err.message);
-    return { success: false, error: err.message };
+    console.error('[calendly] getAvailableTimes error:', err.message);
+    return [];
   }
 }
 
-module.exports = { getSchedulingUrl, sendBookingLink };
+async function getSchedulingUrl() {
+  const et = await fetchEventType();
+  return et ? et.url : null;
+}
+
+module.exports = { getAvailableTimes, getSchedulingUrl };
