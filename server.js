@@ -8,6 +8,7 @@ const consent = require('./src/consent');
 const { notifyDemoRequest, notifyOptIn, notifyEarlyAccess } = require('./src/email');
 const { handleRealtimeCall } = require('./src/voice-realtime');
 const { makeStreamToken } = require('./src/stream-auth');
+const emailPoller = require('./src/email-poller');
 const crypto = require('crypto');
 
 const app = express();
@@ -719,4 +720,5 @@ app.listen(config.port, () => {
   console.log(
     `SoCal Receptionist for "${config.business.name}" listening on port ${config.port}`
   );
+  emailPoller.start();
 });
