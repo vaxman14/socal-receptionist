@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const twilio = require('twilio');
 const config = require('./src/config');
 const { handleMessage } = require('./src/ai');
@@ -11,11 +12,35 @@ const { handleRealtimeCall } = require('./src/voice-realtime');
 const app = express();
 require('express-ws')(app);
 
-// Required so req.protocol resolves to https behind the DigitalOcean proxy,
-// which keeps Twilio signature validation correct.
-app.set('trust proxy', true);
+// Trust only the first proxy (DigitalOcean LB). `true` would trust any forged X-Forwarded-For.
+app.set('trust proxy', 1);
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+
+// --- Rate limiting (in-memory, sliding window, per-IP) ---
+const _rlStore = new Map();
+setInterval(() => {
+  const cutoff = Date.now() - 3_600_000;
+  for (const [k, hits] of _rlStore) if (!hits.length || hits[hits.length - 1] < cutoff) _rlStore.delete(k);
+}, 300_000).unref();
+function rateLimit(maxHits, windowMs) {
+  return (req, res, next) => {
+    const key = `${req.path}:${req.ip}`;
+    const now = Date.now();
+    const hits = (_rlStore.get(key) || []).filter(t => t > now - windowMs);
+    if (hits.length >= maxHits) return res.status(429).type('text/plain').send('Too many requests. Try again later.');
+    hits.push(now);
+    _rlStore.set(key, hits);
+    next();
+  };
+}
+
+// --- Call tokens: ties POST /voice/sales metadata to the WS stream (one-time, 30s TTL) ---
+const _callTokens = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of _callTokens) if (v.expires < now) _callTokens.delete(k);
+}, 30_000).unref();
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
@@ -173,7 +198,7 @@ app.get('/robots.txt', (req, res) => {
 });
 
 // Landing page demo request form
-app.post('/demo', async (req, res) => {
+app.post('/demo', rateLimit(5, 15 * 60_000), async (req, res) => {
   const { name, business, phone, type } = req.body;
   if (!name || !phone) return res.status(400).json({ error: 'Missing required fields' });
 
@@ -194,7 +219,7 @@ app.post('/demo', async (req, res) => {
 });
 
 // Coming-soon page early-access capture form
-app.post('/early-access', async (req, res) => {
+app.post('/early-access', rateLimit(5, 15 * 60_000), async (req, res) => {
   const { name, business, email, phone } = req.body;
   if (!name || !email) return res.status(400).json({ error: 'Missing required fields' });
 
@@ -563,27 +588,41 @@ app.get('/support', (req, res) => {
 });
 
 // Twilio inbound voice webhook for the "test me now" sales line.
-// Responds with <Connect><Stream> to open a Media Streams WebSocket — the
-// actual conversation runs over that WS in voice-realtime.js.
-app.post('/voice/sales', (req, res) => {
+// Generates a one-time token so the WS stream can verify it came from a real Twilio POST.
+app.post('/voice/sales', rateLimit(5, 60_000), (req, res) => {
   if (!isValidTwilioRequest(req)) {
     console.warn('Rejected /voice/sales request: invalid Twilio signature');
     return res.status(403).send('Invalid Twilio signature');
   }
 
   const host = req.headers.host;
-  const from = (req.body.From || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const rawFrom = req.body.From || '';
+  const callSid = req.body.CallSid || '';
 
+  // Mint a short-lived token so the WS handler can authenticate without re-checking
+  // the Twilio signature (WS upgrades don't carry POST body/headers).
+  const token = crypto.randomBytes(16).toString('hex');
+  _callTokens.set(token, { callSid, from: rawFrom, expires: Date.now() + 30_000 });
+
+  const safeFrom = rawFrom.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   res.type('text/xml');
   res.send(
-    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${host}/voice/sales/stream"><Parameter name="from" value="${from}"/></Stream></Connect></Response>`
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${host}/voice/sales/stream?t=${token}"><Parameter name="from" value="${safeFrom}"/></Stream></Connect></Response>`
   );
 });
 
 // WebSocket endpoint — Twilio Media Streams connects here after the above POST.
-// Bridges bidirectional mulaw audio between Twilio and OpenAI Realtime API.
-app.ws('/voice/sales/stream', (ws) => {
-  handleRealtimeCall(ws);
+// Validates the one-time token before starting the OpenAI Realtime bridge.
+app.ws('/voice/sales/stream', (ws, req) => {
+  const token = req.query && req.query.t;
+  const meta = token ? _callTokens.get(token) : null;
+  if (!meta || meta.expires < Date.now()) {
+    console.warn('[voice-realtime] rejected WS: missing or expired token');
+    ws.close(1008, 'Unauthorized');
+    return;
+  }
+  _callTokens.delete(token); // one-time use — replay protection
+  handleRealtimeCall(ws, meta.callSid, meta.from);
 });
 
 // Twilio status callback — fires when the call ends. We use this to send a
@@ -604,7 +643,7 @@ app.post('/voice/sales/status', async (req, res) => {
 
 // Twilio inbound SMS webhook. Twilio POSTs the message here and expects a
 // TwiML response, which it delivers back to the customer as the outbound SMS.
-app.post('/sms', async (req, res) => {
+app.post('/sms', rateLimit(30, 60_000), async (req, res) => {
   if (!isValidTwilioRequest(req)) {
     console.warn('Rejected request: invalid Twilio signature');
     return res.status(403).send('Invalid Twilio signature');

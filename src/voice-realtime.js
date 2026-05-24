@@ -69,93 +69,101 @@ function formatTelegramLead({ name, business, contact, pain_point, notes, fromNu
 }
 
 function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
-  let streamSid = null;
   let callSid = callSidHint || 'unknown';
   let fromNumber = fromNumberHint || '';
+
+  let streamSid = null;
   let leadCaptured = false;
   let callEnded = false;
-  let oaiReady = false;       // OpenAI session is configured and ready
-  let twilioStarted = false;  // Twilio stream start received
+  let oaiWs = null;
+  const audioBuffer = []; // buffer audio arriving between 'start' and OpenAI open
   const transcript = [];
 
-  const oaiWs = new WebSocket(REALTIME_URL, {
-    headers: {
-      'Authorization': `Bearer ${config.openai.apiKey}`,
-    },
-  });
-
-  function maybeStartGreeting() {
-    if (oaiReady && twilioStarted) {
-      oaiWs.send(JSON.stringify({ type: 'response.create' }));
-    }
-  }
-
-  oaiWs.on('open', () => {
-    console.log(`[voice-realtime] OpenAI WS open callSid=${callSid}`);
-
-    oaiWs.send(JSON.stringify({
-      type: 'session.update',
-      session: {
-        type: 'realtime',
-        output_modalities: ['audio'],
-        audio: {
-          input: {
-            format: { type: 'audio/pcmu' },
-            turn_detection: { type: 'semantic_vad' },
-          },
-          output: {
-            format: { type: 'audio/pcmu' },
-            voice: 'marin',
-          },
-        },
-        instructions: SYSTEM_PROMPT,
-        tools: [CAPTURE_LEAD_TOOL],
-        tool_choice: 'auto',
+  // Opened only after Twilio 'start' — avoids burning OpenAI if stream never starts
+  function connectOpenAI() {
+    oaiWs = new WebSocket(REALTIME_URL, {
+      headers: {
+        'Authorization': `Bearer ${config.openai.apiKey}`,
       },
-    }));
-  });
+    });
 
-  oaiWs.on('message', (raw) => {
-    let msg;
-    try { msg = JSON.parse(raw); } catch { return; }
+    oaiWs.on('open', () => {
+      console.log(`[voice-realtime] OpenAI WS open callSid=${callSid}`);
+      oaiWs.send(JSON.stringify({
+        type: 'session.update',
+        session: {
+          type: 'realtime',
+          output_modalities: ['audio'],
+          audio: {
+            input: {
+              format: { type: 'audio/pcmu' },
+              turn_detection: { type: 'semantic_vad' },
+            },
+            output: {
+              format: { type: 'audio/pcmu' },
+              voice: 'marin',
+            },
+          },
+          instructions: SYSTEM_PROMPT,
+          tools: [CAPTURE_LEAD_TOOL],
+          tool_choice: 'auto',
+        },
+      }));
+      // Flush audio buffered before OpenAI was ready
+      for (const payload of audioBuffer) {
+        oaiWs.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: payload }));
+      }
+      audioBuffer.length = 0;
+    });
 
-    switch (msg.type) {
-      case 'response.output_audio.delta':
-        if (streamSid && msg.delta) {
-          try {
-            twilioWs.send(JSON.stringify({
-              event: 'media',
-              streamSid,
-              media: { payload: msg.delta },
-            }));
-          } catch {}
-        }
-        break;
+    oaiWs.on('message', (raw) => {
+      let msg;
+      try { msg = JSON.parse(raw); } catch { return; }
 
-      case 'response.output_audio_transcript.delta':
-        if (msg.delta) transcript.push({ role: 'assistant', text: msg.delta });
-        break;
+      switch (msg.type) {
+        case 'response.output_audio.delta':
+          if (streamSid && msg.delta) {
+            try {
+              twilioWs.send(JSON.stringify({
+                event: 'media',
+                streamSid,
+                media: { payload: msg.delta },
+              }));
+            } catch {}
+          }
+          break;
 
-      case 'conversation.item.input_audio_transcription.completed':
-        if (msg.transcript) transcript.push({ role: 'user', text: msg.transcript });
-        break;
+        case 'response.output_audio_transcript.delta':
+          if (msg.delta) transcript.push({ role: 'assistant', text: msg.delta });
+          break;
 
-      case 'response.function_call_arguments.done':
-        if (msg.name === 'capture_lead') {
-          handleCaptureLead(msg.call_id, msg.arguments);
-        }
-        break;
+        case 'conversation.item.input_audio_transcription.completed':
+          if (msg.transcript) transcript.push({ role: 'user', text: msg.transcript });
+          break;
 
-      case 'session.updated':
-        oaiReady = true;
-        maybeStartGreeting();
-        break;
+        case 'response.function_call_arguments.done':
+          if (msg.name === 'capture_lead') {
+            handleCaptureLead(msg.call_id, msg.arguments);
+          }
+          break;
 
-      case 'error':
-        console.error('[voice-realtime] OpenAI error:', JSON.stringify(msg.error));
-        break;
-    }
-  });
+        case 'session.updated':
+          // twilioStarted is guaranteed — we only call connectOpenAI() from 'start' handler
+          oaiWs.send(JSON.stringify({ type: 'response.create' }));
+          break;
+
+        case 'error':
+          console.error('[voice-realtime] OpenAI error:', JSON.stringify(msg.error));
+          break;
+      }
+    });
+
+    oaiWs.on('close', () => cleanup('oai-close'));
+    oaiWs.on('error', (err) => {
+      console.error('[voice-realtime] OpenAI WS error:', err.message);
+      cleanup('oai-error');
+    });
+  }
 
   async function handleCaptureLead(callId, rawArgs) {
     if (leadCaptured) return;
@@ -177,7 +185,7 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
     notifySalesLead(payload).catch(err => console.error('Sales lead email failed:', err.message));
     sendTelegram(formatTelegramLead(payload)).catch(err => console.error('Sales lead Telegram failed:', err.message));
 
-    if (oaiWs.readyState === WebSocket.OPEN) {
+    if (oaiWs && oaiWs.readyState === WebSocket.OPEN) {
       oaiWs.send(JSON.stringify({
         type: 'conversation.item.create',
         item: {
@@ -202,16 +210,15 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
           fromNumber = msg.start.customParameters.from;
         }
         console.log(`[voice-realtime] stream started callSid=${callSid} from=${fromNumber} streamSid=${streamSid}`);
-        twilioStarted = true;
-        maybeStartGreeting();
+        connectOpenAI(); // only now — after we have callSid/from and stream is confirmed
         break;
 
       case 'media':
-        if (oaiWs.readyState === WebSocket.OPEN) {
-          oaiWs.send(JSON.stringify({
-            type: 'input_audio_buffer.append',
-            audio: msg.media.payload,
-          }));
+        if (oaiWs && oaiWs.readyState === WebSocket.OPEN) {
+          oaiWs.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: msg.media.payload }));
+        } else if (audioBuffer.length < 150) {
+          // Buffer up to ~3s of audio (50 frames/s × 3s) before OpenAI connects
+          audioBuffer.push(msg.media.payload);
         }
         break;
 
@@ -227,19 +234,13 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
     cleanup('twilio-error');
   });
 
-  oaiWs.on('close', () => cleanup('oai-close'));
-  oaiWs.on('error', (err) => {
-    console.error('[voice-realtime] OpenAI WS error:', err.message);
-    cleanup('oai-error');
-  });
-
   function cleanup(reason) {
     if (callEnded) return;
     callEnded = true;
     console.log(`[voice-realtime] cleanup reason=${reason} callSid=${callSid} leadCaptured=${leadCaptured}`);
 
     try { if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close(); } catch {}
-    try { if (oaiWs.readyState === WebSocket.OPEN) oaiWs.close(); } catch {}
+    try { if (oaiWs && oaiWs.readyState === WebSocket.OPEN) oaiWs.close(); } catch {}
 
     if (!leadCaptured) {
       const transcriptText = transcript
@@ -260,7 +261,7 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
       sendTelegram([
         '⚠️ *Sales call ended without lead capture*',
         '',
-        `*From:* ${fromNumber || '-'}`,
+        `*From:* ${escapeMd(fromNumber || '-')}`,
         `*CallSid:* \`${callSid}\``,
         '',
         '*Transcript:*',
