@@ -65,10 +65,10 @@ const spaDir = path.join(__dirname, '../web/dist');
 app.use(express.static(publicDir));
 app.use(express.static(spaDir));
 
-// SPA fallback for /login, /signup, /dashboard, /app/* etc.
+// SPA fallback for /login, /signup, /dashboard, /app/*, /register, /welcome etc.
 const spaIndex = path.join(spaDir, 'index.html');
 const fs = require('fs');
-app.get(/^\/(login|signup|dashboard|app|settings|clients|onboarding-wizard)/, (req, res) => {
+app.get(/^\/(login|signup|dashboard|app|settings|clients|onboarding-wizard|register|welcome)/, (req, res) => {
   if (fs.existsSync(spaIndex)) {
     res.sendFile(spaIndex);
   } else {

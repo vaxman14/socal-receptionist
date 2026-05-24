@@ -1,12 +1,15 @@
 // Root router — chooses the surface to render from the session + detected role.
 //
-//   no session                 -> <Login/>
-//   session, MFA still pending  -> <MfaChallenge/> (unless device is trusted)
-//   session, role 'owner'       -> <OwnerApp/>   (owns its own <Routes>)
-//   session, role 'client'      -> <ClientApp/>  (owns its own <Routes>)
-//   session, 'onboarding'       -> <Wizard/>     (re-detects role on completion)
+//   /register (no session needed) -> <Register/>  (self-serve onboarding)
+//   /welcome  (session needed)    -> <Welcome/>   (post-payment confirmation)
+//   no session                    -> <Login/>
+//   session, MFA still pending    -> <MfaChallenge/> (unless device is trusted)
+//   session, role 'owner'         -> <OwnerApp/>  (owns its own <Routes>)
+//   session, role 'client'        -> <ClientApp/> (owns its own <Routes>)
+//   session, 'onboarding'         -> <Wizard/>    (re-detects role on completion)
 
 import { useEffect, useState, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useRole } from './context/useRole';
 import { Loading, ErrorState } from './components/States';
@@ -16,12 +19,21 @@ import MfaChallenge from './pages/MfaChallenge';
 import OwnerApp from './pages/owner/OwnerApp';
 import ClientApp from './pages/client/ClientApp';
 import Wizard from './pages/onboarding/Wizard';
+import Register from './pages/Register';
+import Welcome from './pages/Welcome';
 
 export default function App() {
   const { session, loading } = useAuth();
+  const location = useLocation();
+
+  // Public routes: accessible without a session.
+  if (location.pathname.startsWith('/register')) return <Register />;
 
   if (loading) return <Loading label="Loading…" />;
   if (!session) return <Login />;
+
+  // Welcome page — requires a session (to fetch tenant info).
+  if (location.pathname.startsWith('/welcome')) return <Welcome />;
 
   // A session exists — but it may still be at aal1 with a verified MFA factor
   // pending. The MFA gate decides before role detection runs.
