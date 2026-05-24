@@ -1,7 +1,7 @@
 const { getNewMessages } = require('./gmail-monitor');
 const { sendTelegram } = require('./telegram');
 
-const POLL_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+const POLL_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 let lastCheckedMs = Date.now();
 let pollTimer = null;
 
