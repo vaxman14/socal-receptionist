@@ -236,6 +236,7 @@ function handleRealtimeCall(twilioWs) {
     try { args = JSON.parse(rawArgs || '{}'); } catch {}
 
     const { slot_index = 0, caller_email, caller_name } = args;
+    console.log(`[voice-realtime] schedule_meeting callSid=${callSid} slot=${slot_index} email=${caller_email} name=${caller_name}`);
     const slot = availableSlots[slot_index];
 
     let output;
@@ -284,6 +285,10 @@ function handleRealtimeCall(twilioWs) {
         if (msg.start && msg.start.callSid) callSid = msg.start.callSid;
         if (params.from) fromNumber = params.from;
         console.log(`[voice-realtime] stream started callSid=${callSid} from=${fromNumber} streamSid=${streamSid}`);
+        getAvailableTimes(3).then(slots => {
+          availableSlots = slots;
+          console.log(`[voice-realtime] pre-fetched ${slots.length} Calendly slots callSid=${callSid}`);
+        }).catch(() => {});
         connectOpenAI(); // only now — auth verified, stream confirmed
         break;
       }
