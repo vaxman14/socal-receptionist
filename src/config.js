@@ -31,6 +31,12 @@ const config = {
     apiToken: optional('CALENDLY_API_TOKEN', ''),
   },
 
+  gcal: {
+    clientId: optional('GOOGLE_CLIENT_ID', ''),
+    clientSecret: optional('GOOGLE_CLIENT_SECRET', ''),
+    refreshToken: optional('GOOGLE_REFRESH_TOKEN', ''),
+  },
+
   openai: {
     apiKey: required('OPENAI_API_KEY'),
     model: optional('OPENAI_MODEL', 'gpt-4o'),

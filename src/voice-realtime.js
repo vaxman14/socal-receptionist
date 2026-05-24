@@ -4,6 +4,7 @@ const { notifySalesLead, sendCalendarInvite } = require('./email');
 const { sendTelegram } = require('./telegram');
 const { verifyStreamToken } = require('./stream-auth');
 const { getAvailableTimes, getSchedulingUrl } = require('./calendly');
+const { createDemoEvent } = require('./gcal');
 
 const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-realtime-2';
 
@@ -243,18 +244,17 @@ function handleRealtimeCall(twilioWs) {
     if (!slot || !caller_email) {
       output = 'Missing slot or email — tell them Roman will follow up within 24 hours to confirm the time.';
     } else {
+      const useGcal = config.gcal.clientId && config.gcal.refreshToken;
       try {
-        await sendCalendarInvite({
-          callerName: caller_name || 'there',
-          callerEmail: caller_email,
-          startIso: slot.start,
-          hostEmail: 'vaxman14@gmail.com',
-          hostName: 'Roman Vaxman',
-        });
-        output = `Calendar invite sent to ${caller_email} for ${slot.label}. Confirm warmly: "Done! You'll get a calendar invite in your inbox in the next minute. We're all set for ${slot.label}. Anything else before you go?"`;
+        if (useGcal) {
+          await createDemoEvent({ callerName: caller_name || caller_email, callerEmail: caller_email, startIso: slot.start });
+        } else {
+          await sendCalendarInvite({ callerName: caller_name || 'there', callerEmail: caller_email, startIso: slot.start, hostEmail: 'vaxman14@gmail.com', hostName: 'Roman Vaxman' });
+        }
+        output = `Meeting booked on Roman's Google Calendar for ${slot.label}. A calendar invite was also sent to ${caller_email}. Confirm warmly: "You're all set! The meeting is on the calendar — you'll get an invite at ${caller_email}. See you then!"`;
       } catch (err) {
-        console.error('[voice-realtime] sendCalendarInvite failed:', err.message);
-        output = `Email failed. Tell them verbally: "The invite is booked for ${slot.label} — Roman will send a calendar confirmation to your email shortly."`;
+        console.error('[voice-realtime] booking failed:', err.message);
+        output = `Booking failed (${err.message}). Tell them: "Roman will personally confirm the ${slot.label} time with you — he'll reach out within the hour."`;
       }
     }
 
