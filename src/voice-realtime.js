@@ -2,6 +2,7 @@ const WebSocket = require('ws');
 const config = require('./config');
 const { notifySalesLead } = require('./email');
 const { sendTelegram } = require('./telegram');
+const { verifyStreamToken } = require('./stream-auth');
 
 const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-realtime-2';
 
@@ -68,9 +69,9 @@ function formatTelegramLead({ name, business, contact, pain_point, notes, fromNu
   ].join('\n');
 }
 
-function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
-  let callSid = callSidHint || 'unknown';
-  let fromNumber = fromNumberHint || '';
+function handleRealtimeCall(twilioWs) {
+  let callSid = 'unknown';
+  let fromNumber = '';
 
   let streamSid = null;
   let leadCaptured = false;
@@ -203,15 +204,22 @@ function handleRealtimeCall(twilioWs, callSidHint, fromNumberHint) {
     try { msg = JSON.parse(raw); } catch { return; }
 
     switch (msg.event) {
-      case 'start':
+      case 'start': {
+        const params = (msg.start && msg.start.customParameters) || {};
+        const authToken = params.auth;
+        const meta = verifyStreamToken(authToken);
+        if (!meta) {
+          console.warn('[voice-realtime] rejected stream: invalid or expired auth token');
+          cleanup('invalid-auth');
+          return;
+        }
         streamSid = (msg.start && msg.start.streamSid) || msg.streamSid;
         if (msg.start && msg.start.callSid) callSid = msg.start.callSid;
-        if (msg.start && msg.start.customParameters && msg.start.customParameters.from) {
-          fromNumber = msg.start.customParameters.from;
-        }
+        if (params.from) fromNumber = params.from;
         console.log(`[voice-realtime] stream started callSid=${callSid} from=${fromNumber} streamSid=${streamSid}`);
-        connectOpenAI(); // only now — after we have callSid/from and stream is confirmed
+        connectOpenAI(); // only now — auth verified, stream confirmed
         break;
+      }
 
       case 'media':
         if (oaiWs && oaiWs.readyState === WebSocket.OPEN) {
