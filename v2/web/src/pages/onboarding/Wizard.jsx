@@ -4,7 +4,7 @@
 //   3. Sign service agreement -> POST /onboarding/agreement/sign
 //   4. Confirmation + billing -> POST /admin/billing/checkout -> Stripe
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import StepBusiness from './StepBusiness';
 import StepPlan from './StepPlan';
@@ -12,13 +12,29 @@ import StepAgreement from './StepAgreement';
 import StepDone from './StepDone';
 
 const STEPS = ['Your business', 'Choose plan', 'Service agreement', 'All set'];
+const STORAGE_KEY = 'socal_wizard';
 
 export default function Wizard({ onComplete }) {
   const { user, signOut } = useAuth();
-  const [step, setStep] = useState(1);
-  const [tenant, setTenant] = useState(null);
-  const [selectedPlan, setSelectedPlan] = useState(null);
-  const [signResult, setSignResult] = useState(null);
+
+  const saved = (() => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed.userId === user?.id ? parsed : null;
+    } catch { return null; }
+  })();
+
+  const [step, setStep] = useState(saved?.step ?? 1);
+  const [tenant, setTenant] = useState(saved?.tenant ?? null);
+  const [selectedPlan, setSelectedPlan] = useState(saved?.selectedPlan ?? null);
+  const [signResult, setSignResult] = useState(saved?.signResult ?? null);
+
+  useEffect(() => {
+    if (!user) return;
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ userId: user.id, step, tenant, selectedPlan, signResult }));
+  }, [step, tenant, selectedPlan, signResult, user]);
 
   return (
     <div className="wizard-wrap">
@@ -80,7 +96,7 @@ export default function Wizard({ onComplete }) {
             tenant={tenant}
             signResult={signResult}
             selectedPlan={selectedPlan}
-            onContinue={onComplete}
+            onContinue={() => { sessionStorage.removeItem(STORAGE_KEY); onComplete?.(); }}
           />
         )}
       </div>
