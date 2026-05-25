@@ -370,3 +370,11 @@ create policy audit_log_select on audit_log for select
 -- platform_admins: admin-visible only.
 create policy platform_admins_select on platform_admins for select
   using (is_platform_admin());
+
+-- Supabase newer projects do not auto-grant table access. Grant explicitly so
+-- the service-role backend can write and authenticated users can query (scoped
+-- by RLS policies above).
+grant all on all tables    in schema public to service_role;
+grant all on all sequences in schema public to service_role;
+grant select, insert, update, delete on all tables    in schema public to authenticated;
+grant usage, select                  on all sequences in schema public to authenticated;
