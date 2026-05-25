@@ -90,6 +90,8 @@ export default function StepBusiness({ onCreated }) {
           <span className="label">Business name *</span>
           <input
             type="text"
+            name="organization"
+            autoComplete="organization"
             value={form.business_name}
             onChange={set('business_name')}
             placeholder="Temecula Valley Plumbing"
@@ -100,6 +102,8 @@ export default function StepBusiness({ onCreated }) {
           <span className="label">Business hours</span>
           <input
             type="text"
+            name="business_hours"
+            autoComplete="off"
             value={form.business_hours}
             onChange={set('business_hours')}
             placeholder="Mon–Fri 8am–5pm, Sat 9am–1pm"
@@ -119,6 +123,8 @@ export default function StepBusiness({ onCreated }) {
           <span className="label">Calendly / booking link</span>
           <input
             type="url"
+            name="calendly_link"
+            autoComplete="url"
             value={form.calendly_link}
             onChange={set('calendly_link')}
             placeholder="https://calendly.com/your-business"
@@ -165,6 +171,8 @@ export default function StepBusiness({ onCreated }) {
           </span>
           <input
             type="tel"
+            name="tel"
+            autoComplete="tel"
             value={form.staff_phone}
             onChange={set('staff_phone')}
             placeholder="+1 951 555 0142"
@@ -190,6 +198,8 @@ export default function StepBusiness({ onCreated }) {
           <span className="label">Voicemail notification email</span>
           <input
             type="email"
+            name="email"
+            autoComplete="email"
             value={form.voicemail_email}
             onChange={set('voicemail_email')}
             placeholder="owner@business.com"

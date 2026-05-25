@@ -124,6 +124,8 @@ export default function StepAgreement({ onSigned }) {
               <span className="label">Full legal name *</span>
               <input
                 type="text"
+                name="name"
+                autoComplete="name"
                 value={signerName}
                 onChange={(e) => setSignerName(e.target.value)}
                 placeholder="Jordan A. Rivera"
@@ -137,6 +139,8 @@ export default function StepAgreement({ onSigned }) {
               <span className="label">Title (optional)</span>
               <input
                 type="text"
+                name="organization-title"
+                autoComplete="organization-title"
                 value={signerTitle}
                 onChange={(e) => setSignerTitle(e.target.value)}
                 placeholder="Owner"
