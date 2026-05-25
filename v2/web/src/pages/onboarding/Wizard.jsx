@@ -1,20 +1,23 @@
-// Onboarding wizard — 3 steps for a client who has no tenant yet.
+// Onboarding wizard — 4 steps for a client who has no tenant yet.
 //   1. Business profile      -> POST /onboarding/business
-//   2. Sign service agreement -> POST /onboarding/agreement/sign
-//   3. Confirmation           -> provisioning started, link to dashboard.
+//   2. Choose plan           -> stored in state (price ID sent at checkout)
+//   3. Sign service agreement -> POST /onboarding/agreement/sign
+//   4. Confirmation + billing -> POST /admin/billing/checkout -> Stripe
 
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import StepBusiness from './StepBusiness';
+import StepPlan from './StepPlan';
 import StepAgreement from './StepAgreement';
 import StepDone from './StepDone';
 
-const STEPS = ['Your business', 'Service agreement', 'All set'];
+const STEPS = ['Your business', 'Choose plan', 'Service agreement', 'All set'];
 
 export default function Wizard({ onComplete }) {
   const { user, signOut } = useAuth();
   const [step, setStep] = useState(1);
   const [tenant, setTenant] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(null);
   const [signResult, setSignResult] = useState(null);
 
   return (
@@ -55,18 +58,28 @@ export default function Wizard({ onComplete }) {
         )}
 
         {step === 2 && (
-          <StepAgreement
-            onSigned={(result) => {
-              setSignResult(result);
+          <StepPlan
+            onSelected={(plan) => {
+              setSelectedPlan(plan);
               setStep(3);
             }}
           />
         )}
 
         {step === 3 && (
+          <StepAgreement
+            onSigned={(result) => {
+              setSignResult(result);
+              setStep(4);
+            }}
+          />
+        )}
+
+        {step === 4 && (
           <StepDone
             tenant={tenant}
             signResult={signResult}
+            selectedPlan={selectedPlan}
             onContinue={onComplete}
           />
         )}

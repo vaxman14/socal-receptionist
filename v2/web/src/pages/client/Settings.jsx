@@ -95,7 +95,7 @@ export default function Settings() {
     <>
       <div className="page-head">
         <h1>Settings</h1>
-        <p>Configure how your AI receptionist handles texts and calls.</p>
+        <p>Configure how your AI receptionist handles calls.</p>
       </div>
 
       {saveError && <div className="alert alert-error">{saveError}</div>}

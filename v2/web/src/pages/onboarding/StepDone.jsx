@@ -1,22 +1,35 @@
-// Wizard step 3 — confirmation. Provisioning has started.
+// Wizard step 4 — agreement confirmed, trigger Stripe checkout to go live.
 
+import { useState } from 'react';
 import { api } from '../../lib/api';
 import { Badge } from '../../components/Badge';
 
-export default function StepDone({ tenant, signResult, onContinue }) {
-  const provisioning = signResult?.provisioning_started;
+export default function StepDone({ tenant, signResult, selectedPlan, onContinue }) {
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [checkoutError, setCheckoutError] = useState(null);
 
   const openSignedAgreement = async () => {
-    // The signed agreement is HTML; open it in a new tab.
     try {
       const html = await api.get('/onboarding/agreement/signed');
       const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(html);
-        win.document.close();
-      }
-    } catch {
-      // Non-fatal — the dashboard also links to it.
+      if (win) { win.document.write(html); win.document.close(); }
+    } catch { /* non-fatal */ }
+  };
+
+  const startBilling = async () => {
+    setCheckoutBusy(true);
+    setCheckoutError(null);
+    try {
+      const base = window.location.origin;
+      const { url } = await api.post('/admin/billing/checkout', {
+        plan: selectedPlan,
+        successUrl: `${base}/billing/success`,
+        cancelUrl: `${base}/onboarding`,
+      });
+      window.location.href = url;
+    } catch (err) {
+      setCheckoutError(err.message || 'Could not start checkout. Please try again.');
+      setCheckoutBusy(false);
     }
   };
 
@@ -39,15 +52,13 @@ export default function StepDone({ tenant, signResult, onContinue }) {
         >
           ✓
         </div>
-        <h1>You're all set</h1>
+        <h1>Agreement signed</h1>
         <p className="muted" style={{ marginTop: 6 }}>
-          {provisioning
-            ? 'Your Service Agreement is signed and provisioning has begun.'
-            : 'Your Service Agreement is on file.'}
+          One last step — complete billing to activate your AI receptionist.
         </p>
       </div>
 
-      <div className="card" style={{ background: 'var(--light)' }}>
+      <div className="card" style={{ background: 'var(--light)', marginBottom: 20 }}>
         <div className="card-pad">
           <dl className="kv">
             <dt>Business</dt>
@@ -69,17 +80,33 @@ export default function StepDone({ tenant, signResult, onContinue }) {
         </div>
       </div>
 
-      <p className="muted" style={{ fontSize: '0.88rem', margin: '16px 0' }}>
-        Provisioning a phone number and A2P registration can take a little time.
-        Your dashboard shows live status — you'll see it move to{' '}
-        <strong>active</strong> once everything is ready.
+      {checkoutError && (
+        <div className="alert alert-error" style={{ marginBottom: 16 }}>
+          {checkoutError}
+        </div>
+      )}
+
+      <p className="muted" style={{ fontSize: '0.88rem', marginBottom: 16 }}>
+        You'll be taken to a secure Stripe checkout to enter your payment details.
+        The $1,500 setup fee covers provisioning your dedicated number and your
+        first month of service — recurring billing starts after 30 days.
       </p>
 
       <div className="row-gap">
-        <button className="btn btn-primary" onClick={onContinue}>
-          Go to my dashboard
+        <button
+          className="btn btn-primary"
+          disabled={checkoutBusy}
+          onClick={startBilling}
+        >
+          {checkoutBusy ? 'Redirecting to checkout…' : 'Activate my subscription →'}
         </button>
-        <button className="btn btn-secondary" onClick={openSignedAgreement}>
+        <button className="btn btn-ghost btn-sm" onClick={onContinue}>
+          Skip for now
+        </button>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <button className="btn btn-ghost btn-sm" onClick={openSignedAgreement}>
           View signed agreement
         </button>
       </div>

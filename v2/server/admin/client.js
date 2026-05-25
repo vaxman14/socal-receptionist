@@ -110,12 +110,21 @@ router.get('/calls', async (req, res) => {
   res.json({ calls: data });
 });
 
+const PLAN_PRICE_IDS = {
+  after_hours: process.env.STRIPE_PRICE_ID_AFTER_HOURS,
+  always_on:   process.env.STRIPE_PRICE_ID_ALWAYS_ON,
+  total_care:  process.env.STRIPE_PRICE_ID_TOTAL_CARE,
+};
+
 // POST /admin/billing/checkout — start a subscription. Billed as a one-time
 // setup fee (includes month one) plus the recurring monthly price, which is
 // deferred 30 days via a trial.
 router.post('/billing/checkout', async (req, res) => {
   try {
-    const priceId = req.body.priceId || process.env.STRIPE_PRICE_ID;
+    // Accept either a plan name ("after_hours" | "always_on" | "total_care"),
+    // an explicit priceId, or fall back to the env-var default.
+    const planPriceId = req.body.plan ? PLAN_PRICE_IDS[req.body.plan] : null;
+    const priceId = planPriceId || req.body.priceId || process.env.STRIPE_PRICE_ID;
     if (!priceId) return res.status(400).json({ error: 'no plan price configured' });
     const setupPriceId = req.body.setupPriceId || process.env.STRIPE_SETUP_PRICE_ID;
     const base = process.env.APP_BASE_URL || '';
