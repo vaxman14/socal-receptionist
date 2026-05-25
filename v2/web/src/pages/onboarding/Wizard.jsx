@@ -19,7 +19,7 @@ export default function Wizard({ onComplete }) {
 
   const saved = (() => {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       return parsed.userId === user?.id ? parsed : null;
@@ -33,7 +33,7 @@ export default function Wizard({ onComplete }) {
 
   useEffect(() => {
     if (!user) return;
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ userId: user.id, step, tenant, selectedPlan, signResult }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ userId: user.id, step, tenant, selectedPlan, signResult }));
   }, [step, tenant, selectedPlan, signResult, user]);
 
   return (
@@ -96,7 +96,7 @@ export default function Wizard({ onComplete }) {
             tenant={tenant}
             signResult={signResult}
             selectedPlan={selectedPlan}
-            onContinue={() => { sessionStorage.removeItem(STORAGE_KEY); onComplete?.(); }}
+            onContinue={() => { localStorage.removeItem(STORAGE_KEY); onComplete?.(); }}
           />
         )}
       </div>
