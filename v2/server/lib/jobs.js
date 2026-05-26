@@ -42,33 +42,12 @@ async function enqueue(tenantId, jobType, payload = {}, opts = {}) {
   return data;
 }
 
-// Claim up to `limit` due jobs, marking each 'running' and bumping `attempts`.
-//
-// NOTE: select-then-update is race-safe only for a SINGLE worker process — the
-// V2 deployment model. Before running multiple workers, replace this with a
-// SECURITY DEFINER Postgres function using `FOR UPDATE SKIP LOCKED`.
+// Claim up to `limit` due jobs atomically via FOR UPDATE SKIP LOCKED.
+// Safe for multiple concurrent workers.
 async function claimDueJobs(limit = 5) {
-  const { data: due, error } = await supabase
-    .from('provisioning_jobs')
-    .select('*')
-    .eq('status', 'pending')
-    .lte('run_after', new Date().toISOString())
-    .order('run_after', { ascending: true })
-    .limit(limit);
+  const { data, error } = await supabase.rpc('claim_provisioning_jobs', { p_limit: limit });
   if (error) throw error;
-
-  const claimed = [];
-  for (const job of due || []) {
-    const { data, error: upErr } = await supabase
-      .from('provisioning_jobs')
-      .update({ status: 'running', attempts: job.attempts + 1 })
-      .eq('id', job.id)
-      .eq('status', 'pending') // lost-race guard
-      .select()
-      .single();
-    if (!upErr && data) claimed.push(data);
-  }
-  return claimed;
+  return data || [];
 }
 
 async function completeJob(jobId) {

@@ -29,6 +29,26 @@ const EDITABLE_FIELDS = [
 
 router.use(requireAuth, requireTenant);
 
+const E164_RE = /^\+[1-9]\d{7,14}$/;
+const MAX_PROMPT_LEN = 4000;
+
+function validateTenantPatch(patch) {
+  if (patch.staff_phone !== undefined && patch.staff_phone !== null && patch.staff_phone !== '') {
+    if (!E164_RE.test(patch.staff_phone)) return 'staff_phone must be E.164 format (e.g. +15551234567)';
+  }
+  if (patch.calendly_link !== undefined && patch.calendly_link !== null && patch.calendly_link !== '') {
+    try { const u = new URL(patch.calendly_link); if (!['http:', 'https:'].includes(u.protocol)) throw new Error(); }
+    catch { return 'calendly_link must be a valid https URL'; }
+  }
+  if (patch.voicemail_email !== undefined && patch.voicemail_email !== null && patch.voicemail_email !== '') {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.voicemail_email)) return 'voicemail_email must be a valid email address';
+  }
+  if (patch.ai_system_prompt && patch.ai_system_prompt.length > MAX_PROMPT_LEN) {
+    return `ai_system_prompt must be ${MAX_PROMPT_LEN} characters or less`;
+  }
+  return null;
+}
+
 // GET /admin/me — account, tenant, subscription.
 router.get('/me', async (req, res) => {
   const { data: subscription } = await supabase
@@ -52,6 +72,8 @@ router.patch('/tenant', async (req, res) => {
   if (!Object.keys(patch).length) {
     return res.status(400).json({ error: 'no editable fields supplied' });
   }
+  const validationError = validateTenantPatch(patch);
+  if (validationError) return res.status(400).json({ error: validationError });
   const { data, error } = await supabase
     .from('tenants')
     .update(patch)

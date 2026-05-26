@@ -169,16 +169,10 @@ async function publishContractVersion(id, userId = null) {
   if (!target) throw new DocumentError('contract version not found');
   if (target.is_current) return target; // already current — idempotent
 
-  const { error: clearErr } = await supabase
-    .from('contract_versions')
-    .update({ is_current: false })
-    .eq('is_current', true);
-  if (clearErr) throw clearErr;
-
+  // Atomic swap via DB function — clears old current and sets new one in a
+  // single transaction so there is never a window with zero current contracts.
   const { data, error } = await supabase
-    .from('contract_versions')
-    .update({ is_current: true, published_at: new Date().toISOString() })
-    .eq('id', id)
+    .rpc('publish_contract_version', { p_id: id })
     .select()
     .single();
   if (error) throw error;

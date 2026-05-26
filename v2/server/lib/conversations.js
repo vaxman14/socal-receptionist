@@ -25,7 +25,21 @@ async function getOrCreateConversation(tenantId, customerPhone) {
     .insert({ tenant_id: tenantId, customer_phone: customerPhone })
     .select()
     .single();
-  if (insErr) throw insErr;
+  if (insErr) {
+    // Unique violation = lost race with a concurrent request — re-read the winner.
+    if (insErr.code === '23505') {
+      const { data: winner, error: reErr } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('customer_phone', customerPhone)
+        .eq('status', 'open')
+        .maybeSingle();
+      if (reErr) throw reErr;
+      if (winner) return winner;
+    }
+    throw insErr;
+  }
   return created;
 }
 

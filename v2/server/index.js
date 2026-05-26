@@ -6,6 +6,18 @@
 // single-dyno deployments, or as its own process via run-worker.js.
 
 require('dotenv').config();
+
+if (process.env.NODE_ENV === 'production') {
+  const required = [
+    'SUPABASE_URL', 'SUPABASE_SERVICE_KEY',
+    'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN',
+    'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET',
+    'APP_BASE_URL',
+  ];
+  const missing = required.filter(k => !process.env[k]);
+  if (missing.length) throw new Error(`Missing required env vars: ${missing.join(', ')}`);
+}
+
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
