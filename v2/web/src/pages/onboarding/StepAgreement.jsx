@@ -8,15 +8,15 @@ import { useAuth } from '../../context/AuthContext';
 import { Markdown } from '../../components/Markdown';
 import { Loading, ErrorState } from '../../components/States';
 
-export default function StepAgreement({ onSigned }) {
+export default function StepAgreement({ onSigned, initialValues, onDraftChange }) {
   const { user } = useAuth();
   const [agreement, setAgreement] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
-  const [signerName, setSignerName] = useState('');
-  const [signerTitle, setSignerTitle] = useState('');
-  const [consent, setConsent] = useState(false);
+  const [signerName, setSignerName] = useState(initialValues?.signerName ?? '');
+  const [signerTitle, setSignerTitle] = useState(initialValues?.signerTitle ?? '');
+  const [consent, setConsent] = useState(initialValues?.consent ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -127,7 +127,7 @@ export default function StepAgreement({ onSigned }) {
                 name="name"
                 autoComplete="name"
                 value={signerName}
-                onChange={(e) => setSignerName(e.target.value)}
+                onChange={(e) => { setSignerName(e.target.value); onDraftChange?.({ signerName: e.target.value, signerTitle, consent }); }}
                 placeholder="Jordan A. Rivera"
               />
               <span className="hint">
@@ -142,7 +142,7 @@ export default function StepAgreement({ onSigned }) {
                 name="organization-title"
                 autoComplete="organization-title"
                 value={signerTitle}
-                onChange={(e) => setSignerTitle(e.target.value)}
+                onChange={(e) => { setSignerTitle(e.target.value); onDraftChange?.({ signerName, signerTitle: e.target.value, consent }); }}
                 placeholder="Owner"
               />
             </label>
@@ -156,7 +156,7 @@ export default function StepAgreement({ onSigned }) {
               <input
                 type="checkbox"
                 checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
+                onChange={(e) => { setConsent(e.target.checked); onDraftChange?.({ signerName, signerTitle, consent: e.target.checked }); }}
               />
               <span>
                 I agree to sign this Service Agreement electronically, and I have

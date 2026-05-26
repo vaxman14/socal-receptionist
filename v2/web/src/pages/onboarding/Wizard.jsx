@@ -30,11 +30,15 @@ export default function Wizard({ onComplete }) {
   const [tenant, setTenant] = useState(saved?.tenant ?? null);
   const [selectedPlan, setSelectedPlan] = useState(saved?.selectedPlan ?? null);
   const [signResult, setSignResult] = useState(saved?.signResult ?? null);
+  const [draftBusiness, setDraftBusiness] = useState(saved?.draftBusiness ?? null);
+  const [draftAgreement, setDraftAgreement] = useState(saved?.draftAgreement ?? null);
 
   useEffect(() => {
     if (!user) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ userId: user.id, step, tenant, selectedPlan, signResult }));
-  }, [step, tenant, selectedPlan, signResult, user]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      userId: user.id, step, tenant, selectedPlan, signResult, draftBusiness, draftAgreement,
+    }));
+  }, [step, tenant, selectedPlan, signResult, draftBusiness, draftAgreement, user]);
 
   return (
     <div className="wizard-wrap">
@@ -66,7 +70,10 @@ export default function Wizard({ onComplete }) {
 
         {step === 1 && (
           <StepBusiness
+            initialValues={draftBusiness}
+            onDraftChange={setDraftBusiness}
             onCreated={(t) => {
+              setDraftBusiness(null);
               setTenant(t);
               setStep(2);
             }}
@@ -84,7 +91,10 @@ export default function Wizard({ onComplete }) {
 
         {step === 3 && (
           <StepAgreement
+            initialValues={draftAgreement}
+            onDraftChange={setDraftAgreement}
             onSigned={(result) => {
+              setDraftAgreement(null);
               setSignResult(result);
               setStep(4);
             }}

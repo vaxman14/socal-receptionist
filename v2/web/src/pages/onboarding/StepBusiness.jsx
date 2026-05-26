@@ -14,24 +14,30 @@ const TIMEZONES = [
   'Pacific/Honolulu',
 ];
 
-export default function StepBusiness({ onCreated }) {
-  const [form, setForm] = useState({
-    business_name: '',
-    business_hours: '',
-    business_services: '',
-    calendly_link: '',
-    timezone: 'America/Los_Angeles',
-    voice_enabled: true,
-    staff_phone: '',
-    voice_greeting: '',
-    voicemail_email: '',
-  });
+const DEFAULTS = {
+  business_name: '',
+  business_hours: '',
+  business_services: '',
+  calendly_link: '',
+  timezone: 'America/Los_Angeles',
+  voice_enabled: true,
+  staff_phone: '',
+  voice_greeting: '',
+  voicemail_email: '',
+};
+
+export default function StepBusiness({ onCreated, initialValues, onDraftChange }) {
+  const [form, setForm] = useState(initialValues ? { ...DEFAULTS, ...initialValues } : DEFAULTS);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
   const set = (key) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      onDraftChange?.(next);
+      return next;
+    });
   };
 
   const submit = async (e) => {
@@ -124,7 +130,7 @@ export default function StepBusiness({ onCreated }) {
           <input
             type="url"
             name="calendly_link"
-            autoComplete="url"
+            autoComplete="off"
             value={form.calendly_link}
             onChange={set('calendly_link')}
             placeholder="https://calendly.com/your-business"
@@ -198,7 +204,7 @@ export default function StepBusiness({ onCreated }) {
           <span className="label">Voicemail notification email</span>
           <input
             type="email"
-            name="email"
+            name="voicemail-email"
             autoComplete="email"
             value={form.voicemail_email}
             onChange={set('voicemail_email')}

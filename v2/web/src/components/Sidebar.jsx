@@ -1,10 +1,17 @@
 // App shell: navy sidebar + mobile nav strip, shared by client + owner apps.
 
+import { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export function AppShell({ scope, links, children }) {
   const { user, signOut } = useAuth();
+
+  useEffect(() => {
+    document.title = scope === 'owner'
+      ? 'SoCal Receptionist — Platform Admin'
+      : 'SoCal Receptionist — Business Console';
+  }, [scope]);
 
   return (
     <div className="app-shell">
