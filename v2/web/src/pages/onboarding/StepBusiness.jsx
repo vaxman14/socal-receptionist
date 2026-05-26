@@ -90,6 +90,7 @@ export default function StepBusiness({ onCreated }) {
           <span className="label">Business name *</span>
           <input
             type="text"
+            autoComplete="organization"
             value={form.business_name}
             onChange={set('business_name')}
             placeholder="Temecula Valley Plumbing"
@@ -100,6 +101,7 @@ export default function StepBusiness({ onCreated }) {
           <span className="label">Business hours</span>
           <input
             type="text"
+            autoComplete="off"
             value={form.business_hours}
             onChange={set('business_hours')}
             placeholder="Mon–Fri 8am–5pm, Sat 9am–1pm"
@@ -109,6 +111,7 @@ export default function StepBusiness({ onCreated }) {
         <label className="field">
           <span className="label">Services offered</span>
           <textarea
+            autoComplete="off"
             value={form.business_services}
             onChange={set('business_services')}
             placeholder="Drain cleaning, water heater repair, leak detection, repiping…"
@@ -119,6 +122,7 @@ export default function StepBusiness({ onCreated }) {
           <span className="label">Calendly / booking link</span>
           <input
             type="url"
+            autoComplete="url"
             value={form.calendly_link}
             onChange={set('calendly_link')}
             placeholder="https://calendly.com/your-business"
@@ -165,6 +169,7 @@ export default function StepBusiness({ onCreated }) {
           </span>
           <input
             type="tel"
+            autoComplete="off"
             value={form.staff_phone}
             onChange={set('staff_phone')}
             placeholder="+1 951 555 0142"
@@ -190,6 +195,7 @@ export default function StepBusiness({ onCreated }) {
           <span className="label">Voicemail notification email</span>
           <input
             type="email"
+            autoComplete="email"
             value={form.voicemail_email}
             onChange={set('voicemail_email')}
             placeholder="owner@business.com"

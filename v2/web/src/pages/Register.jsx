@@ -8,9 +8,18 @@
 //
 // After Stripe payment succeeds, Stripe redirects to /welcome.
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
+
+const STORAGE_KEY = 'socal-register';
+
+function loadSaved() {
+  try {
+    const s = sessionStorage.getItem(STORAGE_KEY);
+    return s ? JSON.parse(s) : null;
+  } catch { return null; }
+}
 
 const BUSINESS_TYPES = [
   'Restaurant',
@@ -270,6 +279,7 @@ function StepBusiness({ userInfo, onNext }) {
           <span className="label">Business name *</span>
           <input
             type="text"
+            autoComplete="organization"
             value={form.business_name}
             onChange={set('business_name')}
             placeholder="Smith's Plumbing & Heating"
@@ -278,7 +288,7 @@ function StepBusiness({ userInfo, onNext }) {
 
         <label className="field">
           <span className="label">Business type *</span>
-          <select value={form.business_type} onChange={set('business_type')}>
+          <select autoComplete="off" value={form.business_type} onChange={set('business_type')}>
             <option value="">Select a type…</option>
             {BUSINESS_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -293,6 +303,7 @@ function StepBusiness({ userInfo, onNext }) {
             <span className="label">Business phone *</span>
             <input
               type="tel"
+              autoComplete="off"
               value={form.business_phone}
               onChange={set('business_phone')}
               placeholder="+1 (951) 555-0200"
@@ -303,6 +314,7 @@ function StepBusiness({ userInfo, onNext }) {
             <span className="label">Forwarding number *</span>
             <input
               type="tel"
+              autoComplete="off"
               value={form.staff_phone}
               onChange={set('staff_phone')}
               placeholder="+1 (951) 555-0300"
@@ -315,6 +327,7 @@ function StepBusiness({ userInfo, onNext }) {
           <span className="label">Business hours</span>
           <input
             type="text"
+            autoComplete="off"
             value={form.business_hours}
             onChange={set('business_hours')}
             placeholder="Mon–Fri 9am–5pm"
@@ -328,6 +341,7 @@ function StepBusiness({ userInfo, onNext }) {
           <span className="label">Business address</span>
           <input
             type="text"
+            autoComplete="street-address"
             value={form.business_address}
             onChange={set('business_address')}
             placeholder="123 Main St, Temecula, CA 92590"
@@ -338,6 +352,7 @@ function StepBusiness({ userInfo, onNext }) {
           <span className="label">Notification email</span>
           <input
             type="email"
+            autoComplete="email"
             value={form.voicemail_email}
             onChange={set('voicemail_email')}
             placeholder="owner@yourbusiness.com"
@@ -478,6 +493,7 @@ function StepCheckout({ tenant }) {
         cancelUrl: `${base}/register`,
       });
       if (data?.url) {
+        try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
         window.location.href = data.url;
       } else {
         setError('No checkout URL returned. Please try again.');
@@ -543,9 +559,16 @@ function StepCheckout({ tenant }) {
 // ─── Root component ─────────────────────────────────────────────────────────────
 
 export default function Register() {
-  const [step, setStep] = useState(1);
-  const [userInfo, setUserInfo] = useState(null);
-  const [tenant, setTenant] = useState(null);
+  const saved = loadSaved();
+  const [step, setStep] = useState(saved?.step ?? 1);
+  const [userInfo, setUserInfo] = useState(saved?.userInfo ?? null);
+  const [tenant, setTenant] = useState(saved?.tenant ?? null);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ step, userInfo, tenant }));
+    } catch {}
+  }, [step, userInfo, tenant]);
 
   return (
     <div className="wizard-wrap">
