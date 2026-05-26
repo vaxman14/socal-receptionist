@@ -26,6 +26,7 @@ const voiceRouter = require('./voice/webhook');
 const billingWebhookRouter = require('./billing/webhook');
 const clientAdminRouter = require('./admin/client');
 const ownerAdminRouter = require('./admin/owner');
+const voicePreviewRouter = require('./admin/voice-preview');
 const onboardingAgreementRouter = require('./onboarding/agreement');
 const onboardingRegisterRouter = require('./onboarding/register');
 const mfaRouter = require('./auth/mfa');
@@ -67,6 +68,7 @@ app.use('/auth/mfa', mfaRouter);
 // Admin API. The owner router is mounted first so /admin/owner/* never falls
 // into the client router's requireTenant middleware.
 app.use('/admin/owner', ownerAdminRouter);
+app.use('/admin', voicePreviewRouter);
 app.use('/admin', clientAdminRouter);
 
 // Serve the landing page (public/) and the React SPA (web/dist/).

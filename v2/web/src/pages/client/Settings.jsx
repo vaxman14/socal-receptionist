@@ -1,8 +1,9 @@
 // Client Settings — edit business config (PATCH /admin/tenant).
 // Three sections: Business profile, Voice Receptionist, AI.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 import { useFetch } from '../../lib/useFetch';
 import { SMS_ENABLED } from '../../lib/config';
 import { Loading, ErrorState } from '../../components/States';
@@ -49,6 +50,33 @@ export default function Settings() {
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [previewState, setPreviewState] = useState('idle'); // idle | loading | playing
+  const audioRef = useRef(null);
+
+  const playPreview = async () => {
+    if (previewState === 'loading') return;
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    setPreviewState('loading');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+      const base = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '');
+      const res = await fetch(`${base}/admin/voice-preview/${encodeURIComponent(form.voice_id)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('preview failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => { setPreviewState('idle'); URL.revokeObjectURL(url); };
+      audio.onerror = () => setPreviewState('idle');
+      await audio.play();
+      setPreviewState('playing');
+    } catch {
+      setPreviewState('idle');
+    }
+  };
 
   useEffect(() => {
     if (data?.tenant) {
@@ -172,17 +200,28 @@ export default function Settings() {
             </label>
           </div>
 
-          <label className="field">
+          <div className="field">
             <span className="label">Receptionist voice</span>
-            <select value={form.voice_id} onChange={set('voice_id')}>
-              {VOICE_OPTIONS.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label} — {v.desc}
-                </option>
-              ))}
-            </select>
-            <span className="hint">The voice your callers will hear when they call in.</span>
-          </label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <select style={{ flex: 1 }} value={form.voice_id} onChange={set('voice_id')}>
+                {VOICE_OPTIONS.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label} — {v.desc}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ whiteSpace: 'nowrap', minWidth: 80 }}
+                onClick={playPreview}
+                disabled={previewState === 'loading'}
+              >
+                {previewState === 'loading' ? 'Loading…' : previewState === 'playing' ? '▶ Playing' : '▶ Preview'}
+              </button>
+            </div>
+            <span className="hint">The voice your callers will hear. Preview uses a similar AI voice — not exact, but close.</span>
+          </div>
 
           <label className="field">
             <span className="label">
