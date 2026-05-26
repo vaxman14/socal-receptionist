@@ -346,12 +346,13 @@ table.data tbody tr.clickable:hover { background: var(--light); }
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: linear-gradient(160deg, var(--navy) 0%, var(--blue) 100%);
+  background: #ffffff;
 }
 .auth-card {
   background: var(--surface);
   border-radius: 14px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  border: 1.5px solid var(--border);
+  box-shadow: 0 4px 24px rgba(15, 31, 61, 0.08);
   width: 100%;
   max-width: 420px;
   padding: 32px;
@@ -380,6 +381,56 @@ table.data tbody tr.clickable:hover { background: var(--light); }
   cursor: pointer;
   padding: 0;
 }
+.oauth-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.btn-oauth {
+  width: 100%;
+  justify-content: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  color: var(--text);
+  font-weight: 500;
+  font-size: 0.92rem;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-oauth:hover:not(:disabled) { background: var(--light); border-color: #c5cad8; }
+.btn-oauth:disabled { opacity: 0.6; cursor: not-allowed; }
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.oauth-divider::before,
+.oauth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.pw-checklist {
+  list-style: none;
+  margin: 6px 0 14px;
+  padding: 10px 12px;
+  background: var(--light);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pw-checklist li { color: var(--muted); }
+.pw-checklist li.met { color: var(--green); }
 
 /* ---------- Wizard ---------- */
 .wizard-wrap {

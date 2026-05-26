@@ -21,9 +21,10 @@ function validatePassword(pw) {
 }
 
 export default function Login() {
-  const { signIn, signUp, signInWithOAuth } = useAuth();
+  const { signIn, signUp, signInWithOAuth, resetPasswordForEmail } = useAuth();
   const navigate = useNavigate();
 
+  // 'signin' | 'signup' | 'forgot'
   const [mode, setMode] = useState('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,6 +37,21 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setNotice(null);
+
+    if (mode === 'forgot') {
+      if (!email.trim()) { setError('Enter your email address.'); return; }
+      setBusy(true);
+      try {
+        await resetPasswordForEmail(email.trim());
+        setNotice('Check your email — we sent a password reset link.');
+        setMode('signin');
+      } catch (err) {
+        setError(err?.message || 'Could not send reset email. Please try again.');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
 
     if (!email.trim() || !password) {
       setError('Email and password are required.');
@@ -100,40 +116,45 @@ export default function Login() {
         </div>
 
         <h1 style={{ fontSize: '1.3rem', marginBottom: 4 }}>
-          {mode === 'signin' ? 'Sign in' : 'Create your account'}
+          {mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create your account' : 'Reset password'}
         </h1>
         <p className="muted" style={{ fontSize: '0.88rem', marginBottom: 18 }}>
           {mode === 'signin'
             ? 'Access your business console.'
-            : 'Set up your AI receptionist in a few minutes.'}
+            : mode === 'signup'
+              ? 'Set up your AI receptionist in a few minutes.'
+              : 'Enter your email and we\'ll send a reset link.'}
         </p>
 
         {error  && <div className="alert alert-error">{error}</div>}
         {notice && <div className="alert alert-success">{notice}</div>}
 
-        {/* Social sign-on */}
-        <div className="oauth-row">
-          <button
-            type="button"
-            className="btn btn-oauth"
-            disabled={!!oauthBusy}
-            onClick={() => handleOAuth('google')}
-          >
-            <GoogleIcon />
-            {oauthBusy === 'google' ? 'Redirecting…' : 'Continue with Google'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-oauth"
-            disabled={!!oauthBusy}
-            onClick={() => handleOAuth('azure')}
-          >
-            <MicrosoftIcon />
-            {oauthBusy === 'azure' ? 'Redirecting…' : 'Continue with Microsoft'}
-          </button>
-        </div>
-
-        <div className="oauth-divider"><span>or</span></div>
+        {/* Social sign-on — only on signin / signup */}
+        {mode !== 'forgot' && (
+          <>
+            <div className="oauth-row">
+              <button
+                type="button"
+                className="btn btn-oauth"
+                disabled={!!oauthBusy}
+                onClick={() => handleOAuth('google')}
+              >
+                <GoogleIcon />
+                {oauthBusy === 'google' ? 'Redirecting…' : 'Continue with Google'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-oauth"
+                disabled={!!oauthBusy}
+                onClick={() => handleOAuth('azure')}
+              >
+                <MicrosoftIcon />
+                {oauthBusy === 'azure' ? 'Redirecting…' : 'Continue with Microsoft'}
+              </button>
+            </div>
+            <div className="oauth-divider"><span>or</span></div>
+          </>
+        )}
 
         <form onSubmit={submit}>
           <label className="field">
@@ -147,17 +168,20 @@ export default function Login() {
               placeholder="you@business.com"
             />
           </label>
-          <label className="field">
-            <span className="label">Password</span>
-            <input
-              type="password"
-              name="password"
-              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === 'signup' ? 'Create a strong password' : '••••••••'}
-            />
-          </label>
+
+          {mode !== 'forgot' && (
+            <label className="field">
+              <span className="label">Password</span>
+              <input
+                type="password"
+                name="password"
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={mode === 'signup' ? 'Create a strong password' : '••••••••'}
+              />
+            </label>
+          )}
 
           {showPwChecklist && (
             <ul className="pw-checklist">
@@ -169,20 +193,36 @@ export default function Login() {
             </ul>
           )}
 
+          {mode === 'signin' && (
+            <div style={{ textAlign: 'right', marginBottom: 14, marginTop: -4 }}>
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '0.82rem', cursor: 'pointer', padding: 0 }}
+                onClick={() => switchMode('forgot')}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+
           <button className="btn btn-primary btn-block" disabled={busy} type="submit">
             {busy
               ? 'Please wait…'
               : mode === 'signin'
                 ? 'Sign in'
-                : 'Create account'}
+                : mode === 'signup'
+                  ? 'Create account'
+                  : 'Send reset link'}
           </button>
         </form>
 
         <div className="auth-toggle">
           {mode === 'signin' ? (
             <>New here? <button type="button" onClick={() => switchMode('signup')}>Create an account</button></>
-          ) : (
+          ) : mode === 'signup' ? (
             <>Already have an account? <button type="button" onClick={() => switchMode('signin')}>Sign in</button></>
+          ) : (
+            <><button type="button" onClick={() => switchMode('signin')}>Back to sign in</button></>
           )}
         </div>
       </div>

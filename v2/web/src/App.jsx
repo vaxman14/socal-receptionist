@@ -12,15 +12,17 @@ import { useRole } from './context/useRole';
 import { Loading, ErrorState } from './components/States';
 import { getMfaStatus, isDeviceTrusted } from './lib/mfa';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 import MfaChallenge from './pages/MfaChallenge';
 import OwnerApp from './pages/owner/OwnerApp';
 import ClientApp from './pages/client/ClientApp';
 import Wizard from './pages/onboarding/Wizard';
 
 export default function App() {
-  const { session, loading } = useAuth();
+  const { session, loading, isRecoveryMode } = useAuth();
 
   if (loading) return <Loading label="Loading…" />;
+  if (isRecoveryMode) return <ResetPassword />;
   if (!session) return <Login />;
 
   // A session exists — but it may still be at aal1 with a verified MFA factor

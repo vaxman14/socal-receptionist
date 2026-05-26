@@ -12,6 +12,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -22,8 +23,13 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next || null);
+    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoveryMode(true);
+        setSession(next || null);
+      } else {
+        setSession(next || null);
+      }
     });
 
     return () => {
@@ -52,18 +58,50 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signUp = useCallback(async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: 'https://app.socalreceptionist.com' },
+    });
     if (error) throw error;
     return data;
   }, []);
+
+  const signInWithOAuth = useCallback(async (provider) => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: 'https://app.socalreceptionist.com' },
+    });
+    if (error) throw error;
+  }, []);
+
+  const resetPasswordForEmail = useCallback(async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://app.socalreceptionist.com/reset-password',
+    });
+    if (error) throw error;
+  }, []);
+
+  const updatePassword = useCallback(async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    setIsRecoveryMode(false);
+  }, []);
+
+  const clearRecoveryMode = useCallback(() => setIsRecoveryMode(false), []);
 
   const value = {
     session,
     user: session?.user || null,
     loading,
+    isRecoveryMode,
     signIn,
     signUp,
+    signInWithOAuth,
     signOut,
+    resetPasswordForEmail,
+    updatePassword,
+    clearRecoveryMode,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
