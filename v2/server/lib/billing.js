@@ -55,7 +55,8 @@ function mapStripeStatus(s) {
 // In subscription mode Stripe invoices one-time line items on the first
 // invoice, i.e. immediately at checkout. `payment_method_collection: 'always'`
 // keeps the card on file for the recurring charges that begin after the trial.
-async function createCheckoutSession({ tenant, priceId, setupPriceId, successUrl, cancelUrl }) {
+async function createCheckoutSession({ tenant, priceId, setupPriceId, trialDays: trialDaysOverride, successUrl, cancelUrl }) {
+  const trialDays = trialDaysOverride ?? TRIAL_DAYS;
   const lineItems = [{ price: priceId, quantity: 1 }];
   if (setupPriceId) lineItems.push({ price: setupPriceId, quantity: 1 });
 
@@ -66,7 +67,7 @@ async function createCheckoutSession({ tenant, priceId, setupPriceId, successUrl
     client_reference_id: tenant.id,
     payment_method_collection: 'always', // keep a card on file through the trial
     subscription_data: {
-      trial_period_days: TRIAL_DAYS,
+      trial_period_days: trialDays,
       metadata: { tenant_id: tenant.id },
     },
     metadata: { tenant_id: tenant.id },
