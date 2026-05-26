@@ -177,7 +177,7 @@ router.post('/billing/portal', async (req, res) => {
     const base = process.env.APP_BASE_URL || '';
     const session = await createPortalSession({
       stripeCustomerId: sub.stripe_customer_id,
-      returnUrl: req.body.returnUrl || `${base}/billing`,
+      returnUrl: `${base}/billing`,
     });
     res.json({ url: session.url });
   } catch (err) {

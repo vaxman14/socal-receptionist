@@ -55,6 +55,10 @@ router.post('/agreement/sign', async (req, res) => {
     acknowledged_version,
   } = req.body || {};
 
+  if (!signer_name || !String(signer_name).trim()) {
+    return res.status(400).json({ error: 'signer_name is required' });
+  }
+
   // The signer must explicitly consent to e-sign — no silent/implied signature.
   if (esign_consent !== true) {
     return res.status(400).json({ error: 'esign_consent must be true to sign' });

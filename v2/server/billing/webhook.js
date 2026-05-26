@@ -14,6 +14,10 @@ const { enqueue } = require('../lib/jobs');
 const router = express.Router();
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+if (process.env.NODE_ENV === 'production' && !webhookSecret) {
+  throw new Error('STRIPE_WEBHOOK_SECRET is required in production');
+}
+
 // express.raw — Stripe signature verification needs the unparsed body, so this
 // route must be registered before any JSON body parser (see index.js).
 router.post('/billing/webhook', express.raw({ type: '*/*' }), async (req, res) => {

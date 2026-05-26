@@ -33,6 +33,28 @@ const OPTIONAL = [
   'voicemail_email',
 ];
 
+const E164_RE = /^\+[1-9]\d{7,14}$/;
+const MAX_NAME_LEN = 200;
+
+function validateRegistration(body) {
+  if (body.business_name && String(body.business_name).trim().length > MAX_NAME_LEN) {
+    return `business_name must be ${MAX_NAME_LEN} characters or less`;
+  }
+  if (body.staff_phone !== undefined && body.staff_phone !== null && body.staff_phone !== '') {
+    if (!E164_RE.test(body.staff_phone)) return 'staff_phone must be E.164 format (e.g. +15551234567)';
+  }
+  if (body.calendly_link !== undefined && body.calendly_link !== null && body.calendly_link !== '') {
+    try {
+      const u = new URL(body.calendly_link);
+      if (!['http:', 'https:'].includes(u.protocol)) throw new Error();
+    } catch { return 'calendly_link must be a valid https URL'; }
+  }
+  if (body.voicemail_email !== undefined && body.voicemail_email !== null && body.voicemail_email !== '') {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.voicemail_email)) return 'voicemail_email must be a valid email address';
+  }
+  return null;
+}
+
 // Turn a business name into a URL-safe slug stem.
 function slugify(name) {
   return String(name)
@@ -72,6 +94,9 @@ router.post('/business', async (req, res) => {
       return res.status(400).json({ error: `${field} is required` });
     }
   }
+
+  const validationError = validateRegistration(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
 
   const row = {
     owner_user_id: req.user.id,
