@@ -10,6 +10,13 @@ const twilio = require('twilio');
 const authToken = process.env.TWILIO_AUTH_TOKEN || '';
 const validateSignature = process.env.TWILIO_VALIDATE_SIGNATURE !== 'false';
 
+if (process.env.NODE_ENV === 'production' && !validateSignature) {
+  throw new Error('TWILIO_VALIDATE_SIGNATURE=false is not allowed in production');
+}
+if (process.env.NODE_ENV === 'production' && !authToken) {
+  throw new Error('TWILIO_AUTH_TOKEN is required in production');
+}
+
 // Verify a request genuinely came from Twilio (X-Twilio-Signature).
 function isValidTwilioRequest(req) {
   if (!validateSignature) return true;

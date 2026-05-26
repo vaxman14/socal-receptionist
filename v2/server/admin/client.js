@@ -121,19 +121,18 @@ const PLAN_PRICE_IDS = {
 // deferred 30 days via a trial.
 router.post('/billing/checkout', async (req, res) => {
   try {
-    // Accept either a plan name ("after_hours" | "always_on" | "total_care"),
-    // an explicit priceId, or fall back to the env-var default.
+    // Resolve price from server-side plan map only — never trust client-supplied price IDs.
     const planPriceId = req.body.plan ? PLAN_PRICE_IDS[req.body.plan] : null;
-    const priceId = planPriceId || req.body.priceId || process.env.STRIPE_PRICE_ID;
-    if (!priceId) return res.status(400).json({ error: 'no plan price configured' });
-    const setupPriceId = req.body.setupPriceId || process.env.STRIPE_SETUP_PRICE_ID;
+    const priceId = planPriceId || process.env.STRIPE_PRICE_ID;
+    if (!priceId) return res.status(400).json({ error: 'invalid or missing plan' });
+    const setupPriceId = process.env.STRIPE_SETUP_PRICE_ID;
     const base = process.env.APP_BASE_URL || '';
     const session = await createCheckoutSession({
       tenant: req.tenant,
       priceId,
       setupPriceId,
-      successUrl: req.body.successUrl || `${base}/billing/success`,
-      cancelUrl: req.body.cancelUrl || `${base}/billing/cancel`,
+      successUrl: `${base}/billing/success`,
+      cancelUrl: `${base}/billing/cancel`,
     });
     res.json({ url: session.url });
   } catch (err) {

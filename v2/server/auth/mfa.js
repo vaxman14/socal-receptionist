@@ -22,7 +22,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const { supabase } = require('../lib/supabase');
-const { requireAuth } = require('../lib/auth');
+const { requireAuth, requireAal2 } = require('../lib/auth');
 
 const router = express.Router();
 
@@ -97,7 +97,7 @@ router.use(requireAuth);
 // POST /auth/mfa/trust — issue a 30-day device-trust token for the caller.
 // Called after the user clears the MFA challenge with "trust this device" on.
 // Requires the session to be at AAL2 (the caller just passed a factor).
-router.post('/trust', async (req, res) => {
+router.post('/trust', requireAal2, async (req, res) => {
   try {
     const userAgent = req.header('user-agent') || null;
     const label =

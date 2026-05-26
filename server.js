@@ -42,24 +42,9 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
 });
 
-// Temporary Google OAuth callback — captures refresh tokens for multiple accounts
-app.get('/auth/google-callback', async (req, res) => {
-  const code = req.query.code;
-  const state = req.query.state || 'unknown';
-  if (!code) return res.send('No code in request.');
-  try {
-    const { google } = require('googleapis');
-    const oauth2 = new google.auth.OAuth2(
-      config.gcal.clientId,
-      config.gcal.clientSecret,
-      'https://www.socalreceptionist.com/auth/google-callback'
-    );
-    const { tokens } = await oauth2.getToken(code);
-    console.log(`[google-auth] ACCOUNT=${state} REFRESH_TOKEN=${tokens.refresh_token}`);
-    res.send(`<h2>Authorized ${state}! ✅</h2><p>Josi has the token. Close this tab and authorize the next account.</p>`);
-  } catch (err) {
-    res.send('Error: ' + err.message);
-  }
+// Google OAuth callback — disabled in production (was used once for initial token capture).
+app.get('/auth/google-callback', (req, res) => {
+  res.status(410).send('Gone');
 });
 
 // Coming Soon mode — must be before static middleware so it intercepts /
