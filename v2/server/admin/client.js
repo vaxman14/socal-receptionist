@@ -22,10 +22,22 @@ const EDITABLE_FIELDS = [
   'ai_system_prompt',
   // Voice receptionist config.
   'voice_enabled',
+  'voice_id',
   'staff_phone',      // "press 2 / speak to staff" transfer target
   'voice_greeting',
   'voicemail_email',
 ];
+
+const ALLOWED_VOICE_IDS = new Set([
+  'Polly.Joanna-Neural',
+  'Polly.Ruth-Neural',
+  'Polly.Kendra-Neural',
+  'Polly.Salli-Neural',
+  'Polly.Matthew-Neural',
+  'Polly.Stephen-Neural',
+  'Polly.Amy-Neural',
+  'Polly.Brian-Neural',
+]);
 
 router.use(requireAuth, requireTenant);
 
@@ -45,6 +57,9 @@ function validateTenantPatch(patch) {
   }
   if (patch.ai_system_prompt && patch.ai_system_prompt.length > MAX_PROMPT_LEN) {
     return `ai_system_prompt must be ${MAX_PROMPT_LEN} characters or less`;
+  }
+  if (patch.voice_id !== undefined && patch.voice_id !== null && !ALLOWED_VOICE_IDS.has(patch.voice_id)) {
+    return `voice_id must be one of: ${[...ALLOWED_VOICE_IDS].join(', ')}`;
   }
   return null;
 }

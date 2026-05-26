@@ -8,6 +8,17 @@ import { SMS_ENABLED } from '../../lib/config';
 import { Loading, ErrorState } from '../../components/States';
 import MfaSettings from '../../components/MfaSettings';
 
+const VOICE_OPTIONS = [
+  { id: 'Polly.Joanna-Neural',  label: 'Joanna',  desc: 'US English · Female · Warm & professional' },
+  { id: 'Polly.Ruth-Neural',    label: 'Ruth',    desc: 'US English · Female · Natural & clear' },
+  { id: 'Polly.Kendra-Neural',  label: 'Kendra',  desc: 'US English · Female · Friendly' },
+  { id: 'Polly.Salli-Neural',   label: 'Salli',   desc: 'US English · Female · Upbeat' },
+  { id: 'Polly.Matthew-Neural', label: 'Matthew', desc: 'US English · Male · Authoritative' },
+  { id: 'Polly.Stephen-Neural', label: 'Stephen', desc: 'US English · Male · Conversational' },
+  { id: 'Polly.Amy-Neural',     label: 'Amy',     desc: 'British English · Female · Premium' },
+  { id: 'Polly.Brian-Neural',   label: 'Brian',   desc: 'British English · Male · Trustworthy' },
+];
+
 const TIMEZONES = [
   'America/Los_Angeles',
   'America/Denver',
@@ -26,6 +37,7 @@ const FIELDS = [
   'timezone',
   'ai_system_prompt',
   'voice_enabled',
+  'voice_id',
   'staff_phone',
   'voice_greeting',
   'voicemail_email',
@@ -43,7 +55,9 @@ export default function Settings() {
       const t = data.tenant;
       const next = {};
       for (const f of FIELDS) {
-        next[f] = f === 'voice_enabled' ? Boolean(t[f]) : t[f] ?? '';
+        if (f === 'voice_enabled') next[f] = Boolean(t[f]);
+        else if (f === 'voice_id') next[f] = t[f] || 'Polly.Joanna-Neural';
+        else next[f] = t[f] ?? '';
       }
       setForm(next);
     }
@@ -76,7 +90,9 @@ export default function Settings() {
     // Send all editable fields; empty strings become null on the server side.
     const body = {};
     for (const f of FIELDS) {
-      body[f] = f === 'voice_enabled' ? form[f] : String(form[f]).trim() || null;
+      if (f === 'voice_enabled') body[f] = form[f];
+      else if (f === 'voice_id') body[f] = form[f] || 'Polly.Joanna-Neural';
+      else body[f] = String(form[f]).trim() || null;
     }
 
     setBusy(true);
@@ -155,6 +171,18 @@ export default function Settings() {
               <span>Enabled</span>
             </label>
           </div>
+
+          <label className="field">
+            <span className="label">Receptionist voice</span>
+            <select value={form.voice_id} onChange={set('voice_id')}>
+              {VOICE_OPTIONS.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label} — {v.desc}
+                </option>
+              ))}
+            </select>
+            <span className="hint">The voice your callers will hear when they call in.</span>
+          </label>
 
           <label className="field">
             <span className="label">
