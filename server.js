@@ -196,7 +196,7 @@ app.use((req, res, next) => {
 
 app.get('/sitemap.xml', (req, res) => {
   const base = 'https://www.socalreceptionist.com';
-  const pages = ['/', '/faq', '/support', '/privacy', '/terms', '/cookies', '/accessibility'];
+  const pages = ['/', '/faq', '/support', '/privacy', '/terms', '/sms-terms', '/cookies', '/accessibility'];
   const urls = pages.map(p =>
     `  <url><loc>${base}${p}</loc><changefreq>${p === '/' ? 'weekly' : 'monthly'}</changefreq><priority>${p === '/' ? '1.0' : '0.5'}</priority></url>`
   ).join('\n');
@@ -274,6 +274,7 @@ function legalPage(title, bodyHtml) {
     <a href="/support">Support</a>
     <a href="/privacy">Privacy Policy</a>
     <a href="/terms">Terms of Use</a>
+    <a href="/sms-terms">SMS Terms</a>
     <a href="/cookies">Cookie Policy</a>
     <a href="/accessibility">Accessibility</a>
   </nav>
@@ -418,6 +419,52 @@ app.get('/terms', (req, res) => {
 
   <h2>Contact</h2>
   <p>Questions? Email us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>.</p>
+  `));
+});
+
+app.get('/sms-terms', (req, res) => {
+  res.type('text/html').send(legalPage('SMS Terms & Conditions', `
+  <h1>SMS Terms &amp; Conditions</h1>
+  <p>Last updated: May 2026</p>
+
+  <h2>Program Description</h2>
+  <p><strong>SoCal Receptionist</strong> provides an AI-powered virtual receptionist service that communicates with callers and customers via SMS on behalf of small businesses in Southern California. Messages may include appointment scheduling, business inquiries, and follow-ups.</p>
+
+  <h2>How to Opt In</h2>
+  <p>You opt in to receive SMS messages in one of the following ways:</p>
+  <ul>
+    <li>By texting a business phone number powered by SoCal Receptionist, you will receive a one-time confirmation request asking you to reply <strong>YES</strong> to consent to automated messages.</li>
+    <li>By submitting your phone number on our website contact form, you consent to receive SMS follow-up messages from SoCal Receptionist.</li>
+  </ul>
+  <p>No automated messages are sent until you explicitly consent.</p>
+
+  <h2>Message Frequency</h2>
+  <p>Message frequency varies based on your interactions. Typically 1–5 messages per conversation. You will not receive unsolicited marketing messages.</p>
+
+  <h2>Message &amp; Data Rates</h2>
+  <p>Standard message and data rates may apply depending on your mobile carrier plan. SoCal Receptionist does not charge for SMS messages.</p>
+
+  <h2>How to Opt Out</h2>
+  <p>Reply <strong>STOP</strong> at any time to immediately stop all SMS messages from the number you received them from. You will receive one final confirmation message and no further messages will be sent.</p>
+
+  <h2>How to Get Help</h2>
+  <p>Reply <strong>HELP</strong> for assistance, or contact us directly:</p>
+  <ul>
+    <li><strong>Email:</strong> <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a></li>
+    <li><strong>Website:</strong> <a href="https://www.socalreceptionist.com/support">socalreceptionist.com/support</a></li>
+  </ul>
+
+  <h2>Supported Carriers</h2>
+  <p>Major US carriers including AT&amp;T, Verizon, T-Mobile, Sprint, and others. Carrier support may vary.</p>
+
+  <h2>Privacy</h2>
+  <p>Your phone number and message content are used solely to provide the virtual receptionist service. We do not sell or share your phone number for marketing purposes. See our full <a href="/privacy">Privacy Policy</a>.</p>
+
+  <h2>Changes</h2>
+  <p>We may update these terms periodically. Continued use of the SMS service after changes constitutes acceptance of the updated terms.</p>
+
+  <h2>Contact</h2>
+  <p>Questions? Email <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>.</p>
   `));
 });
 
