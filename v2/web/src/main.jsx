@@ -10,7 +10,7 @@ import './styles/global.css';
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
 if (sentryDsn) {
-  Sentry.init({ dsn: sentryDsn, tracesSampleRate: 0.1 });
+  Sentry.init({ dsn: sentryDsn, tracesSampleRate: 0.1, sendDefaultPii: true });
 }
 
 // Injects PostHog / GTM / GA only if VITE_ env vars are set; no-op otherwise.
