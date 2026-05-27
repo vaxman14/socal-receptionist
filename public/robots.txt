@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /health
+Disallow: /sms
+Disallow: /voice
+Sitemap: https://www.socalreceptionist.com/sitemap.xml

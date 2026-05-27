@@ -34,6 +34,14 @@ const mfaRouter = require('./auth/mfa');
 const app = express();
 app.set('trust proxy', true); // behind the DigitalOcean / Cloudflare proxy
 
+// Redirect naked domain → www
+app.use((req, res, next) => {
+  if (req.hostname === 'socalreceptionist.com') {
+    return res.redirect(301, `https://www.socalreceptionist.com${req.originalUrl}`);
+  }
+  next();
+});
+
 // The browser SPA (admin + onboarding wizard) is served from a separate origin
 // (Netlify / app.socalreceptionist.com), so its API calls are cross-origin and
 // need CORS. Auth is bearer-token (Supabase access_token), not cookies, so
