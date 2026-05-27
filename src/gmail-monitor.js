@@ -1,18 +1,43 @@
 const { google } = require('googleapis');
+const { JWT } = require('google-auth-library');
 const config = require('./config');
 
 const ACCOUNTS = [
-  { name: 'info',    email: 'info@socalreceptionist.com',    refreshToken: () => config.gcal.refreshTokenInfo },
-  { name: 'support', email: 'support@socalreceptionist.com', refreshToken: () => config.gcal.refreshTokenSupport },
+  { name: 'info',    email: 'info@socalreceptionist.com' },
+  { name: 'support', email: 'support@socalreceptionist.com' },
 ];
 
-function getClient(refreshToken) {
+// Build a Gmail auth client for the given email address.
+// Prefers service account with DWD (GOOGLE_SERVICE_ACCOUNT_KEY) over per-account OAuth tokens.
+function getClient(email) {
+  const saKey = config.gcal.serviceAccountKey;
+  if (saKey) {
+    const key = JSON.parse(saKey);
+    return new JWT({
+      email: key.client_email,
+      key: key.private_key,
+      scopes: [
+        'https://www.googleapis.com/auth/gmail.readonly',
+        'https://www.googleapis.com/auth/gmail.send',
+      ],
+      subject: email,
+    });
+  }
+
+  // Legacy: per-account OAuth refresh tokens
+  const refreshTokenMap = {
+    'info@socalreceptionist.com':    config.gcal.refreshTokenInfo,
+    'support@socalreceptionist.com': config.gcal.refreshTokenSupport,
+  };
+  const rt = refreshTokenMap[email];
+  if (!rt) return null;
+
   const oAuth2Client = new google.auth.OAuth2(
     config.gcal.clientId,
     config.gcal.clientSecret,
     'https://www.socalreceptionist.com/auth/google-callback'
   );
-  oAuth2Client.setCredentials({ refresh_token: refreshToken });
+  oAuth2Client.setCredentials({ refresh_token: rt });
   return oAuth2Client;
 }
 
@@ -23,11 +48,10 @@ async function getNewMessages(sinceMs) {
   const results = [];
 
   for (const account of ACCOUNTS) {
-    const rt = account.refreshToken();
-    if (!rt) continue;
+    const auth = getClient(account.email);
+    if (!auth) continue;
 
     try {
-      const auth = getClient(rt);
       const gmail = google.gmail({ version: 'v1', auth });
 
       const listRes = await gmail.users.messages.list({ userId: 'me', q: query, maxResults: 20 });
@@ -69,10 +93,10 @@ async function getNewMessages(sinceMs) {
 async function sendReply({ fromAccountEmail, toEmail, subject, body, inReplyToMessageId, references, threadId }) {
   const account = ACCOUNTS.find(a => a.email === fromAccountEmail);
   if (!account) throw new Error(`Unknown account: ${fromAccountEmail}`);
-  const rt = account.refreshToken();
-  if (!rt) throw new Error(`No refresh token for ${fromAccountEmail}`);
 
-  const auth = getClient(rt);
+  const auth = getClient(fromAccountEmail);
+  if (!auth) throw new Error(`No credentials for ${fromAccountEmail}`);
+
   const gmail = google.gmail({ version: 'v1', auth });
 
   const replySubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;

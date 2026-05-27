@@ -37,6 +37,7 @@ const config = {
     refreshToken: optional('GOOGLE_REFRESH_TOKEN', ''),
     refreshTokenInfo: optional('GOOGLE_REFRESH_TOKEN_INFO', ''),
     refreshTokenSupport: optional('GOOGLE_REFRESH_TOKEN_SUPPORT', ''),
+    serviceAccountKey: optional('GOOGLE_SERVICE_ACCOUNT_KEY', ''),
   },
 
   openai: {
