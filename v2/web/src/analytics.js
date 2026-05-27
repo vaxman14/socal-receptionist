@@ -1,18 +1,26 @@
 // Optional analytics / tag injection for the admin SPA.
 //
-// Drops in Google Tag Manager and/or GA4 only when an ID is configured via a
-// VITE_ build env var. No ID set => no-op: no script tag, no network call.
-// Mirrors the env-driven tag slots on the V1 marketing site.
-//
-// VITE_ vars are baked at BUILD time — set them before `npm run build`
-// (locally, or as Netlify env vars for the deployed app), not at runtime.
+// PostHog, GTM, and GA4 load only when VITE_ env vars are set at build time.
+// Re-export `ph` (posthog instance) so any module can call ph.capture(...)
+// safely — it's a no-op when PostHog is not initialized.
+
+import posthog from 'posthog-js';
+
+export { posthog as ph };
 
 export function initAnalytics() {
+  const phKey = import.meta.env.VITE_POSTHOG_KEY;
+  if (phKey) {
+    posthog.init(phKey, {
+      api_host: 'https://us.i.posthog.com',
+      defaults: '2026-01-30',
+      person_profiles: 'identified_only',
+    });
+  }
+
   const gtmId = import.meta.env.VITE_GTM_ID;
   const gaId = import.meta.env.VITE_GA_ID;
 
-  // Google Tag Manager — use this if you run a GTM container (recommended:
-  // lets you manage GA, Facebook Pixel, etc. without code changes).
   if (gtmId) {
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
@@ -22,8 +30,6 @@ export function initAnalytics() {
     document.head.appendChild(s);
   }
 
-  // Direct GA4 (gtag.js) — use this instead if you only want Analytics and
-  // don't run a Tag Manager container.
   if (gaId) {
     const s = document.createElement('script');
     s.async = true;

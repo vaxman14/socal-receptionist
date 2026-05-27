@@ -11,6 +11,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
+import { ph } from '../analytics';
 
 const STORAGE_KEY = 'socal-register';
 
@@ -106,6 +107,8 @@ function StepInfo({ onNext }) {
         }
       }
 
+      ph.identify(session?.user?.id, { email: form.email.trim(), name: form.full_name.trim() });
+      ph.capture('registration_account_created');
       // Pass collected info forward so Step 2 can pre-populate owner email, etc.
       onNext({
         full_name: form.full_name.trim(),
@@ -257,6 +260,7 @@ function StepBusiness({ userInfo, onNext }) {
         tenant = result.tenant;
       }
 
+      ph.capture('registration_business_submitted', { business_type: form.business_type });
       onNext({ tenant, form });
     } catch (err) {
       setError(err?.message || 'Could not save your business info. Please try again.');
@@ -470,7 +474,7 @@ function StepPlan({ onNext }) {
         </div>
       </div>
 
-      <button className="btn btn-primary btn-block" onClick={() => onNext({})}>
+      <button className="btn btn-primary btn-block" onClick={() => { ph.capture('plan_selected', { plan: 'after_hours_care' }); onNext({}); }}>
         Continue to checkout →
       </button>
     </div>
@@ -494,6 +498,7 @@ function StepCheckout({ tenant }) {
       });
       if (data?.url) {
         try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+        ph.capture('checkout_started', { business: tenant?.business_name });
         window.location.href = data.url;
       } else {
         setError('No checkout URL returned. Please try again.');

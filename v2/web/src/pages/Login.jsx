@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { ph } from '../analytics';
 
 export default function Login() {
   const { signIn, signUp } = useAuth();
@@ -33,14 +34,19 @@ export default function Login() {
     setBusy(true);
     try {
       if (mode === 'signin') {
-        await signIn(email.trim(), password);
+        const data = await signIn(email.trim(), password);
+        ph.identify(data?.session?.user?.id, { email: email.trim() });
+        ph.capture('signed_in');
         navigate('/', { replace: true });
       } else {
         const data = await signUp(email.trim(), password);
         // If the project requires email confirmation there is no session yet.
         if (data.session) {
+          ph.identify(data.session.user.id, { email: email.trim() });
+          ph.capture('signed_up');
           navigate('/', { replace: true });
         } else {
+          ph.capture('signed_up_email_confirmation_required');
           setNotice(
             'Account created. Check your inbox to confirm your email, then sign in.'
           );
