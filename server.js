@@ -16,6 +16,14 @@ require('express-ws')(app);
 
 // Trust only the first proxy (DigitalOcean LB). `true` would trust any forged X-Forwarded-For.
 app.set('trust proxy', 1);
+
+// Redirect naked domain → www
+app.use((req, res, next) => {
+  if (req.hostname === 'socalreceptionist.com') {
+    return res.redirect(301, `https://www.socalreceptionist.com${req.originalUrl}`);
+  }
+  next();
+});
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
