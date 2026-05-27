@@ -34,7 +34,10 @@ export function AppShell({ scope, links, children }) {
 
       <div className="main">
         <header className="topbar">
-          <span className="name">SoCal Receptionist</span>
+          <span className="name">
+            SoCal Receptionist
+            <small>{scope === 'owner' ? 'Platform Admin' : 'Business Console'}</small>
+          </span>
           <button className="btn btn-secondary btn-sm" onClick={signOut}>
             Sign out
           </button>

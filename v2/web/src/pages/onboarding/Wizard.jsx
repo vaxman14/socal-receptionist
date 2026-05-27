@@ -3,19 +3,34 @@
 //   2. Sign service agreement -> POST /onboarding/agreement/sign
 //   3. Confirmation           -> provisioning started, link to dashboard.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import StepBusiness from './StepBusiness';
 import StepAgreement from './StepAgreement';
 import StepDone from './StepDone';
 
 const STEPS = ['Your business', 'Service agreement', 'All set'];
+const STORAGE_KEY = 'socal-onboard';
+
+function loadSaved() {
+  try { const s = sessionStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
+}
 
 export default function Wizard({ onComplete }) {
   const { user, signOut } = useAuth();
-  const [step, setStep] = useState(1);
-  const [tenant, setTenant] = useState(null);
-  const [signResult, setSignResult] = useState(null);
+  const saved = loadSaved();
+  const [step, setStep] = useState(saved?.step ?? 1);
+  const [tenant, setTenant] = useState(saved?.tenant ?? null);
+  const [signResult, setSignResult] = useState(saved?.signResult ?? null);
+
+  useEffect(() => {
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ step, tenant, signResult })); } catch {}
+  }, [step, tenant, signResult]);
+
+  const handleComplete = () => {
+    try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+    onComplete();
+  };
 
   return (
     <div className="wizard-wrap">
@@ -67,7 +82,7 @@ export default function Wizard({ onComplete }) {
           <StepDone
             tenant={tenant}
             signResult={signResult}
-            onContinue={onComplete}
+            onContinue={handleComplete}
           />
         )}
       </div>

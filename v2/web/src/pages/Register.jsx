@@ -303,7 +303,7 @@ function StepBusiness({ userInfo, onNext }) {
             <span className="label">Business phone *</span>
             <input
               type="tel"
-              autoComplete="off"
+              autoComplete="tel"
               value={form.business_phone}
               onChange={set('business_phone')}
               placeholder="+1 (951) 555-0200"
