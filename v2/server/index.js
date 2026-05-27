@@ -6,6 +6,13 @@
 // single-dyno deployments, or as its own process via run-worker.js.
 
 require('dotenv').config();
+
+// Sentry must init before anything else so it can instrument all requires.
+const Sentry = require('@sentry/node');
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1 });
+}
+
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -75,6 +82,11 @@ app.get(/^\/(login|signup|dashboard|app|settings|clients|onboarding-wizard|regis
     res.status(503).send('App not built yet');
   }
 });
+
+// Sentry error handler — must come after all routes, before other error handlers.
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 const port = Number(process.env.PORT) || 8080;
 app.listen(port, () => {

@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sentry/react": "^8.55.2",
     "@supabase/supabase-js": "^2.45.4",
     "posthog-js": "^1.376.2",
     "react": "^18.3.1",
