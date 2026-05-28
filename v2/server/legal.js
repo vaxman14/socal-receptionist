@@ -304,4 +304,59 @@ router.get('/support', (req, res) => {
   `));
 });
 
+router.post('/delete-account', express.urlencoded({ extended: false }), express.json(), async (req, res) => {
+  const email = (req.body.email || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    return res.type('text/html').send(legalPage('Delete Account', `
+    <h1>Delete Account &amp; Data</h1>
+    <p style="color:#dc2626;font-weight:600">Please enter a valid email address.</p>
+    <form method="POST" action="/delete-account" style="margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem;max-width:400px">
+      <label style="font-size:.9rem;font-weight:600">Email address on your account</label>
+      <input type="email" name="email" required placeholder="you@example.com" style="padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:.95rem">
+      <button type="submit" style="padding:12px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer">Request Deletion</button>
+    </form>
+    `));
+  }
+
+  try {
+    const nodemailer = require('nodemailer');
+    const transport = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: 587,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+    await transport.sendMail({
+      from: `"SoCal Receptionist" <${process.env.SMTP_USER || 'info@socalreceptionist.com'}>`,
+      to: 'info@socalreceptionist.com',
+      subject: `[DATA DELETION REQUEST] ${email}`,
+      text: `A user has requested deletion of their account and all associated data.\n\nEmail: ${email}\nSubmitted: ${new Date().toISOString()}\n\nAction required: delete Supabase auth user, tenant record, and all associated rows within 30 days.`,
+    });
+  } catch (_) {
+    // email failure is non-fatal — request is logged in server output
+    console.warn(`[delete-account] email notification failed for ${email}`);
+  }
+
+  console.log(`[delete-account] deletion requested for ${email}`);
+  return res.type('text/html').send(legalPage('Delete Account', `
+  <h1>Deletion Request Received</h1>
+  <p>We've received your request to delete the account associated with <strong>${email.replace(/</g, '&lt;')}</strong> and all related data.</p>
+  <p>We will process your request within <strong>30 days</strong> and send a confirmation to that email address when complete.</p>
+  <p>If you have questions, contact <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>.</p>
+  `));
+});
+
+router.get('/delete-account', (req, res) => {
+  res.type('text/html').send(legalPage('Delete Account', `
+  <h1>Delete Account &amp; Data</h1>
+  <p>If you would like to delete your SoCal Receptionist account and all associated data, submit your email address below. We will process your request within <strong>30 days</strong>.</p>
+  <p>Data deleted includes: your account credentials, business profile, conversation history, and all stored personal information. SMS opt-out records may be retained for legal compliance.</p>
+  <form method="POST" action="/delete-account" style="margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem;max-width:400px">
+    <label style="font-size:.9rem;font-weight:600">Email address on your account</label>
+    <input type="email" name="email" required placeholder="you@example.com" style="padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:.95rem">
+    <button type="submit" style="padding:12px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer">Request Deletion</button>
+  </form>
+  <p style="margin-top:1.5rem;font-size:.85rem;color:#6b7280">Alternatively, email <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a> with the subject line "Delete My Account".</p>
+  `));
+});
+
 module.exports = router;
