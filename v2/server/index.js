@@ -79,6 +79,9 @@ app.use('/admin/owner', ownerAdminRouter);
 app.use('/admin', voicePreviewRouter);
 app.use('/admin', clientAdminRouter);
 
+// Legal pages (privacy, terms, etc.)
+app.use('/', require('./legal'));
+
 // Serve the landing page (public/) and the React SPA (web/dist/).
 // API routes above take priority; everything else falls through to the SPA.
 const publicDir = path.join(__dirname, '../../public');
