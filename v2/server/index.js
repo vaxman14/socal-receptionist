@@ -7,6 +7,12 @@
 
 require('dotenv').config();
 
+// Sentry must init before any other requires so it can instrument them
+if (process.env.SENTRY_DSN) {
+  const Sentry = require('@sentry/node');
+  Sentry.init({ dsn: process.env.SENTRY_DSN });
+}
+
 if (process.env.NODE_ENV === 'production') {
   const required = [
     'SUPABASE_URL', 'SUPABASE_SERVICE_KEY',
@@ -100,6 +106,12 @@ app.get(/^\/(login|signup|dashboard|app|settings|clients|onboarding-wizard)/, (r
     res.status(503).send('App not built yet');
   }
 });
+
+// Sentry error handler — must come after all routes, before other error handlers
+if (process.env.SENTRY_DSN) {
+  const Sentry = require('@sentry/node');
+  Sentry.setupExpressErrorHandler(app);
+}
 
 const port = Number(process.env.PORT) || 8080;
 app.listen(port, () => {

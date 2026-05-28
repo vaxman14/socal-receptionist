@@ -13,6 +13,7 @@
     "worker": "node server/provisioning/run-worker.js"
   },
   "dependencies": {
+    "@sentry/node": "^10.55.0",
     "@supabase/supabase-js": "^2.106.0",
     "cors": "^2.8.6",
     "dotenv": "^16.4.5",
