@@ -216,6 +216,14 @@ export default function StepBusiness({ onCreated, initialValues, onDraftChange }
           </span>
         </label>
 
+        <p style={{ fontSize: '0.75rem', color: '#6b7280', lineHeight: 1.5, margin: '4px 0 0' }}>
+          By signing up, you consent to receive SMS notifications from SoCal Receptionist about
+          your account (new calls, voicemails, and alerts). Message frequency varies.
+          Msg &amp; data rates may apply. Reply <strong>STOP</strong> to unsubscribe at any time.
+          See our <a href="https://www.socalreceptionist.com/privacy" target="_blank" rel="noreferrer" style={{ color: '#4f46e5' }}>Privacy Policy</a> and{' '}
+          <a href="https://www.socalreceptionist.com/sms-terms" target="_blank" rel="noreferrer" style={{ color: '#4f46e5' }}>SMS Terms</a>.
+        </p>
+
         <button className="btn btn-primary" disabled={busy} type="submit">
           {busy ? 'Saving…' : 'Continue to agreement'}
         </button>
