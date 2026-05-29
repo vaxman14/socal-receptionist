@@ -196,7 +196,7 @@ app.use((req, res, next) => {
 
 app.get('/sitemap.xml', (req, res) => {
   const base = 'https://www.socalreceptionist.com';
-  const pages = ['/', '/faq', '/support', '/privacy', '/terms', '/sms-terms', '/cookies', '/accessibility'];
+  const pages = ['/', '/faq', '/support', '/privacy', '/terms', '/sms-terms', '/cookies', '/accessibility', '/data-deletion'];
   const urls = pages.map(p =>
     `  <url><loc>${base}${p}</loc><changefreq>${p === '/' ? 'weekly' : 'monthly'}</changefreq><priority>${p === '/' ? '1.0' : '0.5'}</priority></url>`
   ).join('\n');
@@ -277,6 +277,7 @@ function legalPage(title, bodyHtml) {
     <a href="/sms-terms">SMS Terms</a>
     <a href="/cookies">Cookie Policy</a>
     <a href="/accessibility">Accessibility</a>
+    <a href="/data-deletion">Data Deletion</a>
   </nav>
   ${bodyHtml}
   <div class="meta">SoCal Receptionist &nbsp;·&nbsp; Murrieta, CA &nbsp;·&nbsp; <a href="mailto:info@socalreceptionist.com">Contact</a></div>
@@ -538,6 +539,48 @@ app.get('/accessibility', (req, res) => {
 
   <h2>Formal Complaints</h2>
   <p>If you are not satisfied with our response, you may contact the <a href="https://www.ada.gov" target="_blank" rel="noopener">ADA National Network</a> or file a complaint with the U.S. Department of Justice.</p>
+  `));
+});
+
+app.get('/data-deletion', (req, res) => {
+  res.type('text/html').send(legalPage('Data Deletion & Privacy Request', `
+  <h1>Data Deletion &amp; Privacy Request</h1>
+  <p>Last updated: May 2026</p>
+  <p>Under the California Consumer Privacy Act (CCPA) and other applicable laws, you have the right to request deletion of your personal information held by <strong>SoCal Receptionist</strong>.</p>
+
+  <h2>What Data We Hold</h2>
+  <ul>
+    <li><strong>Phone number</strong> — used to route messages and track opt-in/opt-out status</li>
+    <li><strong>Consent status</strong> — whether you have opted in or out of automated messaging</li>
+    <li><strong>Message logs</strong> — retained only during an active session; not stored permanently</li>
+  </ul>
+  <p>We do <strong>not</strong> hold financial information, government IDs, or health records.</p>
+
+  <h2>Your Rights</h2>
+  <ul>
+    <li><strong>Right to know</strong> — you may request a summary of personal information we hold associated with your phone number</li>
+    <li><strong>Right to delete</strong> — you may request deletion of your personal information from our systems</li>
+    <li><strong>Right to opt out</strong> — reply <strong>STOP</strong> to any message to immediately stop all SMS communications</li>
+  </ul>
+
+  <h2>How to Submit a Request</h2>
+  <p>To submit a data deletion or access request:</p>
+  <ul>
+    <li><strong>Email:</strong> <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a> with subject line "Data Request" and include your phone number</li>
+    <li><strong>SMS:</strong> Reply <strong>DELETE MY DATA</strong> to any message from our service</li>
+  </ul>
+
+  <h2>Verification</h2>
+  <p>To protect your privacy, we may ask you to verify that the phone number or email address associated with the request belongs to you before processing it.</p>
+
+  <h2>Response Timeline</h2>
+  <p>We will respond to verifiable consumer requests within <strong>45 days</strong> of receipt. If we need additional time, we will notify you of the extension and the reason.</p>
+
+  <h2>Exceptions</h2>
+  <p>We may retain certain data where required by law, to complete a transaction you requested, to detect or prevent fraud, or to comply with a legal obligation.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy? Email <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>.</p>
   `));
 });
 
