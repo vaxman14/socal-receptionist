@@ -3,40 +3,30 @@ import { useState } from 'react';
 
 const PLANS = [
   {
-    id: 'after_hours',
-    name: 'After Hours Care',
-    monthly: { price: '$500', setup: '+ $1,500 one-time setup', period: '/mo' },
-    annual:  { price: '$400', setup: '+ $1,005 one-time setup', period: '/mo', note: 'billed $4,800/yr' },
+    id: 'essentials',
+    name: 'Essentials',
+    monthly: { price: '$500', setup: 'No setup fee', period: '/mo' },
+    annual:  { price: '$400', setup: 'No setup fee', period: '/mo', note: 'billed $4,800/yr' },
     features: [
-      'AI answers calls outside business hours',
+      'AI answers after-hours calls',
       '300 calls/month included',
-      'Lead capture & email alerts',
-      'Custom AI trained on your business',
+      'Press 1 to leave a message',
+      'Press 2 to schedule a call (with calendar connect)',
+      'Self-guided setup',
     ],
   },
   {
-    id: 'always_on',
-    name: 'Always On',
-    monthly: { price: '$750', setup: '+ $1,500 one-time setup', period: '/mo' },
-    annual:  { price: '$600', setup: '+ $1,005 one-time setup', period: '/mo', note: 'billed $7,200/yr' },
+    id: 'concierge',
+    name: 'Concierge',
+    monthly: { price: '$500', setup: '+ $1,500 one-time setup', period: '/mo' },
+    annual:  { price: '$400', setup: '+ $1,500 one-time setup', period: '/mo', note: 'billed $4,800/yr' },
     badge: 'Most Popular',
     features: [
-      'AI answers every call, 24/7',
-      '500 calls/month included',
-      'Lead capture or staff transfer',
-      'Custom AI trained on your business',
-    ],
-  },
-  {
-    id: 'total_care',
-    name: 'Total Care',
-    monthly: { price: '$1,000', setup: '+ $1,500 one-time setup', period: '/mo' },
-    annual:  { price: '$800',   setup: '+ $1,005 one-time setup', period: '/mo', note: 'billed $9,600/yr' },
-    features: [
-      'AI answers, qualifies, and books',
-      '1,000 calls/month included',
-      'Calendly / booking integration',
-      'Press 2 to reach a staff member',
+      'AI answers after-hours calls',
+      '300 calls/month included',
+      'Press 1 to leave a message',
+      'Press 2 to schedule a call (with calendar connect)',
+      'Full white-glove setup & configuration',
     ],
   },
 ];
@@ -96,7 +86,7 @@ export default function StepPlan({ onSelected }) {
             padding: '2px 10px',
             borderRadius: 100,
           }}>
-            Save 20% + 33% off setup
+            Save 20%
           </span>
         )}
       </div>

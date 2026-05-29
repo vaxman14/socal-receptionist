@@ -148,34 +148,28 @@ router.get('/calls', async (req, res) => {
 });
 
 const PLAN_PRICE_IDS = {
-  after_hours:        process.env.STRIPE_PRICE_ID_AFTER_HOURS,
-  always_on:          process.env.STRIPE_PRICE_ID_ALWAYS_ON,
-  total_care:         process.env.STRIPE_PRICE_ID_TOTAL_CARE,
-  after_hours_annual: process.env.STRIPE_PRICE_ID_AFTER_HOURS_ANNUAL,
-  always_on_annual:   process.env.STRIPE_PRICE_ID_ALWAYS_ON_ANNUAL,
-  total_care_annual:  process.env.STRIPE_PRICE_ID_TOTAL_CARE_ANNUAL,
+  essentials:          process.env.STRIPE_PRICE_ID_ESSENTIALS,
+  concierge:           process.env.STRIPE_PRICE_ID_CONCIERGE,
+  essentials_annual:   process.env.STRIPE_PRICE_ID_ESSENTIALS_ANNUAL,
+  concierge_annual:    process.env.STRIPE_PRICE_ID_CONCIERGE_ANNUAL,
 };
 
 // POST /admin/billing/checkout — start a subscription. Billed as a one-time
 // setup fee (includes month one) plus the recurring monthly/annual price.
-// Monthly plans defer 30 days via trial (setup fee covers month one).
-// Annual plans defer 365 days via trial (setup fee covers year one).
 router.post('/billing/checkout', async (req, res) => {
   try {
     // Resolve price from server-side plan map only — never trust client-supplied price IDs.
     const planPriceId = req.body.plan ? PLAN_PRICE_IDS[req.body.plan] : null;
     const priceId = planPriceId || process.env.STRIPE_PRICE_ID;
     if (!priceId) return res.status(400).json({ error: 'invalid or missing plan' });
-    const isAnnual = req.body.plan && req.body.plan.endsWith('_annual');
-    const setupPriceId = isAnnual
-      ? process.env.STRIPE_SETUP_PRICE_ID_ANNUAL
-      : process.env.STRIPE_SETUP_PRICE_ID;
+    const basePlan = (req.body.plan || '').replace('_annual', '');
+    // Only Concierge has a setup fee — Essentials has none.
+    const setupPriceId = basePlan === 'concierge' ? process.env.STRIPE_SETUP_PRICE_ID_CONCIERGE : null;
     const base = process.env.APP_BASE_URL || '';
     const session = await createCheckoutSession({
       tenant: req.tenant,
       priceId,
       setupPriceId,
-      trialDays: isAnnual ? 365 : undefined,
       successUrl: `${base}/billing/success`,
       cancelUrl: `${base}/billing/cancel`,
     });

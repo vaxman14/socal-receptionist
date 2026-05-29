@@ -55,19 +55,28 @@ services:
       - key: OPENAI_API_KEY
         scope: RUN_TIME
         type: SECRET
-      # --- Stripe (TEST-mode price IDs — swap for live IDs at launch) ---------
+      # --- Stripe -------------------------------------------------------------
       - key: STRIPE_SECRET_KEY
         scope: RUN_TIME
         type: SECRET
       - key: STRIPE_WEBHOOK_SECRET
         scope: RUN_TIME
         type: SECRET
-      - key: STRIPE_PRICE_ID
+      - key: STRIPE_PRICE_ID_ESSENTIALS
         scope: RUN_TIME
-        value: price_1TZds9Appbh3fhcDIq1oPHq4
-      - key: STRIPE_SETUP_PRICE_ID
+        value: price_1TcJHMA1syxoZwwL93BhYH69
+      - key: STRIPE_PRICE_ID_ESSENTIALS_ANNUAL
         scope: RUN_TIME
-        value: price_1TZds9Appbh3fhcDmgLmH2RF
+        value: price_1TcJHMA1syxoZwwLgwAHwmQB
+      - key: STRIPE_PRICE_ID_CONCIERGE
+        scope: RUN_TIME
+        value: price_1TcJHMA1syxoZwwL0NED90bf
+      - key: STRIPE_PRICE_ID_CONCIERGE_ANNUAL
+        scope: RUN_TIME
+        value: price_1TcJHMA1syxoZwwLRAcY1vjz
+      - key: STRIPE_SETUP_PRICE_ID_CONCIERGE
+        scope: RUN_TIME
+        value: price_1TcJHmA1syxoZwwLVTKChjUZ
       # --- Frontend / Stripe return URLs --------------------------------------
       - key: APP_BASE_URL
         scope: RUN_TIME

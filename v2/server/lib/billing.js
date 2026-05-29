@@ -5,27 +5,16 @@
 // review #6). syncSubscription() is the single point that updates that record
 // and applies the resulting tenant suspension/reactivation.
 //
-// Pricing model (2026-05-21): checkout charges a one-time $1,500 setup fee that
-// includes the first month of service, then $500/mo recurring. The monthly
-// charge is deferred 30 days via a Stripe trial so the prepaid first month is
-// not billed twice. A client who cancels within 14 days of paying the setup fee
-// is automatically refunded $1,000 of it.
+// Pricing model (2026-05-28): two tiers, both $500/mo recurring.
+// Essentials — no setup fee, billing starts immediately.
+// Concierge — $1,500 non-refundable setup fee + $500/mo recurring.
 
 const { stripe } = require('./stripe');
 const { supabase } = require('./supabase');
 const { transitionTenant } = require('./state-machine');
 
-// The setup fee covers month one, so the recurring price is deferred 30 days
-// via a Stripe trial — the client is not billed the monthly fee until the
-// prepaid first month is up. Stripe reports the subscription as `trialing`
-// during this window; that status is entitled (see ENTITLED_STATUSES).
-const TRIAL_DAYS = 30;
-
-// 14-day cancellation policy: a client who cancels within 14 days of paying the
-// setup fee is refunded $1,000 of it. The remaining $500 (the first month) is
-// non-refundable.
-const SETUP_REFUND_WINDOW_DAYS = 14;
-const SETUP_REFUND_AMOUNT_CENTS = 100000; // $1,000.00
+// Setup fee (Concierge only) is non-refundable. No trial period — recurring
+// billing starts immediately for both tiers.
 
 // Subscription statuses that grant access to the SMS service. `past_due` is
 // included as a grace window — the tenant is suspended only once Stripe gives
