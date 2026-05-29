@@ -268,6 +268,7 @@ function legalPage(title, bodyHtml) {
   </style>
 </head>
 <body>
+<div id="page-wrap">
   <nav>
     <a href="/">← Home</a>
     <a href="/faq">FAQ</a>
@@ -281,6 +282,7 @@ function legalPage(title, bodyHtml) {
   </nav>
   ${bodyHtml}
   <div class="meta">SoCal Receptionist &nbsp;·&nbsp; Murrieta, CA &nbsp;·&nbsp; <a href="mailto:info@socalreceptionist.com">Contact</a></div>
+</div>
 
 <style>
   #a11y-btn{position:fixed;bottom:24px;left:24px;z-index:9999;width:48px;height:48px;border-radius:50%;background:#4f46e5;color:#fff;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:22px;display:flex;align-items:center;justify-content:center;transition:background .2s}
@@ -301,7 +303,7 @@ function legalPage(title, bodyHtml) {
   .a11y-toggle input:checked+.slider{background:#4f46e5}
   .a11y-toggle input:checked+.slider:before{transform:translateX(18px)}
   #a11y-reset{width:100%;margin-top:4px}
-  body.a11y-high-contrast{filter:contrast(1.5) saturate(0)}
+  #page-wrap.a11y-high-contrast{filter:contrast(1.5) saturate(0)}
   body.a11y-reduce-motion *,body.a11y-reduce-motion *::before,body.a11y-reduce-motion *::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
   body.a11y-dyslexia{font-family:Arial,Helvetica,sans-serif!important;letter-spacing:.05em;word-spacing:.1em;line-height:1.9!important}
 </style>
@@ -315,18 +317,18 @@ function legalPage(title, bodyHtml) {
   <button id="a11y-reset">Reset all</button>
 </div>
 <script>
-(function(){var btn=document.getElementById('a11y-btn'),panel=document.getElementById('a11y-panel'),body=document.body,KEY='a11y_prefs',fs=100;
+(function(){var btn=document.getElementById('a11y-btn'),panel=document.getElementById('a11y-panel'),body=document.body,wrap=document.getElementById('page-wrap'),KEY='a11y_prefs',fs=100;
 function applyFs(){body.style.fontSize=fs===100?'':fs+'%'}
 function save(){localStorage.setItem(KEY,JSON.stringify({fontSize:fs,contrast:document.getElementById('a11y-contrast').checked,motion:document.getElementById('a11y-motion').checked,dyslexia:document.getElementById('a11y-dyslexia').checked}))}
-function load(){try{var p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p.fontSize){fs=p.fontSize;applyFs()}if(p.contrast){document.getElementById('a11y-contrast').checked=true;body.classList.add('a11y-high-contrast')}if(p.motion){document.getElementById('a11y-motion').checked=true;body.classList.add('a11y-reduce-motion')}if(p.dyslexia){document.getElementById('a11y-dyslexia').checked=true;body.classList.add('a11y-dyslexia')}}catch(e){}}
+function load(){try{var p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p.fontSize){fs=p.fontSize;applyFs()}if(p.contrast){document.getElementById('a11y-contrast').checked=true;wrap.classList.add('a11y-high-contrast')}if(p.motion){document.getElementById('a11y-motion').checked=true;body.classList.add('a11y-reduce-motion')}if(p.dyslexia){document.getElementById('a11y-dyslexia').checked=true;body.classList.add('a11y-dyslexia')}}catch(e){}}
 btn.addEventListener('click',function(){var o=panel.classList.toggle('open');btn.setAttribute('aria-expanded',o)});
 panel.addEventListener('click',function(e){e.stopPropagation()});
 document.addEventListener('click',function(e){if(e.target!==btn){panel.classList.remove('open');btn.setAttribute('aria-expanded','false')}});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){panel.classList.remove('open');btn.setAttribute('aria-expanded','false');btn.focus()}});
 document.getElementById('a11y-inc').addEventListener('click',function(){fs=Math.min(fs+10,150);applyFs();save()});
 document.getElementById('a11y-dec').addEventListener('click',function(){fs=Math.max(fs-10,80);applyFs();save()});
-['contrast','motion','dyslexia'].forEach(function(id){document.getElementById('a11y-'+id).addEventListener('change',function(){body.classList.toggle('a11y-'+(id==='contrast'?'high-contrast':id==='motion'?'reduce-motion':'dyslexia'),this.checked);save()})});
-document.getElementById('a11y-reset').addEventListener('click',function(){fs=100;applyFs();['contrast','motion','dyslexia'].forEach(function(id){document.getElementById('a11y-'+id).checked=false});body.classList.remove('a11y-high-contrast','a11y-reduce-motion','a11y-dyslexia');localStorage.removeItem(KEY)});
+['contrast','motion','dyslexia'].forEach(function(id){document.getElementById('a11y-'+id).addEventListener('change',function(){var t=id==='contrast'?wrap:body;t.classList.toggle('a11y-'+(id==='contrast'?'high-contrast':id==='motion'?'reduce-motion':'dyslexia'),this.checked);save()})});
+document.getElementById('a11y-reset').addEventListener('click',function(){fs=100;applyFs();['contrast','motion','dyslexia'].forEach(function(id){document.getElementById('a11y-'+id).checked=false});wrap.classList.remove('a11y-high-contrast');body.classList.remove('a11y-reduce-motion','a11y-dyslexia');localStorage.removeItem(KEY)});
 load()})();
 </script>
 </body>
