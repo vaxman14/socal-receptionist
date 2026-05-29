@@ -185,6 +185,7 @@
   </style>
 </head>
 <body>
+<div id="page-wrap">
 
 <!-- Google Tag Manager (noscript) -->
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MDLM47SC"
@@ -487,6 +488,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   });
 </script>
 
+</div><!-- /page-wrap -->
+
 <!-- Accessibility Widget -->
 <style>
   #a11y-btn {
@@ -533,7 +536,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   .a11y-toggle input:checked + .slider { background: #1a3a6e; }
   .a11y-toggle input:checked + .slider:before { transform: translateX(18px); }
   #a11y-reset { width: 100%; margin-top: 4px; }
-  body.a11y-high-contrast { filter: contrast(1.5) saturate(0); }
+  #page-wrap.a11y-high-contrast { filter: contrast(1.5) saturate(0); }
   body.a11y-large-text { font-size: 120% !important; }
   body.a11y-reduce-motion *, body.a11y-reduce-motion *::before, body.a11y-reduce-motion *::after {
     animation-duration: 0.01ms !important; transition-duration: 0.01ms !important;
@@ -588,6 +591,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     const btn = document.getElementById('a11y-btn');
     const panel = document.getElementById('a11y-panel');
     const body = document.body;
+    const wrap = document.getElementById('page-wrap');
     const PREFS_KEY = 'a11y_prefs';
     let fontSize = 100;
 
@@ -606,7 +610,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       try {
         const p = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
         if (p.fontSize) { fontSize = p.fontSize; applyFontSize(); }
-        if (p.contrast) { document.getElementById('a11y-contrast').checked = true; body.classList.add('a11y-high-contrast'); }
+        if (p.contrast) { document.getElementById('a11y-contrast').checked = true; wrap.classList.add('a11y-high-contrast'); }
         if (p.motion) { document.getElementById('a11y-motion').checked = true; body.classList.add('a11y-reduce-motion'); }
         if (p.dyslexia) { document.getElementById('a11y-dyslexia').checked = true; body.classList.add('a11y-dyslexia'); }
       } catch (e) {}
@@ -637,7 +641,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     ['contrast','motion','dyslexia'].forEach(function (id) {
       document.getElementById('a11y-' + id).addEventListener('change', function () {
-        body.classList.toggle('a11y-' + (id === 'contrast' ? 'high-contrast' : id === 'motion' ? 'reduce-motion' : 'dyslexia'), this.checked);
+        const t = id === 'contrast' ? wrap : body;
+        t.classList.toggle('a11y-' + (id === 'contrast' ? 'high-contrast' : id === 'motion' ? 'reduce-motion' : 'dyslexia'), this.checked);
         save();
       });
     });
@@ -647,7 +652,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       ['contrast','motion','dyslexia'].forEach(function (id) {
         document.getElementById('a11y-' + id).checked = false;
       });
-      body.classList.remove('a11y-high-contrast','a11y-reduce-motion','a11y-dyslexia');
+      wrap.classList.remove('a11y-high-contrast');
+      body.classList.remove('a11y-reduce-motion','a11y-dyslexia');
       localStorage.removeItem(PREFS_KEY);
     });
 
