@@ -32,8 +32,9 @@ const DEFAULT_VOICE_ID = 'Polly.Joanna-Neural';
 const HEBREW_VOICE_ID = 'Polly.Carmit-Neural';
 
 // Detect language from the dialed number's country code.
+// Hebrew mode disabled until ענה launch — flip +972 back to 'he' when ready.
 function langFor(phoneNumber) {
-  return phoneNumber && phoneNumber.startsWith('+972') ? 'he' : 'en';
+  return 'en';
 }
 
 // Build the Twilio voice param from the tenant's chosen voice.
