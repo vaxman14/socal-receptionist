@@ -320,7 +320,8 @@ function applyFs(){body.style.fontSize=fs===100?'':fs+'%'}
 function save(){localStorage.setItem(KEY,JSON.stringify({fontSize:fs,contrast:document.getElementById('a11y-contrast').checked,motion:document.getElementById('a11y-motion').checked,dyslexia:document.getElementById('a11y-dyslexia').checked}))}
 function load(){try{var p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p.fontSize){fs=p.fontSize;applyFs()}if(p.contrast){document.getElementById('a11y-contrast').checked=true;body.classList.add('a11y-high-contrast')}if(p.motion){document.getElementById('a11y-motion').checked=true;body.classList.add('a11y-reduce-motion')}if(p.dyslexia){document.getElementById('a11y-dyslexia').checked=true;body.classList.add('a11y-dyslexia')}}catch(e){}}
 btn.addEventListener('click',function(){var o=panel.classList.toggle('open');btn.setAttribute('aria-expanded',o)});
-document.addEventListener('click',function(e){if(!panel.contains(e.target)&&e.target!==btn){panel.classList.remove('open');btn.setAttribute('aria-expanded','false')}});
+panel.addEventListener('click',function(e){e.stopPropagation()});
+document.addEventListener('click',function(e){if(e.target!==btn){panel.classList.remove('open');btn.setAttribute('aria-expanded','false')}});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){panel.classList.remove('open');btn.setAttribute('aria-expanded','false');btn.focus()}});
 document.getElementById('a11y-inc').addEventListener('click',function(){fs=Math.min(fs+10,150);applyFs();save()});
 document.getElementById('a11y-dec').addEventListener('click',function(){fs=Math.max(fs-10,80);applyFs();save()});
