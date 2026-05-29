@@ -300,11 +300,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="section-label">Pricing</div>
   <h2>Simple, Transparent Pricing</h2>
   <p>Two plans. Both $500/mo. The difference is how you want to get set up. No contracts.</p>
+
+  <!-- Billing toggle -->
+  <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:36px;">
+    <span id="lbl-monthly" style="font-weight:700;font-size:0.95rem;">Monthly</span>
+    <button id="billing-toggle" onclick="toggleBilling()" aria-label="Toggle billing period" style="
+      background:var(--orange);border:none;border-radius:999px;width:52px;height:28px;
+      cursor:pointer;position:relative;transition:background 0.2s;padding:0;flex-shrink:0;">
+      <span id="toggle-thumb" style="
+        display:block;width:22px;height:22px;border-radius:50%;background:#fff;
+        position:absolute;top:3px;left:3px;transition:transform 0.2s;"></span>
+    </button>
+    <span id="lbl-annual" style="font-size:0.95rem;color:var(--muted);">
+      Annual <span style="background:#e8f5e9;color:#2e7d32;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:4px;">Save 20%</span>
+    </span>
+  </div>
+
   <div class="price-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:700px;margin:0 auto 16px;">
+    <!-- Essentials -->
     <div class="price-card">
       <div class="price-name">Essentials</div>
-      <div class="price-amount"><span>$</span>500</div>
-      <div class="price-period">per month</div>
+      <div class="price-amount"><span>$</span><span class="js-price" data-monthly="500" data-annual="400">500</span></div>
+      <div class="price-period">per month<span class="js-billed-note" style="display:none;color:var(--muted);font-size:0.8rem;margin-left:6px;">· billed $4,800/yr</span></div>
       <div class="price-setup" style="color:#2ecc71;font-weight:600;">No setup fee</div>
       <ul class="price-features">
         <li>AI answers <strong>after-hours calls</strong></li>
@@ -316,11 +333,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </ul>
       <a href="https://app.socalreceptionist.com/signup" class="btn-primary price-cta">Get Started →</a>
     </div>
+    <!-- Concierge -->
     <div class="price-card" style="border:2px solid var(--orange);position:relative;">
       <div class="price-badge">White Glove</div>
       <div class="price-name">Concierge</div>
-      <div class="price-amount"><span>$</span>500</div>
-      <div class="price-period">per month</div>
+      <div class="price-amount"><span>$</span><span class="js-price" data-monthly="500" data-annual="400">500</span></div>
+      <div class="price-period">per month<span class="js-billed-note" style="display:none;color:var(--muted);font-size:0.8rem;margin-left:6px;">· billed $4,800/yr</span></div>
       <div class="price-setup">+ $1,500 one-time setup <em>(non-refundable)</em></div>
       <ul class="price-features">
         <li>AI answers <strong>after-hours calls</strong></li>
@@ -335,6 +353,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
   <p style="color:var(--muted);font-size:0.85rem;margin-top:8px;">📱 SMS text conversations — <strong>coming soon</strong></p>
 </section>
+
+<script>
+(function() {
+  var annual = false;
+  window.toggleBilling = function() {
+    annual = !annual;
+    var thumb = document.getElementById('toggle-thumb');
+    var lblM = document.getElementById('lbl-monthly');
+    var lblA = document.getElementById('lbl-annual');
+    thumb.style.transform = annual ? 'translateX(24px)' : 'translateX(0)';
+    lblM.style.fontWeight = annual ? '400' : '700';
+    lblM.style.color = annual ? 'var(--muted)' : '';
+    lblA.style.fontWeight = annual ? '700' : '400';
+    lblA.style.color = annual ? '' : 'var(--muted)';
+    document.querySelectorAll('.js-price').forEach(function(el) {
+      el.textContent = annual ? el.dataset.annual : el.dataset.monthly;
+    });
+    document.querySelectorAll('.js-billed-note').forEach(function(el) {
+      el.style.display = annual ? 'inline' : 'none';
+    });
+  };
+})();
+</script>
 
 <!-- DEMO FORM -->
 <section class="demo" id="demo">
