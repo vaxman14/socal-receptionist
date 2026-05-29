@@ -29,11 +29,64 @@ const VoiceResponse = twilio.twiml.VoiceResponse;
 // How long to ring the staff line before giving up to voicemail.
 const STAFF_DIAL_TIMEOUT = 20;
 const DEFAULT_VOICE_ID = 'Polly.Joanna-Neural';
+const HEBREW_VOICE_ID = 'Polly.Carmit-Neural';
+
+// Detect language from the dialed number's country code.
+function langFor(phoneNumber) {
+  return phoneNumber && phoneNumber.startsWith('+972') ? 'he' : 'en';
+}
 
 // Build the Twilio voice param from the tenant's chosen voice.
-function voiceFor(tenant) {
+function voiceFor(tenant, lang) {
+  if (lang === 'he') return { voice: HEBREW_VOICE_ID };
   return { voice: tenant.voice_id || DEFAULT_VOICE_ID };
 }
+
+// IVR strings by language.
+const STRINGS = {
+  en: {
+    greeting: (name) => `Thank you for calling ${name}.`,
+    menu: 'To book or ask about an appointment, press 1. To speak with our staff, press 2.',
+    aiOpen: 'Great. How can I help you today?',
+    connectStaff: 'One moment while I connect you with our staff.',
+    noStaff: 'I am sorry, no one is available to take your call right now. Please leave a message after the tone.',
+    whisper: 'Call forwarded from your virtual receptionist. Connecting now.',
+    notAvailable: 'We are unable to take your call right now. Please try again later.',
+    notInService: 'This number is not in service. Goodbye.',
+    textInstead: (name) => `Thank you for calling ${name}. Please send us a text message and we will get right back to you.`,
+    retry: 'Sorry, I did not catch that. Could you say that again?',
+    toohardHearing: 'I am having trouble hearing you. Let me take a message instead.',
+    humanTransfer: 'Of course. Connecting you with our staff now.',
+    staffUnavailable: 'Sorry, our staff are not available right now.',
+    voicemailPrompt: 'Please leave your name, number, and a short message after the tone. Press any key when you are finished.',
+    voicemailEmpty: 'We did not receive a message. Goodbye.',
+    voicemailThank: 'Thank you. We have your message and will get back to you soon. Goodbye.',
+    goodbye: 'Thank you for calling. Goodbye.',
+    didNotGet: 'I did not get that.',
+    aiError: 'I am sorry, I ran into a problem. Let me take a message so someone can call you back.',
+  },
+  he: {
+    greeting: (name) => `תודה שהתקשרת ל-${name}.`,
+    menu: 'לתיאום פגישה או לשאלות, לחצ/י 1. לדבר עם נציג, לחצ/י 2.',
+    aiOpen: 'מעולה. איך אוכל לעזור לך היום?',
+    connectStaff: 'רגע אחד, אני מעביר/ה אותך לנציג.',
+    noStaff: 'מצטערים, אין נציג פנוי כרגע. אנא השאר/י הודעה אחרי הצפצוף.',
+    whisper: 'שיחה מועברת מהמזכירה הווירטואלית שלך. מתחבר/ת עכשיו.',
+    notAvailable: 'אנחנו לא יכולים לקבל את שיחתך כרגע. אנא נסה/י שוב מאוחר יותר.',
+    notInService: 'המספר הזה אינו בשירות. שלום.',
+    textInstead: (name) => `תודה שהתקשרת ל-${name}. אנא שלח/י לנו הודעת טקסט ונחזור אליך בהקדם.`,
+    retry: 'סליחה, לא הצלחתי לשמוע. אפשר לחזור על זה?',
+    toohardHearing: 'אני מתקשה לשמוע אותך. אני אקח הודעה במקום.',
+    humanTransfer: 'בוודאי. מעביר/ה אותך לנציג עכשיו.',
+    staffUnavailable: 'מצטערים, הנציגים שלנו לא זמינים כרגע.',
+    voicemailPrompt: 'אנא השאר/י את שמך, מספרך, והודעה קצרה אחרי הצפצוף. לחצ/י על כל מקש כשסיימת.',
+    voicemailEmpty: 'לא קיבלנו הודעה. שלום.',
+    voicemailThank: 'תודה. קיבלנו את ההודעה שלך ונחזור אליך בהקדם. שלום.',
+    goodbye: 'תודה שהתקשרת. שלום.',
+    didNotGet: 'לא הבנתי.',
+    aiError: 'מצטערים, נתקלתי בבעיה. אני אקח הודעה כדי שמישהו יחזור אליך.',
+  },
+};
 
 // Reply with TwiML. Centralised so the content type is never forgotten.
 function sendTwiml(res, vr) {
@@ -51,22 +104,17 @@ function sayAndHangup(res, message, voice = { voice: DEFAULT_VOICE_ID }) {
 
 // Build the IVR greeting + digit menu. Reused for the initial prompt and the
 // single re-prompt when the caller does not press anything.
-function menuGather(vr, tenant) {
-  const voice = voiceFor(tenant);
+function menuGather(vr, tenant, lang) {
+  const voice = voiceFor(tenant, lang);
+  const s = STRINGS[lang];
   const gather = vr.gather({
     numDigits: 1,
     action: '/voice/menu',
     method: 'POST',
     timeout: 6,
   });
-  const greeting =
-    tenant.voice_greeting ||
-    `Thank you for calling ${tenant.business_name}.`;
-  gather.say(
-    voice,
-    `${greeting} To book or ask about an appointment, press 1. ` +
-      `To speak with our staff, press 2.`
-  );
+  const greeting = tenant.voice_greeting || s.greeting(tenant.business_name);
+  gather.say(voice, `${greeting} ${s.menu}`);
 }
 
 // --- Entry: a call arrives --------------------------------------------------
@@ -85,20 +133,21 @@ router.post('/voice', async (req, res) => {
     tenant = await resolveTenantByNumber(to);
   } catch (err) {
     logger.error('voice.tenant_lookup_failed', { error: err.message });
-    return sayAndHangup(res, 'We are unable to take your call right now. Please try again later.');
+    const l = langFor(to);
+    return sayAndHangup(res, STRINGS[l].notAvailable, { voice: l === 'he' ? HEBREW_VOICE_ID : DEFAULT_VOICE_ID });
   }
 
   if (!tenant) {
     logger.warn('voice.unknown_number', { to });
-    return sayAndHangup(res, 'This number is not in service. Goodbye.');
+    const l = langFor(to);
+    return sayAndHangup(res, STRINGS[l].notInService, { voice: l === 'he' ? HEBREW_VOICE_ID : DEFAULT_VOICE_ID });
   }
 
+  const lang = langFor(to);
+  const s = STRINGS[lang];
+
   if (tenant.voice_enabled === false) {
-    return sayAndHangup(
-      res,
-      `Thank you for calling ${tenant.business_name}. Please send us a text message and we will get right back to you.`,
-      voiceFor(tenant)
-    );
+    return sayAndHangup(res, s.textInstead(tenant.business_name), voiceFor(tenant, lang));
   }
 
   try {
@@ -108,7 +157,7 @@ router.post('/voice', async (req, res) => {
   }
 
   const vr = new VoiceResponse();
-  menuGather(vr, tenant);
+  menuGather(vr, tenant, lang);
   // Fallback if the caller pressed nothing: one re-prompt, then voicemail.
   vr.redirect({ method: 'POST' }, '/voice/menu?reprompt=1');
   sendTwiml(res, vr);
@@ -127,12 +176,18 @@ router.post('/voice/menu', async (req, res) => {
   try {
     tenant = await resolveTenantByNumber(to);
   } catch (err) {
-    return sayAndHangup(res, 'We are unable to take your call right now. Please try again later.');
+    const l = langFor(to);
+    return sayAndHangup(res, STRINGS[l].notAvailable, { voice: l === 'he' ? HEBREW_VOICE_ID : DEFAULT_VOICE_ID });
   }
-  if (!tenant) return sayAndHangup(res, 'This number is not in service. Goodbye.');
+  if (!tenant) {
+    const l = langFor(to);
+    return sayAndHangup(res, STRINGS[l].notInService, { voice: l === 'he' ? HEBREW_VOICE_ID : DEFAULT_VOICE_ID });
+  }
 
+  const lang = langFor(to);
+  const s = STRINGS[lang];
   const vr = new VoiceResponse();
-  const voice = voiceFor(tenant);
+  const voice = voiceFor(tenant, lang);
 
   // Press 1 — hand the call to the AI receptionist.
   if (digits === '1') {
@@ -141,8 +196,9 @@ router.post('/voice/menu', async (req, res) => {
       action: '/voice/converse',
       method: 'POST',
       speechTimeout: 'auto',
+      language: lang === 'he' ? 'he-IL' : 'en-US',
     });
-    gather.say(voice, 'Great. How can I help you today?');
+    gather.say(voice, s.aiOpen);
     // No speech captured -> retry the AI turn rather than dropping the call.
     vr.redirect({ method: 'POST' }, '/voice/converse');
     return sendTwiml(res, vr);
@@ -151,29 +207,28 @@ router.post('/voice/menu', async (req, res) => {
   // Press 2 — transfer to staff.
   if (digits === '2') {
     if (!tenant.staff_phone) {
-      vr.say(voice, 'I am sorry, no one is available to take your call right now. Please leave a message after the tone.');
+      vr.say(voice, s.noStaff);
       vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
       return sendTwiml(res, vr);
     }
-    vr.say(voice, 'One moment while I connect you with our staff.');
+    vr.say(voice, s.connectStaff);
     const dial = vr.dial({
       action: '/voice/dial-status',
       method: 'POST',
       timeout: STAFF_DIAL_TIMEOUT,
-      callerId: to, // staff see the business line, not the raw caller
+      callerId: to,
     });
-    // The whisper tells whoever picks up that this came via the receptionist.
     dial.number({ url: '/voice/whisper', method: 'POST' }, tenant.staff_phone);
     return sendTwiml(res, vr);
   }
 
   // No / invalid digit. Re-prompt once, then fall through to voicemail.
   if (req.query.reprompt) {
-    vr.say(voice, 'I did not get that.');
+    vr.say(voice, s.didNotGet);
     vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
     return sendTwiml(res, vr);
   }
-  menuGather(vr, tenant);
+  menuGather(vr, tenant, lang);
   vr.redirect({ method: 'POST' }, '/voice/menu?reprompt=1');
   sendTwiml(res, vr);
 });
@@ -195,17 +250,24 @@ router.post('/voice/converse', async (req, res) => {
   try {
     tenant = await resolveTenantByNumber(to);
   } catch (err) {
-    return sayAndHangup(res, 'We are having a brief technical issue. Please call back shortly.');
+    const l = langFor(to);
+    return sayAndHangup(res, STRINGS[l].notAvailable, { voice: l === 'he' ? HEBREW_VOICE_ID : DEFAULT_VOICE_ID });
   }
-  if (!tenant) return sayAndHangup(res, 'This number is not in service. Goodbye.');
+  if (!tenant) {
+    const l = langFor(to);
+    return sayAndHangup(res, STRINGS[l].notInService, { voice: l === 'he' ? HEBREW_VOICE_ID : DEFAULT_VOICE_ID });
+  }
 
+  const lang = langFor(to);
+  const s = STRINGS[lang];
   const vr = new VoiceResponse();
-  const voice = voiceFor(tenant);
+  const voice = voiceFor(tenant, lang);
+  const speechLang = lang === 'he' ? 'he-IL' : 'en-US';
 
   // Caller said nothing. Re-prompt twice, then take a message.
   if (!speech) {
     if (emptyTurns >= 2) {
-      vr.say(voice, 'I am having trouble hearing you. Let me take a message instead.');
+      vr.say(voice, s.toohardHearing);
       vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
       return sendTwiml(res, vr);
     }
@@ -214,26 +276,27 @@ router.post('/voice/converse', async (req, res) => {
       action: `/voice/converse?empty=${emptyTurns + 1}`,
       method: 'POST',
       speechTimeout: 'auto',
+      language: speechLang,
     });
-    gather.say(voice, 'Sorry, I did not catch that. Could you say that again?');
+    gather.say(voice, s.retry);
     vr.redirect({ method: 'POST' }, `/voice/converse?empty=${emptyTurns + 1}`);
     return sendTwiml(res, vr);
   }
 
   // The caller asked for a human mid-conversation.
-  if (/\b(human|person|representative|agent|someone|staff|real)\b/i.test(speech) &&
-      /\b(speak|talk|reach|connect|transfer|get)\b/i.test(speech)) {
-    if (tenant.staff_phone) {
-      vr.say(voice, 'Of course. Connecting you with our staff now.');
-      const dial = vr.dial({
-        action: '/voice/dial-status',
-        method: 'POST',
-        timeout: STAFF_DIAL_TIMEOUT,
-        callerId: to,
-      });
-      dial.number({ url: '/voice/whisper', method: 'POST' }, tenant.staff_phone);
-      return sendTwiml(res, vr);
-    }
+  const humanPattern = lang === 'he'
+    ? /נציג|אדם|אנושי|מישהו|עובד/
+    : /\b(human|person|representative|agent|someone|staff|real)\b/i;
+  if (humanPattern.test(speech) && tenant.staff_phone) {
+    vr.say(voice, s.humanTransfer);
+    const dial = vr.dial({
+      action: '/voice/dial-status',
+      method: 'POST',
+      timeout: STAFF_DIAL_TIMEOUT,
+      callerId: to,
+    });
+    dial.number({ url: '/voice/whisper', method: 'POST' }, tenant.staff_phone);
+    return sendTwiml(res, vr);
   }
 
   let reply;
@@ -243,8 +306,7 @@ router.post('/voice/converse', async (req, res) => {
     reply = await handleMessage(tenant, conversation, from, speech);
   } catch (err) {
     logger.error('voice.ai_failed', { tenant_id: tenant.id, error: err.message });
-    reply = 'I am sorry, I ran into a problem. Let me take a message so someone can call you back.';
-    vr.say(voice, reply);
+    vr.say(voice, s.aiError);
     vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
     return sendTwiml(res, vr);
   }
@@ -255,10 +317,10 @@ router.post('/voice/converse', async (req, res) => {
     action: '/voice/converse',
     method: 'POST',
     speechTimeout: 'auto',
+    language: speechLang,
   });
   gather.say(voice, reply);
-  // If they go quiet after a reply, say goodbye gracefully.
-  vr.say(voice, 'Thank you for calling. Goodbye.');
+  vr.say(voice, s.goodbye);
   vr.hangup();
   sendTwiml(res, vr);
 });
@@ -271,8 +333,9 @@ router.post('/voice/whisper', async (req, res) => {
   }
   const vr = new VoiceResponse();
   const tenant = await resolveTenantByNumber(req.body.To).catch(() => null);
-  const voice = tenant ? voiceFor(tenant) : { voice: DEFAULT_VOICE_ID };
-  vr.say(voice, 'Call forwarded from your virtual receptionist. Connecting now.');
+  const lang = langFor(req.body.To);
+  const voice = tenant ? voiceFor(tenant, lang) : { voice: DEFAULT_VOICE_ID };
+  vr.say(voice, STRINGS[lang].whisper);
   sendTwiml(res, vr);
 });
 
@@ -294,7 +357,8 @@ router.post('/voice/dial-status', async (req, res) => {
   }
 
   // Staff did not pick up — take a message instead of dropping the caller.
-  vr.say({ voice: DEFAULT_VOICE_ID }, 'Sorry, our staff are not available right now.');
+  const lang2 = langFor(req.body.To);
+  vr.say({ voice: lang2 === 'he' ? HEBREW_VOICE_ID : DEFAULT_VOICE_ID }, STRINGS[lang2].staffUnavailable);
   vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
   sendTwiml(res, vr);
 });
@@ -307,8 +371,10 @@ router.post('/voice/voicemail-prompt', async (req, res) => {
   }
   const vr = new VoiceResponse();
   const tenant = await resolveTenantByNumber(req.body.To).catch(() => null);
-  const voice = tenant ? voiceFor(tenant) : { voice: DEFAULT_VOICE_ID };
-  vr.say(voice, 'Please leave your name, number, and a short message after the tone. Press any key when you are finished.');
+  const lang = langFor(req.body.To);
+  const voice = tenant ? voiceFor(tenant, lang) : { voice: lang === 'he' ? HEBREW_VOICE_ID : DEFAULT_VOICE_ID };
+  const s = STRINGS[lang];
+  vr.say(voice, s.voicemailPrompt);
   vr.record({
     action: '/voice/voicemail',
     method: 'POST',
@@ -319,7 +385,7 @@ router.post('/voice/voicemail-prompt', async (req, res) => {
     transcribeCallback: '/voice/voicemail-transcription',
   });
   // Reached only if the caller leaves nothing.
-  vr.say(voice, 'We did not receive a message. Goodbye.');
+  vr.say(voice, s.voicemailEmpty);
   vr.hangup();
   sendTwiml(res, vr);
 });
@@ -336,8 +402,9 @@ router.post('/voice/voicemail', async (req, res) => {
   });
   const vr = new VoiceResponse();
   const tenant = await resolveTenantByNumber(req.body.To).catch(() => null);
-  const voice = tenant ? voiceFor(tenant) : { voice: DEFAULT_VOICE_ID };
-  vr.say(voice, 'Thank you. We have your message and will get back to you soon. Goodbye.');
+  const lang = langFor(req.body.To);
+  const voice = tenant ? voiceFor(tenant, lang) : { voice: lang === 'he' ? HEBREW_VOICE_ID : DEFAULT_VOICE_ID };
+  vr.say(voice, STRINGS[lang].voicemailThank);
   vr.hangup();
   sendTwiml(res, vr);
 });
