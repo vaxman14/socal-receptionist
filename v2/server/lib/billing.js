@@ -15,6 +15,9 @@ const { transitionTenant } = require('./state-machine');
 
 // Setup fee (Concierge only) is non-refundable. No trial period — recurring
 // billing starts immediately for both tiers.
+const TRIAL_DAYS = 0;
+const SETUP_REFUND_WINDOW_DAYS = 0; // non-refundable; window is effectively closed
+const SETUP_REFUND_AMOUNT_CENTS = 0;
 
 // Subscription statuses that grant access to the SMS service. `past_due` is
 // included as a grace window — the tenant is suspended only once Stripe gives
@@ -56,7 +59,7 @@ async function createCheckoutSession({ tenant, priceId, setupPriceId, trialDays:
     client_reference_id: tenant.id,
     payment_method_collection: 'always', // keep a card on file through the trial
     subscription_data: {
-      trial_period_days: trialDays,
+      ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
       metadata: { tenant_id: tenant.id },
     },
     metadata: { tenant_id: tenant.id },
