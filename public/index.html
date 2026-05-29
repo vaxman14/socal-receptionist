@@ -604,7 +604,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       }));
     }
 
-    function applyFontSize() { body.style.fontSize = fontSize === 100 ? '' : fontSize + '%'; }
+    function applyFontSize() { document.documentElement.style.fontSize = fontSize === 100 ? '' : fontSize + '%'; }
 
     function load() {
       try {

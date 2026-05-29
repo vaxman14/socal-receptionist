@@ -318,7 +318,7 @@ function legalPage(title, bodyHtml) {
 </div>
 <script>
 (function(){var btn=document.getElementById('a11y-btn'),panel=document.getElementById('a11y-panel'),body=document.body,wrap=document.getElementById('page-wrap'),KEY='a11y_prefs',fs=100;
-function applyFs(){body.style.fontSize=fs===100?'':fs+'%'}
+function applyFs(){document.documentElement.style.fontSize=fs===100?'':fs+'%'}
 function save(){localStorage.setItem(KEY,JSON.stringify({fontSize:fs,contrast:document.getElementById('a11y-contrast').checked,motion:document.getElementById('a11y-motion').checked,dyslexia:document.getElementById('a11y-dyslexia').checked}))}
 function load(){try{var p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p.fontSize){fs=p.fontSize;applyFs()}if(p.contrast){document.getElementById('a11y-contrast').checked=true;wrap.classList.add('a11y-high-contrast')}if(p.motion){document.getElementById('a11y-motion').checked=true;body.classList.add('a11y-reduce-motion')}if(p.dyslexia){document.getElementById('a11y-dyslexia').checked=true;body.classList.add('a11y-dyslexia')}}catch(e){}}
 btn.addEventListener('click',function(){var o=panel.classList.toggle('open');btn.setAttribute('aria-expanded',o)});
