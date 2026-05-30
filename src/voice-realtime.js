@@ -117,7 +117,12 @@ function handleRealtimeCall(twilioWs) {
           audio: {
             input: {
               format: { type: 'audio/pcmu' },
-              turn_detection: { type: 'semantic_vad' },
+              turn_detection: {
+              type: 'server_vad',
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 500,
+            },
             },
             output: {
               format: { type: 'audio/pcmu' },
