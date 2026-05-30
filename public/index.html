@@ -660,5 +660,136 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     load();
   })();
 </script>
+
+<!-- Support Chat Widget -->
+<style>
+  #sc-btn{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#f47c20,#e040a0);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.35);z-index:9998;transition:transform .15s}
+  #sc-btn:hover{transform:scale(1.08)}
+  #sc-btn svg{width:26px;height:26px;fill:#fff}
+  #sc-panel{position:fixed;bottom:90px;right:24px;width:340px;max-height:520px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.25);z-index:9999;display:none;flex-direction:column;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  #sc-panel.open{display:flex}
+  #sc-head{background:linear-gradient(135deg,#f47c20,#e040a0);padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+  #sc-head .sc-title{color:#fff;font-weight:700;font-size:.95rem}
+  #sc-head .sc-sub{color:rgba(255,255,255,.8);font-size:.75rem;margin-top:1px}
+  #sc-close{background:none;border:none;cursor:pointer;color:#fff;opacity:.85;font-size:1.3rem;line-height:1;padding:0}
+  #sc-close:hover{opacity:1}
+  #sc-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f9f9fc;min-height:0}
+  .sc-msg{max-width:82%;padding:9px 13px;border-radius:12px;font-size:.875rem;line-height:1.5;word-break:break-word}
+  .sc-msg.bot{background:#fff;color:#1a1a2e;align-self:flex-start;box-shadow:0 1px 4px rgba(0,0,0,.08);border-bottom-left-radius:4px}
+  .sc-msg.user{background:linear-gradient(135deg,#f47c20,#e040a0);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+  .sc-msg.typing{color:#9ca3af;font-style:italic}
+  #sc-foot{padding:10px 12px;border-top:1px solid #f0f0f5;background:#fff;display:flex;gap:8px}
+  #sc-input{flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-size:.875rem;font-family:inherit;resize:none;outline:none;transition:border-color .15s;max-height:90px}
+  #sc-input:focus{border-color:#e040a0}
+  #sc-send{background:linear-gradient(135deg,#f47c20,#e040a0);border:none;border-radius:8px;width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:flex-end;transition:opacity .15s}
+  #sc-send:disabled{opacity:.45;cursor:default}
+  #sc-send svg{width:18px;height:18px;fill:#fff}
+  @media(max-width:400px){#sc-panel{width:calc(100vw - 32px);right:16px}}
+</style>
+
+<button id="sc-btn" title="Chat with support" aria-label="Open support chat">
+  <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+</button>
+
+<div id="sc-panel" role="dialog" aria-label="Support chat">
+  <div id="sc-head">
+    <div><div class="sc-title">Support Chat</div><div class="sc-sub">Typically replies instantly</div></div>
+    <button id="sc-close" aria-label="Close chat">&times;</button>
+  </div>
+  <div id="sc-msgs"></div>
+  <div id="sc-foot">
+    <textarea id="sc-input" placeholder="Ask a question..." rows="1"></textarea>
+    <button id="sc-send" aria-label="Send">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var btn=document.getElementById('sc-btn'),panel=document.getElementById('sc-panel'),closeBtn=document.getElementById('sc-close'),msgs=document.getElementById('sc-msgs'),input=document.getElementById('sc-input'),send=document.getElementById('sc-send');
+  var history=[],opened=false,sending=false;
+
+  function addMsg(role,text){
+    var el=document.createElement('div');
+    el.className='sc-msg '+role;
+    el.textContent=text;
+    msgs.appendChild(el);
+    msgs.scrollTop=msgs.scrollHeight;
+    return el;
+  }
+
+  function showTyping(){
+    return addMsg('bot typing','...');
+  }
+
+  function openChat(){
+    panel.classList.add('open');
+    opened=true;
+    btn.style.display='none';
+    if(!history.length) addMsg('bot','Hi! 👋 I\'m the SoCal Receptionist support bot. How can I help you today?');
+    setTimeout(function(){input.focus();},100);
+  }
+
+  function closeChat(){
+    panel.classList.remove('open');
+    btn.style.display='flex';
+    if(history.length) sendTranscript();
+  }
+
+  function sendTranscript(){
+    if(!history.length) return;
+    var data=JSON.stringify({history:history});
+    if(navigator.sendBeacon){
+      var blob=new Blob([data],{type:'application/json'});
+      navigator.sendBeacon('/api/support/end',blob);
+    } else {
+      fetch('/api/support/end',{method:'POST',headers:{'Content-Type':'application/json'},body:data,keepalive:true}).catch(function(){});
+    }
+  }
+
+  function doSend(){
+    var text=input.value.trim();
+    if(!text||sending) return;
+    sending=true;
+    send.disabled=true;
+    addMsg('user',text);
+    history.push({role:'user',content:text});
+    input.value='';
+    input.style.height='';
+    var typing=showTyping();
+    fetch('/api/support/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:history.slice(0,-1)})})
+      .then(function(r){return r.json();})
+      .then(function(j){
+        msgs.removeChild(typing);
+        var reply=j.reply||j.error||'Something went wrong. Please try again.';
+        addMsg('bot',reply);
+        history.push({role:'assistant',content:reply});
+      })
+      .catch(function(){
+        msgs.removeChild(typing);
+        addMsg('bot','Connection error. Please try again or email support@socalreceptionist.com.');
+      })
+      .finally(function(){sending=false;send.disabled=false;input.focus();});
+  }
+
+  btn.addEventListener('click',openChat);
+  closeBtn.addEventListener('click',closeChat);
+  send.addEventListener('click',doSend);
+  input.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend();}
+  });
+  input.addEventListener('input',function(){
+    this.style.height='auto';
+    this.style.height=Math.min(this.scrollHeight,90)+'px';
+  });
+  window.addEventListener('beforeunload',function(){
+    if(history.length) sendTranscript();
+  });
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='hidden'&&history.length) sendTranscript();
+  });
+})();
+</script>
 </body>
 </html>

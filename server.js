@@ -5,7 +5,8 @@ const config = require('./src/config');
 const { handleMessage } = require('./src/ai');
 const { isValidTwilioRequest } = require('./src/twilio');
 const consent = require('./src/consent');
-const { notifyDemoRequest, notifyOptIn, notifyEarlyAccess } = require('./src/email');
+const { notifyDemoRequest, notifyOptIn, notifyEarlyAccess, notifySupportTranscript } = require('./src/email');
+const { chatWithGroq } = require('./src/support-chat');
 const { handleRealtimeCall } = require('./src/voice-realtime');
 const { makeStreamToken } = require('./src/stream-auth');
 const emailPoller = require('./src/email-poller');
@@ -805,6 +806,33 @@ app.post('/sms', rateLimit(30, 60_000), async (req, res) => {
 
   res.type('text/xml');
   res.send(twiml.toString());
+});
+
+// Support chat (Groq-powered)
+app.post('/api/support/chat', rateLimit(30, 10 * 60_000), async (req, res) => {
+  const { message, history = [] } = req.body;
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'Message required' });
+  }
+  const safeHistory = Array.isArray(history)
+    ? history.slice(-10).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content).slice(0, 2000) }))
+    : [];
+  const messages = [...safeHistory, { role: 'user', content: message.trim().slice(0, 2000) }];
+  try {
+    const reply = await chatWithGroq(messages);
+    res.json({ reply });
+  } catch (err) {
+    console.error('Support chat error:', err.message);
+    res.status(500).json({ error: 'Something went wrong. Please email support@socalreceptionist.com.' });
+  }
+});
+
+app.post('/api/support/end', rateLimit(10, 10 * 60_000), async (req, res) => {
+  const { history = [] } = req.body;
+  res.json({ ok: true }); // respond immediately, email in background
+  if (Array.isArray(history) && history.length > 0) {
+    notifySupportTranscript(history).catch(err => console.error('Support transcript email failed:', err.message));
+  }
 });
 
 app.listen(config.port, () => {

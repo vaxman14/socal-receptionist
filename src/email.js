@@ -249,4 +249,26 @@ async function sendCalendarInvite({ callerName, callerEmail, startIso, hostEmail
   });
 }
 
-module.exports = { notifyOwner, notifyOptIn, notifyLead, notifyFollowup, notifyDemoRequest, notifyEarlyAccess, notifySalesLead, sendCalendarInvite };
+async function notifySupportTranscript(history) {
+  if (!history || !history.length) return;
+  const rows = history.map(m =>
+    `<tr><td style="color:${m.role === 'user' ? '#1a1a2e' : '#4f46e5'};font-weight:600;width:80px;padding:6px 12px;vertical-align:top">${escapeHtml(m.role === 'user' ? 'Visitor' : 'Bot')}</td><td style="padding:6px 12px;color:#374151;font-size:.88rem">${escapeHtml(m.content)}</td></tr>`
+  ).join('\n');
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+  const subject = `Support chat transcript — ${timestamp} PT`;
+  const text = history.map(m => `${m.role === 'user' ? 'Visitor' : 'Bot'}: ${m.content}`).join('\n\n');
+  const html = htmlWrap('Support Chat Transcript', `
+    <p>A visitor completed a support chat on the website.</p>
+    <table class="data" style="width:100%">${rows}</table>
+    <table class="data"><tr><td>Time</td><td>${escapeHtml(timestamp)} PT</td></tr></table>
+  `);
+  await transporter.sendMail({
+    from: config.email.from,
+    to: 'support@socalreceptionist.com',
+    subject,
+    text,
+    html,
+  });
+}
+
+module.exports = { notifyOwner, notifyOptIn, notifyLead, notifyFollowup, notifyDemoRequest, notifyEarlyAccess, notifySalesLead, sendCalendarInvite, notifySupportTranscript };
