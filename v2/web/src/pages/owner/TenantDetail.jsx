@@ -1,7 +1,9 @@
 // Owner Tenant Detail — one tenant: profile, voice, billing, usage, numbers.
 // GET /admin/owner/tenants/:id  ->  { tenant: { ...tenant, subscriptions, phone_numbers } }
 
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { api } from '../../lib/api';
 import { useFetch } from '../../lib/useFetch';
 import { Loading, ErrorState } from '../../components/States';
 import { Badge } from '../../components/Badge';
@@ -16,12 +18,33 @@ function usd(cents) {
 export default function TenantDetail() {
   const { id } = useParams();
   const { data, loading, error, reload } = useFetch(`/admin/owner/tenants/${id}`);
+  const [prompt, setPrompt] = useState(null);
+  const [promptBusy, setPromptBusy] = useState(false);
+  const [promptSaved, setPromptSaved] = useState(false);
+  const [promptError, setPromptError] = useState(null);
 
   if (loading) return <Loading label="Loading tenant…" />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
 
   const t = data?.tenant;
   if (!t) return <ErrorState message="Tenant not found." />;
+
+  const currentPrompt = prompt !== null ? prompt : (t.ai_system_prompt || '');
+
+  const savePrompt = async () => {
+    setPromptBusy(true);
+    setPromptError(null);
+    setPromptSaved(false);
+    try {
+      await api.patch(`/admin/owner/tenants/${id}`, { ai_system_prompt: currentPrompt });
+      setPromptSaved(true);
+      reload();
+    } catch (err) {
+      setPromptError(err.message || 'Save failed.');
+    } finally {
+      setPromptBusy(false);
+    }
+  };
 
   const sub = Array.isArray(t.subscriptions) ? t.subscriptions[0] : t.subscriptions;
   const numbers = t.phone_numbers || [];
@@ -63,13 +86,31 @@ export default function TenantDetail() {
             </dd>
             <dt>AI model</dt>
             <dd>{t.ai_model || '—'}</dd>
-            <dt>Prompt override</dt>
-            <dd>{t.ai_system_prompt ? 'Custom' : 'Platform default'}</dd>
             <dt>Created</dt>
             <dd>{formatDate(t.created_at)}</dd>
             <dt>Activated</dt>
             <dd>{t.activated_at ? formatDate(t.activated_at) : '—'}</dd>
           </dl>
+        </div>
+
+        <div className="card card-pad">
+          <div className="section-title">AI system prompt</div>
+          <p className="muted" style={{ fontSize: '0.86rem', marginBottom: 12 }}>
+            Overrides the platform default. Leave blank to use the generated prompt from business config.
+          </p>
+          {promptError && <div className="alert alert-error" style={{ marginBottom: 8 }}>{promptError}</div>}
+          {promptSaved && <div className="alert alert-success" style={{ marginBottom: 8 }}>Prompt saved.</div>}
+          <textarea
+            className="code"
+            rows={12}
+            style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10 }}
+            value={currentPrompt}
+            onChange={(e) => { setPrompt(e.target.value); setPromptSaved(false); }}
+            placeholder="Leave blank to use platform default…"
+          />
+          <button className="btn btn-primary" disabled={promptBusy} onClick={savePrompt}>
+            {promptBusy ? 'Saving…' : 'Save prompt'}
+          </button>
         </div>
 
         <div className="card card-pad">

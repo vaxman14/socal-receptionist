@@ -22,6 +22,10 @@ function openaiClient() {
 const MAX_TOOL_ROUNDS = 3;
 
 function buildSystemPrompt(tenant) {
+  // IMPORTANT: Always set ai_system_prompt on the tenant record for any tenant
+  // that needs custom pricing, tone, or product knowledge (e.g. the SoCal
+  // Receptionist demo line). The generic fallback below is for new client
+  // tenants only — it intentionally avoids quoting prices it doesn't know.
   if (tenant.ai_system_prompt) return tenant.ai_system_prompt;
   return `You are the virtual receptionist for ${tenant.business_name}.
 You speak with customers over SMS text message. Be warm, friendly, professional, and concise.
@@ -44,7 +48,7 @@ Your responsibilities:
 Rules:
 - Keep replies short and text-message friendly: 1-3 short sentences.
 - Ask for only one or two pieces of information at a time — do not interrogate.
-- Never invent prices, availability, medical or professional advice, or policies.
+- Do not quote specific prices unless they are listed in the business details above.
 - Stay on topic: you represent ${tenant.business_name} only.`;
 }
 

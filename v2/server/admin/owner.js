@@ -44,6 +44,27 @@ router.get('/tenants/:id', async (req, res) => {
   res.json({ tenant: data });
 });
 
+// PATCH /admin/owner/tenants/:id — owner override for tenant config fields.
+router.patch('/tenants/:id', async (req, res) => {
+  const allowed = ['ai_system_prompt', 'voice_enabled', 'staff_phone', 'voice_greeting', 'voicemail_email'];
+  const patch = {};
+  for (const key of allowed) {
+    if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+      patch[key] = req.body[key] === '' ? null : req.body[key];
+    }
+  }
+  if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'No valid fields provided.' });
+  const { data, error } = await supabase
+    .from('tenants')
+    .update(patch)
+    .eq('id', req.params.id)
+    .select()
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: 'tenant not found' });
+  res.json({ tenant: data });
+});
+
 // GET /admin/owner/stats — platform KPIs (tenant mix, billing, volume).
 router.get('/stats', async (req, res) => {
   try {
