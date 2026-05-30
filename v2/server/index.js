@@ -88,6 +88,64 @@ app.use('/admin', clientAdminRouter);
 // Legal pages (privacy, terms, etc.)
 app.use('/', require('./legal'));
 
+// Support chat widget (used by marketing site)
+const SUPPORT_SYSTEM_PROMPT = `You are a friendly and helpful support agent for SoCal Receptionist — an AI-powered virtual receptionist service for small businesses in Southern California (Temecula Valley area).
+
+Your job is to answer questions from website visitors about the product, pricing, and how it works, and to help existing clients with support issues.
+
+Key facts:
+- SoCal Receptionist handles incoming calls and SMS for small businesses 24/7
+- The AI qualifies leads, answers FAQs, and books appointments automatically
+- Powered by advanced AI (OpenAI + Twilio)
+- Serves businesses in Temecula, Murrieta, Menifee, and surrounding SoCal areas
+
+Pricing:
+- Essentials Plan: $500/month (no setup fee) — AI answers calls/SMS, qualifies leads, books appointments
+- Concierge Plan: $500/month + $1,500 one-time setup fee — full white-glove setup and customization
+- Annual pricing: $4,800/year (saves ~2 months vs monthly)
+- +$99 per 50 extra calls beyond your plan's included volume
+
+Getting started:
+- Sign up at app.socalreceptionist.com or call/text (951) 395-8776 to talk to the AI live
+- Setup takes minutes for self-serve, or a few days for Concierge with full customization
+
+For support issues (existing clients):
+- Collect their business name and issue description
+- If you cannot resolve it, tell them to email support@socalreceptionist.com and that Roman will follow up within 24 hours
+- For urgent issues, they can call/text (951) 395-8776
+
+Be concise (2-4 sentences per reply), warm, and direct. Don't use bullet lists unless explaining pricing. If someone asks something you don't know, offer to connect them with support@socalreceptionist.com. Never make up facts about the product.`;
+
+app.post('/api/support/chat', express.json(), async (req, res) => {
+  const { message, history = [] } = req.body;
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'Message required' });
+  }
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) {
+    return res.json({ reply: "Hi! I'm the SoCal Receptionist support bot. Our team is setting up the AI chat — in the meantime, email us at support@socalreceptionist.com or call (951) 395-8776!" });
+  }
+  const safeHistory = Array.isArray(history)
+    ? history.slice(-10).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content).slice(0, 2000) }))
+    : [];
+  const messages = [...safeHistory, { role: 'user', content: message.trim().slice(0, 2000) }];
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: SUPPORT_SYSTEM_PROMPT }, ...messages], max_tokens: 400, temperature: 0.65 }),
+    });
+    if (!response.ok) throw new Error(`Groq ${response.status}`);
+    const data = await response.json();
+    res.json({ reply: data.choices[0].message.content.trim() });
+  } catch (err) {
+    console.error('Support chat error:', err.message);
+    res.status(500).json({ error: 'Something went wrong. Please email support@socalreceptionist.com.' });
+  }
+});
+
+app.post('/api/support/end', express.json(), (req, res) => res.json({ ok: true }));
+
 // Serve the landing page (public/) and the React SPA (web/dist/).
 // API routes above take priority; everything else falls through to the SPA.
 const publicDir = path.join(__dirname, '../../public');
