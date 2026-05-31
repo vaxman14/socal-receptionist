@@ -46,7 +46,7 @@ router.get('/tenants/:id', async (req, res) => {
 
 // PATCH /admin/owner/tenants/:id — owner override for tenant config fields.
 router.patch('/tenants/:id', async (req, res) => {
-  const allowed = ['ai_system_prompt', 'voice_enabled', 'staff_phone', 'voice_greeting', 'voicemail_email'];
+  const allowed = ['ai_system_prompt', 'voice_id', 'voice_enabled', 'staff_phone', 'voice_greeting', 'voicemail_email'];
   const patch = {};
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(req.body, key)) {

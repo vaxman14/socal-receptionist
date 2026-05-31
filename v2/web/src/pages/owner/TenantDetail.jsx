@@ -22,6 +22,10 @@ export default function TenantDetail() {
   const [promptBusy, setPromptBusy] = useState(false);
   const [promptSaved, setPromptSaved] = useState(false);
   const [promptError, setPromptError] = useState(null);
+  const [voice, setVoice] = useState(null);
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const [voiceSaved, setVoiceSaved] = useState(false);
+  const [voiceError, setVoiceError] = useState(null);
 
   if (loading) return <Loading label="Loading tenant…" />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
@@ -30,6 +34,30 @@ export default function TenantDetail() {
   if (!t) return <ErrorState message="Tenant not found." />;
 
   const currentPrompt = prompt !== null ? prompt : (t.ai_system_prompt || '');
+  const currentVoice = voice !== null ? voice : (t.voice_id || 'Polly.Joanna-Neural');
+
+  const VOICES = [
+    { id: 'Polly.Joanna-Neural',  label: 'Joanna — Female, US (default)' },
+    { id: 'Polly.Salli-Neural',   label: 'Salli — Female, US (warm)' },
+    { id: 'Polly.Kendra-Neural',  label: 'Kendra — Female, US (professional)' },
+    { id: 'Polly.Matthew-Neural', label: 'Matthew — Male, US' },
+    { id: 'Polly.Joey-Neural',    label: 'Joey — Male, US (casual)' },
+  ];
+
+  const saveVoice = async () => {
+    setVoiceBusy(true);
+    setVoiceError(null);
+    setVoiceSaved(false);
+    try {
+      await api.patch(`/admin/owner/tenants/${id}`, { voice_id: currentVoice });
+      setVoiceSaved(true);
+      reload();
+    } catch (err) {
+      setVoiceError(err.message || 'Save failed.');
+    } finally {
+      setVoiceBusy(false);
+    }
+  };
 
   const savePrompt = async () => {
     setPromptBusy(true);
@@ -129,6 +157,25 @@ export default function TenantDetail() {
             <dt>Voicemail email</dt>
             <dd>{t.voicemail_email || '—'}</dd>
           </dl>
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>Receptionist voice</div>
+            {voiceError && <div className="alert alert-error" style={{ marginBottom: 8 }}>{voiceError}</div>}
+            {voiceSaved && <div className="alert alert-success" style={{ marginBottom: 8 }}>Voice saved.</div>}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                value={currentVoice}
+                onChange={(e) => { setVoice(e.target.value); setVoiceSaved(false); }}
+                style={{ flex: 1, minWidth: 220 }}
+              >
+                {VOICES.map((v) => (
+                  <option key={v.id} value={v.id}>{v.label}</option>
+                ))}
+              </select>
+              <button className="btn btn-primary" disabled={voiceBusy} onClick={saveVoice}>
+                {voiceBusy ? 'Saving…' : 'Save voice'}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="card card-pad">
