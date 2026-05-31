@@ -39,7 +39,7 @@ services:
       # --- Supabase (V3 project — set these after creating the V3 project) ----
       - key: SUPABASE_URL
         scope: RUN_TIME
-        value: REPLACE_WITH_V3_SUPABASE_URL
+        value: https://xcngpfeuvvcsxgwyukch.supabase.co
       - key: SUPABASE_SERVICE_KEY
         scope: RUN_TIME
         type: SECRET
@@ -124,7 +124,7 @@ services:
       # --- Frontend SPA origin ------------------------------------------------
       - key: APP_BASE_URL
         scope: RUN_TIME
-        value: REPLACE_WITH_NETLIFY_V3_URL
+        value: https://socal-receptionist-v3.netlify.app
 
       # --- Rate limiting (relaxed for dev) ------------------------------------
       - key: RATE_TENANT_PER_MIN
