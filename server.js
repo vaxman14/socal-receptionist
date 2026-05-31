@@ -7,6 +7,7 @@ const { isValidTwilioRequest } = require('./src/twilio');
 const consent = require('./src/consent');
 const { notifyDemoRequest, notifyOptIn, notifyEarlyAccess } = require('./src/email');
 const { handleRealtimeCall } = require('./src/voice-realtime');
+const { initiateCall, handleOutboundStream } = require('./src/voice-outbound');
 const { makeStreamToken } = require('./src/stream-auth');
 const emailPoller = require('./src/email-poller');
 const crypto = require('crypto');
@@ -700,6 +701,73 @@ app.post('/voice/sales/status', async (req, res) => {
   // Realtime module handles partial leads on WebSocket close — nothing to do here.
   res.sendStatus(204);
 });
+
+// ── Outbound calling ────────────────────────────────────────────────────────
+//
+// POST /voice/outbound/call   — initiates an outbound call (internal API)
+// POST /voice/outbound/start  — Twilio calls this when the prospect answers
+// WS   /voice/outbound/stream — Realtime API bridge; AI greets first
+//
+// Authentication for /voice/outbound/call: simple bearer token via
+// OUTBOUND_API_KEY env var. If unset, the endpoint is disabled.
+
+app.post('/voice/outbound/call', express.json(), async (req, res) => {
+  const apiKey = process.env.OUTBOUND_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'Outbound calling not configured' });
+
+  const authHeader = req.headers.authorization || '';
+  if (authHeader !== `Bearer ${apiKey}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { to, name, businessType, reason } = req.body || {};
+  if (!to) return res.status(400).json({ error: 'Missing required field: to' });
+
+  // Basic E.164 sanity check
+  if (!/^\+?[1-9]\d{6,14}$/.test(to.replace(/[\s\-().]/g, ''))) {
+    return res.status(400).json({ error: 'Invalid phone number format' });
+  }
+
+  try {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const callSid = await initiateCall(to, { name, businessType, reason }, baseUrl);
+    res.json({ success: true, callSid });
+  } catch (err) {
+    console.error('[voice/outbound/call] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/voice/outbound/start', (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    console.warn('Rejected /voice/outbound/start request: invalid Twilio signature');
+    return res.status(403).send('Invalid Twilio signature');
+  }
+
+  const host = req.headers.host;
+  const callSid = req.body.CallSid || '';
+  const to = req.body.To || '';
+
+  const token = makeStreamToken(callSid, to);
+  const safeTo = to.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+
+  res.type('text/xml');
+  res.send(
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${host}/voice/outbound/stream"><Parameter name="to" value="${safeTo}"/><Parameter name="auth" value="${token}"/></Stream></Connect></Response>`
+  );
+});
+
+app.ws('/voice/outbound/stream', (ws) => {
+  handleOutboundStream(ws);
+});
+
+app.post('/voice/outbound/status', (req, res) => {
+  if (!isValidTwilioRequest(req)) return res.status(403).send('Invalid Twilio signature');
+  // Status logged in voice-outbound cleanup; nothing to do here
+  res.sendStatus(204);
+});
+
+// ── Inbound SMS ─────────────────────────────────────────────────────────────
 
 // Twilio inbound SMS webhook. Twilio POSTs the message here and expects a
 // TwiML response, which it delivers back to the customer as the outbound SMS.
