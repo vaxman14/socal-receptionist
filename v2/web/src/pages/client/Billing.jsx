@@ -197,9 +197,6 @@ export default function Billing() {
       </div>
 
       <div className="card card-pad" style={{ background: 'var(--surface-alt, #f9f9fb)' }}>
-        <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 16 }}>
-          Cancel within 14 days and receive a $1,000 refund. No long-term contracts.
-        </p>
         <button
           className="btn btn-primary btn-block"
           onClick={() => callApi('checkout', { planKey })}
