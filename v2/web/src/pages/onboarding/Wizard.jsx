@@ -7,9 +7,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import StepBusiness from './StepBusiness';
 import StepAgreement from './StepAgreement';
+import StepMfa from './StepMfa';
 import StepDone from './StepDone';
 
-const STEPS = ['Your business', 'Service agreement', 'All set'];
+const STEPS = ['Your business', 'Service agreement', 'Two-factor auth', 'All set'];
 const STORAGE_KEY = 'socal-onboard';
 
 function loadSaved() {
@@ -79,6 +80,10 @@ export default function Wizard({ onComplete }) {
         )}
 
         {step === 3 && (
+          <StepMfa onVerified={() => setStep(4)} />
+        )}
+
+        {step === 4 && (
           <StepDone
             tenant={tenant}
             signResult={signResult}
