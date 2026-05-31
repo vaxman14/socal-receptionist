@@ -5,7 +5,7 @@ import { titleCase } from '../lib/format';
 const TONE = {
   // tenant status
   onboarding: 'info',
-  sms_pending_compliance: 'warn',
+  sms_pending_compliance: 'green',
   active: 'green',
   suspended_billing: 'danger',
   suspended_compliance: 'danger',
@@ -37,8 +37,12 @@ const TONE = {
   incomplete: 'gray',
 };
 
+const LABEL = {
+  sms_pending_compliance: 'Active',
+};
+
 export function Badge({ value }) {
   if (!value) return <span className="muted">—</span>;
   const tone = TONE[value] || 'gray';
-  return <span className={`badge badge-${tone}`}>{titleCase(value)}</span>;
+  return <span className={`badge badge-${tone}`}>{LABEL[value] || titleCase(value)}</span>;
 }

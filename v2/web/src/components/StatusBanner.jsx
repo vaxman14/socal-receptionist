@@ -7,9 +7,9 @@ const COPY = {
     text: 'Finish signing your Service Agreement to begin provisioning.',
   },
   sms_pending_compliance: {
-    tone: 'warn',
-    title: 'Pending carrier compliance',
-    text: 'Your number is registered and we are awaiting A2P / carrier approval. Texting goes live automatically once approved.',
+    tone: 'green',
+    title: 'Active',
+    text: 'Your AI receptionist is live and answering customers.',
   },
   active: {
     tone: 'green',

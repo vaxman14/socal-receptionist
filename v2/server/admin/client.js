@@ -28,6 +28,19 @@ const ALLOWED_SETUP_PRICE_IDS = new Set([
   process.env.STRIPE_SETUP_PRICE_ID,
 ].filter(Boolean));
 
+// Named plan keys — frontend sends a plan name, backend resolves price IDs.
+const PLAN_PRICE_MAP = {
+  essentials_monthly: process.env.STRIPE_PRICE_ID_ESSENTIALS,
+  essentials_annual: process.env.STRIPE_PRICE_ID_ESSENTIALS_ANNUAL,
+  concierge_monthly: process.env.STRIPE_PRICE_ID_CONCIERGE,
+  concierge_annual: process.env.STRIPE_PRICE_ID_CONCIERGE_ANNUAL,
+};
+
+const PLAN_SETUP_MAP = {
+  concierge_monthly: process.env.STRIPE_SETUP_PRICE_ID_CONCIERGE,
+  concierge_annual: process.env.STRIPE_SETUP_PRICE_ID_CONCIERGE,
+};
+
 const router = express.Router();
 
 // Fields a client may edit on their own tenant. status, spend caps, slug, and
@@ -152,29 +165,40 @@ router.get('/calls', async (req, res) => {
 // successUrl and cancelUrl are always derived from APP_BASE_URL (issue #14).
 router.post('/billing/checkout', requireAal2, async (req, res) => {
   try {
-    // Validate priceId against server-side allowlist
-    const requestedPriceId = req.body.priceId;
     let priceId;
-    if (requestedPriceId) {
-      if (!ALLOWED_PRICE_IDS.has(requestedPriceId)) {
-        return res.status(400).json({ error: 'invalid price' });
-      }
-      priceId = requestedPriceId;
-    } else {
-      priceId = process.env.STRIPE_PRICE_ID;
-    }
-    if (!priceId) return res.status(400).json({ error: 'no plan price configured' });
-
-    // Validate setupPriceId against server-side allowlist
-    const requestedSetupPriceId = req.body.setupPriceId;
     let setupPriceId;
-    if (requestedSetupPriceId) {
-      if (!ALLOWED_SETUP_PRICE_IDS.has(requestedSetupPriceId)) {
-        return res.status(400).json({ error: 'invalid setup price' });
+
+    const { planKey } = req.body;
+    if (planKey) {
+      // Named plan — resolve server-side, no client-supplied price IDs needed.
+      if (!PLAN_PRICE_MAP[planKey] && !Object.keys(PLAN_PRICE_MAP).includes(planKey)) {
+        return res.status(400).json({ error: 'unknown plan' });
       }
-      setupPriceId = requestedSetupPriceId;
+      priceId = PLAN_PRICE_MAP[planKey];
+      setupPriceId = PLAN_SETUP_MAP[planKey] || null;
+      if (!priceId) return res.status(400).json({ error: 'no plan price configured' });
     } else {
-      setupPriceId = process.env.STRIPE_SETUP_PRICE_ID;
+      // Legacy: explicit priceId/setupPriceId (validated against allowlist).
+      const requestedPriceId = req.body.priceId;
+      if (requestedPriceId) {
+        if (!ALLOWED_PRICE_IDS.has(requestedPriceId)) {
+          return res.status(400).json({ error: 'invalid price' });
+        }
+        priceId = requestedPriceId;
+      } else {
+        priceId = process.env.STRIPE_PRICE_ID;
+      }
+      if (!priceId) return res.status(400).json({ error: 'no plan price configured' });
+
+      const requestedSetupPriceId = req.body.setupPriceId;
+      if (requestedSetupPriceId) {
+        if (!ALLOWED_SETUP_PRICE_IDS.has(requestedSetupPriceId)) {
+          return res.status(400).json({ error: 'invalid setup price' });
+        }
+        setupPriceId = requestedSetupPriceId;
+      } else {
+        setupPriceId = process.env.STRIPE_SETUP_PRICE_ID;
+      }
     }
 
     // Build redirect URLs server-side from APP_BASE_URL — never trust the client

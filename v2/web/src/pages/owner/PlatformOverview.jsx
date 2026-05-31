@@ -5,6 +5,10 @@ import { useFetch } from '../../lib/useFetch';
 import { Loading, ErrorState } from '../../components/States';
 import { titleCase } from '../../lib/format';
 
+const STATUS_LABEL = {
+  sms_pending_compliance: 'Active',
+};
+
 function Breakdown({ title, map }) {
   const entries = Object.entries(map || {});
   if (entries.length === 0) {
@@ -15,13 +19,21 @@ function Breakdown({ title, map }) {
       </div>
     );
   }
+
+  // Merge sms_pending_compliance into active for display
+  const merged = {};
+  for (const [k, v] of entries) {
+    const label = STATUS_LABEL[k] || titleCase(k);
+    merged[label] = (merged[label] || 0) + v;
+  }
+
   return (
     <div className="card card-pad">
       <div className="section-title">{title}</div>
       <dl className="kv">
-        {entries.map(([k, v]) => (
-          <Fragment key={k}>
-            <dt>{titleCase(k)}</dt>
+        {Object.entries(merged).map(([label, v]) => (
+          <Fragment key={label}>
+            <dt>{label}</dt>
             <dd>{v}</dd>
           </Fragment>
         ))}
@@ -62,9 +74,9 @@ export default function PlatformOverview() {
           <div className="sub">Captured across all tenants</div>
         </div>
         <div className="stat">
-          <div className="label">Messages</div>
-          <div className="value">{s.messages_total ?? 0}</div>
-          <div className="sub">Total SMS handled</div>
+          <div className="label">Calls handled</div>
+          <div className="value">{s.calls_total ?? s.messages_total ?? 0}</div>
+          <div className="sub">Total calls across all tenants</div>
         </div>
       </div>
 

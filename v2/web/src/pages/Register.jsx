@@ -374,108 +374,164 @@ function StepBusiness({ userInfo, onNext }) {
   );
 }
 
-// ─── Step 3: Choose a Plan (placeholder) ───────────────────────────────────────
+// ─── Step 3: Choose a Plan ─────────────────────────────────────────────────────
+
+const PLAN_FEATURES = [
+  'AI answers after-hours calls',
+  '300 calls/month included',
+  'Press 1 to leave a message',
+  'Press 2 to schedule a call (with calendar connect)',
+];
+
+const PLANS = {
+  monthly: [
+    {
+      key: 'essentials_monthly',
+      tier: 'essentials',
+      name: 'Essentials',
+      price: '$500',
+      period: '/mo',
+      sub: 'No setup fee',
+      hasSetup: false,
+      features: [...PLAN_FEATURES, 'Self-guided setup'],
+    },
+    {
+      key: 'concierge_monthly',
+      tier: 'concierge',
+      name: 'Concierge',
+      price: '$500',
+      period: '/mo',
+      sub: '+ $1,500 one-time setup',
+      hasSetup: true,
+      features: [...PLAN_FEATURES, 'Full white-glove setup & configuration'],
+    },
+  ],
+  annual: [
+    {
+      key: 'essentials_annual',
+      tier: 'essentials',
+      name: 'Essentials',
+      price: '$400',
+      period: '/mo',
+      sub: 'Billed $4,800/yr — save 20%',
+      hasSetup: false,
+      features: [...PLAN_FEATURES, 'Self-guided setup'],
+    },
+    {
+      key: 'concierge_annual',
+      tier: 'concierge',
+      name: 'Concierge',
+      price: '$400',
+      period: '/mo',
+      sub: 'Billed $4,800/yr + $1,500 setup',
+      hasSetup: true,
+      features: [...PLAN_FEATURES, 'Full white-glove setup & configuration'],
+    },
+  ],
+};
 
 function StepPlan({ onNext }) {
+  const [billing, setBilling] = useState('monthly');
+  const [selectedKey, setSelectedKey] = useState('essentials_monthly');
+
+  const plans = PLANS[billing];
+  const plan = plans.find((p) => p.key === selectedKey) || plans[0];
+
+  const handleBillingChange = (b) => {
+    setBilling(b);
+    // Keep same tier, switch billing period
+    const currentTier = plan.tier;
+    const match = PLANS[b].find((p) => p.tier === currentTier);
+    if (match) setSelectedKey(match.key);
+  };
+
   return (
     <div className="card card-pad">
       <h1 style={{ marginBottom: 6 }}>Choose your plan</h1>
       <p className="muted" style={{ marginBottom: 24, fontSize: '0.92rem' }}>
-        We keep pricing simple — one plan, everything included.
+        All plans include a dedicated AI receptionist, email alerts, and no contracts. Cancel any time.
       </p>
 
-      {/* ── PLAN OPTIONS GO HERE ── */}
-      {/* When you're ready to add multiple tiers, replace the placeholder card
-          below with individual plan option cards. Each card should collect a
-          priceId from your Stripe dashboard and pass it to onNext(). */}
-      <div
-        className="card"
-        style={{
-          border: '2px solid var(--green)',
-          borderRadius: 12,
-          padding: '28px 24px',
-          textAlign: 'center',
-          marginBottom: 24,
-          position: 'relative',
-        }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            top: -14,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'var(--green)',
-            color: '#fff',
-            fontSize: '0.78rem',
-            fontWeight: 700,
-            padding: '5px 18px',
-            borderRadius: 999,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Most Popular in Temecula Valley
-        </div>
-
-        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>
-          Full-Service Plan
-        </div>
-
-        <div style={{ fontSize: '3rem', fontWeight: 800, color: 'var(--navy)', lineHeight: 1 }}>
-          <span style={{ fontSize: '1.2rem', verticalAlign: 'super', fontWeight: 600, color: 'var(--muted)' }}>$</span>
-          500
-        </div>
-        <div style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: 4 }}>per month</div>
-        <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: 24 }}>
-          + $1,500 one-time setup fee (billed today)
-        </div>
-
-        <ul
-          style={{
-            listStyle: 'none',
-            textAlign: 'left',
-            marginBottom: 24,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            fontSize: '0.95rem',
-          }}
-        >
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
+        <div style={{ display: 'inline-flex', background: 'var(--light)', borderRadius: 999, padding: 4, border: '1px solid var(--border)' }}>
           {[
-            '24/7 AI voice receptionist',
-            'Instant lead capture + qualification',
-            'Email alerts for every new lead',
-            'Custom AI trained on your business',
-            'Staff transfer — press 2 to speak to a person',
-            'Voicemail transcription',
-            'No long-term contracts — cancel anytime',
-          ].map((f) => (
-            <li key={f} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-              <span style={{ color: 'var(--green)', fontWeight: 800, flexShrink: 0, marginTop: 1 }}>✓</span>
-              {f}
-            </li>
+            { key: 'monthly', label: 'Monthly' },
+            { key: 'annual', label: 'Annual (save 20%)' },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handleBillingChange(key)}
+              style={{
+                padding: '6px 20px',
+                borderRadius: 999,
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                background: billing === key ? '#fff' : 'transparent',
+                color: billing === key ? 'var(--navy)' : 'var(--muted)',
+                boxShadow: billing === key ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+                transition: 'all 0.15s',
+              }}
+            >
+              {label}
+            </button>
           ))}
-        </ul>
-
-        {/* Placeholder notice for future plan expansion */}
-        <div
-          style={{
-            background: 'var(--light)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            padding: '10px 14px',
-            fontSize: '0.82rem',
-            color: 'var(--muted)',
-            marginBottom: 20,
-            textAlign: 'center',
-          }}
-        >
-          Custom enterprise plans available — our team will reach out to discuss options.
         </div>
       </div>
 
-      <button className="btn btn-primary btn-block" onClick={() => { ph.capture('plan_selected', { plan: 'after_hours_care' }); onNext({}); }}>
-        Continue to checkout →
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
+        {plans.map((p) => {
+          const isSelected = selectedKey === p.key;
+          return (
+            <div
+              key={p.key}
+              onClick={() => setSelectedKey(p.key)}
+              className="card"
+              style={{
+                border: `2px solid ${isSelected ? 'var(--green)' : 'var(--border)'}`,
+                borderRadius: 12,
+                padding: '20px 24px',
+                cursor: 'pointer',
+                transition: 'border-color 0.15s',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--navy)', marginBottom: 3 }}>{p.name}</div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>{p.sub}</div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                  <span style={{ fontSize: '1.9rem', fontWeight: 800, color: 'var(--navy)', lineHeight: 1 }}>{p.price}</span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{p.period}</span>
+                </div>
+              </div>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {p.features.map((f) => (
+                  <li key={f} style={{ display: 'flex', gap: 10, fontSize: '0.9rem', alignItems: 'flex-start' }}>
+                    <span style={{ color: 'var(--green)', fontWeight: 800, flexShrink: 0 }}>✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="muted" style={{ fontSize: '0.8rem', textAlign: 'center', marginBottom: 20 }}>
+        You'll enter billing info after signing your service agreement.{plan.hasSetup ? ' The setup fee includes your first month of service.' : ''}
+      </p>
+
+      <button
+        className="btn btn-primary btn-block"
+        onClick={() => {
+          ph.capture('plan_selected', { plan: plan.key, billing });
+          onNext({ planKey: plan.key, tier: plan.tier, billing, hasSetup: plan.hasSetup, price: plan.price, sub: plan.sub });
+        }}
+      >
+        Select this plan →
       </button>
     </div>
   );
@@ -483,22 +539,30 @@ function StepPlan({ onNext }) {
 
 // ─── Step 4: Checkout ──────────────────────────────────────────────────────────
 
-function StepCheckout({ tenant }) {
+function StepCheckout({ tenant, plan = {} }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  const planKey = plan.planKey || 'essentials_monthly';
+  const isAnnual = plan.billing === 'annual';
+  const hasSetup = plan.hasSetup ?? false;
+
+  const todayCharge = hasSetup
+    ? (isAnnual ? '$6,300 ($4,800/yr + $1,500 setup)' : '$2,000 ($1,500 setup + first month $500)')
+    : (isAnnual ? '$4,800/yr' : '$500 (first month)');
+
+  const recurringLabel = isAnnual
+    ? '$4,800 / year (billed annually)'
+    : '$500 / month';
 
   const startCheckout = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
-      const base = window.location.origin;
-      const data = await api.post('/admin/billing/checkout', {
-        successUrl: `${base}/welcome?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${base}/register`,
-      });
+      const data = await api.post('/admin/billing/checkout', { planKey });
       if (data?.url) {
         try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
-        ph.capture('checkout_started', { business: tenant?.business_name });
+        ph.capture('checkout_started', { business: tenant?.business_name, plan: planKey });
         window.location.href = data.url;
       } else {
         setError('No checkout URL returned. Please try again.');
@@ -507,13 +571,14 @@ function StepCheckout({ tenant }) {
       setError(err?.message || 'Could not start checkout. Please try again.');
       setBusy(false);
     }
-  }, []);
+  }, [planKey]);
 
   return (
     <div className="card card-pad">
       <h1 style={{ marginBottom: 6 }}>Complete your setup</h1>
       <p className="muted" style={{ marginBottom: 20, fontSize: '0.92rem' }}>
-        You'll be redirected to our secure payment page to complete your order.
+        You'll be taken to a secure Stripe checkout to enter your payment details.
+        {hasSetup ? ' The $1,500 setup fee covers provisioning your dedicated number and your first month of service — recurring billing starts after 30 days.' : ''}
       </p>
 
       <div className="card" style={{ background: 'var(--light)', marginBottom: 20 }}>
@@ -521,37 +586,34 @@ function StepCheckout({ tenant }) {
           <dl className="kv">
             <dt>Business</dt>
             <dd>{tenant?.business_name || '—'}</dd>
+            <dt>Plan</dt>
+            <dd>{plan.tier === 'concierge' ? 'Concierge' : 'Essentials'} · {isAnnual ? 'Annual' : 'Monthly'}</dd>
             <dt>Today's charge</dt>
-            <dd>
-              <strong>$2,000</strong>
-              <span className="muted" style={{ fontSize: '0.85rem', marginLeft: 6 }}>
-                ($1,500 setup + first month $500)
-              </span>
-            </dd>
-            <dt>Monthly after</dt>
-            <dd>
-              $500 / month{' '}
-              <span className="muted" style={{ fontSize: '0.85rem' }}>
-                (starts 30 days from today)
-              </span>
-            </dd>
+            <dd><strong>{todayCharge}</strong></dd>
+            {!isAnnual && (
+              <>
+                <dt>After 30 days</dt>
+                <dd>{recurringLabel}</dd>
+              </>
+            )}
           </dl>
         </div>
       </div>
 
-      <div className="alert alert-info" style={{ marginBottom: 16 }}>
-        14-day cancellation policy: if you cancel within 14 days, we refund $1,000
-        of the setup fee. The first month ($500) is non-refundable.
-      </div>
+      {hasSetup && (
+        <div className="alert alert-info" style={{ marginBottom: 16 }}>
+          14-day cancellation policy: if you cancel within 14 days, we refund $1,000 of the setup fee. The first month ($500) is non-refundable.
+        </div>
+      )}
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       <button
         className="btn btn-primary btn-block"
         disabled={busy}
         onClick={startCheckout}
       >
-        {busy ? 'Redirecting to payment…' : 'Pay now — $2,000 →'}
+        {busy ? 'Redirecting to payment…' : 'Activate my subscription →'}
       </button>
 
       <p className="muted" style={{ fontSize: '0.78rem', textAlign: 'center', marginTop: 12 }}>
@@ -568,12 +630,13 @@ export default function Register() {
   const [step, setStep] = useState(saved?.step ?? 1);
   const [userInfo, setUserInfo] = useState(saved?.userInfo ?? null);
   const [tenant, setTenant] = useState(saved?.tenant ?? null);
+  const [plan, setPlan] = useState(saved?.plan ?? null);
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ step, userInfo, tenant }));
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ step, userInfo, tenant, plan }));
     } catch {}
-  }, [step, userInfo, tenant]);
+  }, [step, userInfo, tenant, plan]);
 
   return (
     <div className="wizard-wrap">
@@ -612,12 +675,15 @@ export default function Register() {
 
         {step === 3 && (
           <StepPlan
-            onNext={() => setStep(4)}
+            onNext={(selectedPlan) => {
+              setPlan(selectedPlan);
+              setStep(4);
+            }}
           />
         )}
 
         {step === 4 && (
-          <StepCheckout tenant={tenant} />
+          <StepCheckout tenant={tenant} plan={plan} />
         )}
       </div>
     </div>
