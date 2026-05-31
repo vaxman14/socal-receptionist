@@ -18,9 +18,6 @@ const LINKS = [
   { to: '/leads', label: 'Leads' },
   ...(SMS_ENABLED ? [{ to: '/conversations', label: 'Conversations' }] : []),
   { to: '/calls', label: 'Calls' },
-  { to: '/time-tickets', label: 'Time Tickets' },
-  { to: '/outbound', label: 'Outbound' },
-  { to: '/integrations', label: 'Integrations' },
   { to: '/settings', label: 'Settings' },
   { to: '/billing', label: 'Billing' },
 ];
