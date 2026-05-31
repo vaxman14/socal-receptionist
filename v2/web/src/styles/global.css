@@ -553,3 +553,32 @@ audio { width: 100%; margin-top: 8px; }
 @media (max-width: 860px) {
   .mobile-nav { display: flex; }
 }
+
+/* ---------- Time Tickets — filter tabs, row actions, modal ---------- */
+.page-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+.page-head-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.filter-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+.filter-tab { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 5px 14px; font-size: 0.85rem; cursor: pointer; color: var(--muted); transition: background 0.15s; }
+.filter-tab:hover { background: var(--light); }
+.filter-tab.active { background: var(--navy-2); color: #fff; border-color: var(--navy-2); }
+
+.row-actions { display: flex; gap: 6px; }
+.btn-sm { padding: 4px 10px; font-size: 0.8rem; }
+.btn-danger { background: var(--danger, #dc3545); color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+.btn-danger:hover { opacity: 0.85; }
+
+.truncate { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.85rem; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-box { background: #fff; border-radius: 12px; padding: 28px; width: 520px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+.modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-head h3 { margin: 0; font-size: 1.1rem; }
+.btn-icon { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--muted); padding: 4px 8px; }
+.modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid label { display: flex; flex-direction: column; gap: 5px; font-size: 0.85rem; font-weight: 600; color: var(--muted-dark, #555); }
+.form-grid label.full { grid-column: 1 / -1; }
+.form-grid input, .form-grid select, .form-grid textarea { border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-size: 0.9rem; width: 100%; box-sizing: border-box; }
+.form-grid textarea { resize: vertical; }

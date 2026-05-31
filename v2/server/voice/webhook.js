@@ -21,6 +21,7 @@ const { resolveTenantByNumber } = require('../lib/tenants');
 const { getOrCreateConversation } = require('../lib/conversations');
 const { handleMessage } = require('../lib/ai');
 const { recordCallStart, updateCall, getCallBySid } = require('../lib/calls');
+const { draftFromCall } = require('../lib/time-tickets');
 const logger = require('../lib/logger');
 
 const router = express.Router();
@@ -334,7 +335,20 @@ router.post('/voice/voicemail-transcription', async (req, res) => {
   res.sendStatus(204);
   const callSid = req.body.CallSid;
   const text = req.body.TranscriptionText;
-  if (callSid && text) await updateCall(callSid, { transcript: text });
+  if (!callSid || !text) return;
+
+  await updateCall(callSid, { transcript: text });
+
+  // Auto-draft a time ticket from the voicemail transcript.
+  try {
+    const call = await getCallBySid(callSid);
+    if (call) {
+      const tenant = await resolveTenantByNumber(call.to_number);
+      if (tenant) await draftFromCall({ ...call, transcript: text }, tenant);
+    }
+  } catch (err) {
+    logger.error('voice.ticket_draft_failed', { callSid, error: err.message });
+  }
 });
 
 // --- Call status callback (final disposition) -------------------------------
@@ -359,6 +373,20 @@ router.post('/voice/status', async (req, res) => {
       patch.outcome = callStatus === 'completed' ? 'abandoned' : 'missed';
     }
     if (Object.keys(patch).length) await updateCall(callSid, patch);
+
+    // Auto-draft time ticket for AI-handled calls that have a conversation transcript.
+    const finalOutcome = (patch.outcome || call?.outcome);
+    if (finalOutcome === 'ai_handled' && call?.conversation_id) {
+      try {
+        const tenant = call ? await resolveTenantByNumber(call.to_number) : null;
+        if (tenant) {
+          const updatedCall = { ...call, ...patch, duration_seconds: patch.duration_seconds ?? call?.duration_seconds };
+          await draftFromCall(updatedCall, tenant);
+        }
+      } catch (err) {
+        logger.error('voice.ticket_draft_ai_failed', { callSid, error: err.message });
+      }
+    }
   } catch (err) {
     logger.error('voice.status_failed', { error: err.message });
   }

@@ -8,6 +8,7 @@ const express = require('express');
 const { supabase } = require('../lib/supabase');
 const { requireAuth, requireTenant } = require('../lib/auth');
 const { createCheckoutSession, createPortalSession } = require('../lib/billing');
+const { listTickets, updateTicket, bulkAccept, exportCsv } = require('../lib/time-tickets');
 
 const router = express.Router();
 
@@ -153,6 +154,64 @@ router.post('/billing/portal', async (req, res) => {
   } catch (err) {
     console.error('[admin] portal failed:', err.message);
     res.status(500).json({ error: 'portal failed' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Time tickets
+// ---------------------------------------------------------------------------
+
+// GET /admin/time-tickets?status=draft|accepted|rejected
+router.get('/time-tickets', async (req, res) => {
+  try {
+    const tickets = await listTickets(req.tenant.id, { status: req.query.status });
+    res.json({ tickets });
+  } catch (err) {
+    console.error('[admin] list tickets failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /admin/time-tickets/:id — accept/edit a ticket
+router.patch('/time-tickets/:id', express.json(), async (req, res) => {
+  try {
+    const ticket = await updateTicket(req.params.id, req.tenant.id, req.body);
+    res.json({ ticket });
+  } catch (err) {
+    console.error('[admin] update ticket failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /admin/time-tickets/:id — reject a ticket
+router.delete('/time-tickets/:id', async (req, res) => {
+  try {
+    await updateTicket(req.params.id, req.tenant.id, { status: 'rejected' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /admin/time-tickets/bulk-approve — accept all drafts
+router.post('/time-tickets/bulk-approve', express.json(), async (req, res) => {
+  try {
+    const count = await bulkAccept(req.tenant.id);
+    res.json({ accepted: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /admin/time-tickets/export.csv — CSV of accepted tickets
+router.get('/time-tickets/export.csv', async (req, res) => {
+  try {
+    const csv = await exportCsv(req.tenant.id);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="time-tickets.csv"');
+    res.send(csv);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

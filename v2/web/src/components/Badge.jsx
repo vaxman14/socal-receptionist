@@ -26,6 +26,10 @@ const TONE = {
   voicemail: 'warn',
   missed: 'danger',
   abandoned: 'gray',
+  // ticket status
+  draft: 'warn',
+  accepted: 'green',
+  rejected: 'gray',
   // subscription status
   trialing: 'info',
   past_due: 'warn',
