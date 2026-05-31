@@ -1,0 +1,33 @@
+{
+  "name": "socal-receptionist-desktop",
+  "version": "1.0.0",
+  "description": "SoCal Receptionist desktop time-tracking tray app",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win"
+  },
+  "dependencies": {
+    "electron": "^28.0.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "active-win": "^8.1.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.socalreceptionist.desktop",
+    "productName": "SoCal Receptionist",
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "files": [
+      "src/**/*"
+    ]
+  }
+}

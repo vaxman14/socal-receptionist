@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" />
+  <title>Quick Log — SoCal Receptionist</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="card">
+    <!-- Title bar / drag region -->
+    <div class="titlebar">
+      <div class="titlebar-left">
+        <div class="titlebar-dot"></div>
+        <span class="titlebar-title">Quick Log</span>
+      </div>
+      <button class="close-btn" id="closeBtn" title="Hide (Cmd+Shift+T to reopen)">✕</button>
+    </div>
+
+    <!-- Scrollable content -->
+    <div class="body">
+
+      <!-- ── Time entry form ─────────────────────────────────── -->
+      <form id="logForm" autocomplete="off">
+        <div class="form-group">
+          <label for="clientMatter">Client / Matter</label>
+          <input
+            id="clientMatter"
+            type="text"
+            placeholder="e.g. Acme Corp — Contract Review"
+            required
+          />
+        </div>
+
+        <div class="form-group" style="margin-top:8px">
+          <label for="description">Description <span style="color:var(--text-hint);font-weight:400;text-transform:none">(or click activity below)</span></label>
+          <textarea
+            id="description"
+            rows="2"
+            placeholder="What were you working on? 🎙 Speak or type…"
+          ></textarea>
+        </div>
+
+        <div class="input-row" style="margin-top:8px">
+          <div class="form-group">
+            <label for="durationMins">Duration (mins)</label>
+            <input
+              id="durationMins"
+              type="number"
+              min="1"
+              max="480"
+              placeholder="30"
+              required
+            />
+          </div>
+          <div class="form-group" style="justify-content:flex-end">
+            <!-- spacer, submit is below -->
+          </div>
+        </div>
+
+        <div style="margin-top:10px">
+          <button type="submit" class="btn-submit" id="submitBtn">Log Time</button>
+        </div>
+
+        <div class="status" id="statusMsg"></div>
+      </form>
+
+      <!-- ── Recent screen activity ──────────────────────────── -->
+      <div>
+        <div class="section-heading">Recent Activity (click to use)</div>
+        <div class="activity-list" id="activityList">
+          <div class="empty-state">Waiting for activity data…</div>
+        </div>
+      </div>
+
+      <!-- ── Live ticket stream ──────────────────────────────── -->
+      <div>
+        <div class="section-heading">Recent Tickets (live)</div>
+        <div class="ticket-list" id="ticketList">
+          <div class="empty-state">No tickets yet this session</div>
+        </div>
+      </div>
+
+    </div><!-- /.body -->
+  </div><!-- /.card -->
+
+  <script src="quicklog.js"></script>
+</body>
+</html>
