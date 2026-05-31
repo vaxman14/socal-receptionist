@@ -63,7 +63,7 @@ router.get('/me', async (req, res) => {
 });
 
 // PATCH /admin/tenant — update business config (whitelisted fields only).
-router.patch('/tenant', async (req, res) => {
+router.patch('/tenant', requireAal2, async (req, res) => {
   const patch = {};
   for (const field of EDITABLE_FIELDS) {
     if (req.body[field] !== undefined) patch[field] = req.body[field];
@@ -233,7 +233,7 @@ router.get('/time-tickets', async (req, res) => {
 });
 
 // PATCH /admin/time-tickets/:id — accept/edit a ticket
-router.patch('/time-tickets/:id', express.json(), async (req, res) => {
+router.patch('/time-tickets/:id', requireAal2, express.json(), async (req, res) => {
   try {
     const ticket = await updateTicket(req.params.id, req.tenant.id, req.body);
     res.json({ ticket });
@@ -244,7 +244,7 @@ router.patch('/time-tickets/:id', express.json(), async (req, res) => {
 });
 
 // DELETE /admin/time-tickets/:id — reject a ticket
-router.delete('/time-tickets/:id', async (req, res) => {
+router.delete('/time-tickets/:id', requireAal2, async (req, res) => {
   try {
     await updateTicket(req.params.id, req.tenant.id, { status: 'rejected' });
     res.json({ ok: true });
@@ -255,7 +255,7 @@ router.delete('/time-tickets/:id', async (req, res) => {
 });
 
 // POST /admin/time-tickets/bulk-approve — accept all drafts
-router.post('/time-tickets/bulk-approve', express.json(), async (req, res) => {
+router.post('/time-tickets/bulk-approve', requireAal2, express.json(), async (req, res) => {
   try {
     const count = await bulkAccept(req.tenant.id);
     res.json({ accepted: count });
@@ -293,7 +293,7 @@ router.get('/outbound-leads', async (req, res) => {
 });
 
 // POST /admin/outbound-leads — create single lead
-router.post('/outbound-leads', express.json(), async (req, res) => {
+router.post('/outbound-leads', requireAal2, express.json(), async (req, res) => {
   // Basic input validation (issue #12)
   const { phone, name } = req.body || {};
   if (!phone || typeof phone !== 'string' || phone.trim().length < 7) {
@@ -312,7 +312,7 @@ router.post('/outbound-leads', express.json(), async (req, res) => {
 });
 
 // POST /admin/outbound-leads/bulk — import array of leads
-router.post('/outbound-leads/bulk', express.json(), async (req, res) => {
+router.post('/outbound-leads/bulk', requireAal2, express.json(), async (req, res) => {
   const rows = req.body?.leads;
   if (!Array.isArray(rows) || !rows.length) {
     return res.status(400).json({ error: 'leads array required' });
@@ -330,7 +330,7 @@ router.post('/outbound-leads/bulk', express.json(), async (req, res) => {
 });
 
 // PATCH /admin/outbound-leads/:id
-router.patch('/outbound-leads/:id', express.json(), async (req, res) => {
+router.patch('/outbound-leads/:id', requireAal2, express.json(), async (req, res) => {
   try {
     const lead = await updateLead(req.tenant.id, req.params.id, req.body);
     res.json({ lead });
@@ -341,7 +341,7 @@ router.patch('/outbound-leads/:id', express.json(), async (req, res) => {
 });
 
 // DELETE /admin/outbound-leads/:id
-router.delete('/outbound-leads/:id', async (req, res) => {
+router.delete('/outbound-leads/:id', requireAal2, async (req, res) => {
   try {
     await deleteLead(req.tenant.id, req.params.id);
     res.json({ ok: true });
@@ -352,7 +352,7 @@ router.delete('/outbound-leads/:id', async (req, res) => {
 });
 
 // POST /admin/outbound-leads/:id/call — trigger an outbound call
-router.post('/outbound-leads/:id/call', async (req, res) => {
+router.post('/outbound-leads/:id/call', requireAal2, async (req, res) => {
   const outboundApiKey = process.env.OUTBOUND_API_KEY;
   if (!outboundApiKey) {
     return res.status(503).json({ error: 'Outbound calling not configured (OUTBOUND_API_KEY missing)' });

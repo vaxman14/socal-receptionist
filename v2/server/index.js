@@ -29,10 +29,31 @@ const mfaRouter = require('./auth/mfa');
 const integrationsRouter = require('./integrations/router');
 
 const app = express();
-app.set('trust proxy', true); // behind the DigitalOcean / Cloudflare proxy
+app.set('trust proxy', 1); // one proxy layer: DigitalOcean LB / Cloudflare
 
-// Security headers (issue #6)
-app.use(helmet({ contentSecurityPolicy: false }));
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://js.stripe.com', 'https://cdn.jsdelivr.net'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: [
+        "'self'",
+        process.env.SUPABASE_URL || '',
+        'https://*.supabase.co',
+        'https://api.stripe.com',
+        'https://app.posthog.com',
+        'https://*.sentry.io',
+      ].filter(Boolean),
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+    },
+  },
+}));
 
 // Restrict CORS to known origins (issue #7)
 const ALLOWED_ORIGINS = [
@@ -79,8 +100,8 @@ app.use((req, res, next) => {
 // express.raw; all other requests fall through to the parsers below.
 app.use('/', billingWebhookRouter);
 
-app.use(express.urlencoded({ extended: false })); // Twilio posts form-encoded
-app.use(express.json());
+app.use(express.urlencoded({ extended: false, limit: '50kb' })); // Twilio posts form-encoded
+app.use(express.json({ limit: '100kb' }));
 
 app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'socal-receptionist-v2', ts: new Date().toISOString() });

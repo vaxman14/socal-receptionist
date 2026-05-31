@@ -8,6 +8,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { requireAuth, requireTenant, requireAal2 } = require('../lib/auth');
 const { supabase } = require('../lib/supabase');
+const { encryptToken } = require('../lib/token-crypto');
 const clio = require('./clio');
 const mycase = require('./mycase');
 
@@ -30,18 +31,43 @@ const PROVIDERS = {
   },
 };
 
-// Use APP_BASE_URL so the redirect is never influenced by a spoofed Host header.
-function baseUrl() {
-  return process.env.APP_BASE_URL
-    ? process.env.APP_BASE_URL.replace(/\/+$/, '')
-    : 'https://app.socalreceptionist.com';
+// API_PUBLIC_BASE_URL is the backend's own public origin — used for OAuth
+// redirect_uri so providers can POST the code back to us. APP_BASE_URL is the
+// SPA origin used only for browser redirects after auth completes.
+function apiBase() {
+  return (
+    process.env.API_PUBLIC_BASE_URL ||
+    process.env.APP_BASE_URL ||
+    'https://socal-receptionist-v2-spbrw.ondigitalocean.app'
+  ).replace(/\/+$/, '');
+}
+
+function spaBase() {
+  return (process.env.APP_BASE_URL || 'https://app.socalreceptionist.com').replace(/\/+$/, '');
 }
 
 // ---------------------------------------------------------------------------
-// HMAC-signed OAuth state helpers (issue #1 — unsigned state)
+// HMAC-signed OAuth state helpers
 // ---------------------------------------------------------------------------
-const STATE_SECRET = process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_KEY || 'change-me';
+// OAUTH_STATE_SECRET must be set when integrations are enabled.
+// Fallback to a random per-process secret (safe but state won't survive restarts).
+const STATE_SECRET = process.env.OAUTH_STATE_SECRET || (() => {
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('[integrations] OAUTH_STATE_SECRET not set — OAuth state will not survive restarts');
+  }
+  return crypto.randomBytes(32).toString('hex');
+})();
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+// In-memory nonce store to prevent OAuth state replay within the TTL window.
+// Entries are [nonce, expiry] pairs, pruned periodically.
+const _usedNonces = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [nonce, expiry] of _usedNonces) {
+    if (expiry < now) _usedNonces.delete(nonce);
+  }
+}, STATE_TTL_MS).unref();
 
 function signState(payload) {
   const data = { ...payload, exp: Date.now() + STATE_TTL_MS };
@@ -61,34 +87,12 @@ function verifyState(state) {
   }
   const parsed = JSON.parse(Buffer.from(raw, 'base64url').toString());
   if (!parsed.exp || Date.now() > parsed.exp) throw new Error('state expired');
+  // Enforce single-use: reject replayed nonces within the TTL window.
+  if (parsed.nonce) {
+    if (_usedNonces.has(parsed.nonce)) throw new Error('state already used');
+    _usedNonces.set(parsed.nonce, parsed.exp);
+  }
   return parsed;
-}
-
-// ---------------------------------------------------------------------------
-// Token encryption helpers (issue #13 — tokens plaintext in DB)
-// ---------------------------------------------------------------------------
-const ENCRYPTION_KEY_HEX = process.env.TOKEN_ENCRYPTION_KEY || '';
-
-function encryptToken(plaintext) {
-  if (!ENCRYPTION_KEY_HEX || !plaintext) return plaintext;
-  const key = Buffer.from(ENCRYPTION_KEY_HEX, 'hex');
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const enc = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return `enc:${iv.toString('hex')}:${tag.toString('hex')}:${enc.toString('hex')}`;
-}
-
-function decryptToken(value) {
-  if (!ENCRYPTION_KEY_HEX || !value || !value.startsWith('enc:')) return value;
-  const [, ivHex, tagHex, encHex] = value.split(':');
-  const key = Buffer.from(ENCRYPTION_KEY_HEX, 'hex');
-  const iv = Buffer.from(ivHex, 'hex');
-  const tag = Buffer.from(tagHex, 'hex');
-  const enc = Buffer.from(encHex, 'hex');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-  decipher.setAuthTag(tag);
-  return decipher.update(enc).toString('utf8') + decipher.final('utf8');
 }
 
 // GET /integrations — list connected integrations for this tenant
@@ -106,7 +110,6 @@ router.get('/:provider/connect', requireAuth, requireAal2, requireTenant, (req, 
   const provider = PROVIDERS[req.params.provider];
   if (!provider) return res.status(404).json({ error: 'Unknown provider' });
 
-  // State is HMAC-signed (issue #1) so it cannot be forged or replayed.
   const state = signState({
     tenantId: req.tenant.id,
     userId: req.user.id,
@@ -114,8 +117,9 @@ router.get('/:provider/connect', requireAuth, requireAal2, requireTenant, (req, 
     nonce: crypto.randomBytes(16).toString('hex'),
   });
 
-  const appBase = process.env.APP_BASE_URL || 'https://app.socalreceptionist.com';
-  const callbackBase = appBase.includes('localhost') ? `http://localhost:${process.env.PORT || 8080}` : appBase;
+  const callbackBase = apiBase().includes('localhost')
+    ? `http://localhost:${process.env.PORT || 8080}`
+    : apiBase();
   const url = provider.buildAuthUrl(callbackBase, state);
   res.redirect(url);
 });
@@ -144,12 +148,13 @@ router.get('/:provider/callback', async (req, res) => {
   }
 
   try {
-    const appBase = process.env.APP_BASE_URL || 'https://app.socalreceptionist.com';
-    const callbackBase = appBase.includes('localhost') ? `http://localhost:${process.env.PORT || 8080}` : appBase;
+    const callbackBase = apiBase().includes('localhost')
+      ? `http://localhost:${process.env.PORT || 8080}`
+      : apiBase();
     const tokens = await provider.exchangeCode(code, callbackBase);
     const extra = tokens.access_token ? await provider.getAccountInfo(tokens.access_token).catch(() => ({})) : {};
 
-    // Encrypt tokens before storing (issue #13)
+    // Encrypt tokens before storing in DB.
     const encryptedTokens = {
       ...tokens,
       access_token: encryptToken(tokens.access_token),
@@ -157,13 +162,11 @@ router.get('/:provider/callback', async (req, res) => {
     };
     await provider.saveTokens(tenantId, encryptedTokens, extra);
 
-    // Redirect to settings page in the SPA — always use APP_BASE_URL (issue #14)
-    const redirectBase = process.env.APP_BASE_URL || 'https://app.socalreceptionist.com';
-    res.redirect(`${redirectBase}/settings?integration=${req.params.provider}&status=connected`);
+    // Redirect browser back to SPA settings page — use APP_BASE_URL (SPA origin).
+    res.redirect(`${spaBase()}/settings?integration=${req.params.provider}&status=connected`);
   } catch (err) {
     console.error(`[integrations/${req.params.provider}] callback error:`, err.message);
-    const redirectBase = process.env.APP_BASE_URL || 'https://app.socalreceptionist.com';
-    res.redirect(`${redirectBase}/settings?integration=${req.params.provider}&status=error`);
+    res.redirect(`${spaBase()}/settings?integration=${req.params.provider}&status=error`);
   }
 });
 

@@ -29,8 +29,12 @@ function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-      // Decrypt access token if it was stored encrypted (issue #9)
-      if (cfg._tokenEncrypted && cfg.accessToken && safeStorage.isEncryptionAvailable()) {
+      if (cfg._tokenEncrypted && cfg.accessToken) {
+        if (!safeStorage.isEncryptionAvailable()) {
+          // Encrypted token exists but safeStorage is gone — force re-login.
+          console.warn('[config] safeStorage unavailable; clearing encrypted token');
+          return null;
+        }
         cfg.accessToken = safeStorage.decryptString(Buffer.from(cfg.accessToken, 'base64'));
         delete cfg._tokenEncrypted;
       }
@@ -42,9 +46,16 @@ function loadConfig() {
 
 function saveConfig(cfg) {
   fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  if (cfg.accessToken && !safeStorage.isEncryptionAvailable()) {
+    // Fail closed: never write a plaintext token. Require re-login next launch.
+    const stored = { ...cfg };
+    delete stored.accessToken;
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(stored, null, 2));
+    console.warn('[config] safeStorage unavailable; access token not persisted');
+    return;
+  }
   const stored = { ...cfg };
-  // Encrypt access token at rest using OS keychain/credential store (issue #9)
-  if (cfg.accessToken && safeStorage.isEncryptionAvailable()) {
+  if (cfg.accessToken) {
     stored.accessToken = safeStorage.encryptString(cfg.accessToken).toString('base64');
     stored._tokenEncrypted = true;
   }

@@ -10,6 +10,7 @@
 
 const fetch = require('node-fetch');
 const { supabase } = require('../lib/supabase');
+const { encryptToken, decryptToken } = require('../lib/token-crypto');
 
 const MYCASE_BASE = 'https://api.mycase.com/api/v2';
 const MYCASE_AUTH_URL = 'https://auth.mycase.com/oauth2/authorize';
@@ -66,7 +67,7 @@ async function refreshAccessToken(tenantId) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
-      refresh_token: integration.refresh_token,
+      refresh_token: decryptToken(integration.refresh_token),
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
     }),
@@ -75,8 +76,8 @@ async function refreshAccessToken(tenantId) {
   const tokens = await res.json();
 
   await supabase.from('tenant_integrations').update({
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token || integration.refresh_token,
+    access_token: encryptToken(tokens.access_token),
+    refresh_token: encryptToken(tokens.refresh_token || decryptToken(integration.refresh_token)),
     token_expires_at: new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString(),
     last_error: null,
   }).eq('tenant_id', tenantId).eq('provider', 'mycase');
@@ -95,7 +96,7 @@ async function getAccessToken(tenantId) {
 
   const expires = data.token_expires_at ? new Date(data.token_expires_at) : null;
   const needsRefresh = !expires || expires <= new Date(Date.now() + 5 * 60 * 1000);
-  return needsRefresh ? refreshAccessToken(tenantId) : data.access_token;
+  return needsRefresh ? refreshAccessToken(tenantId) : decryptToken(data.access_token);
 }
 
 async function saveTokens(tenantId, tokens, extra = {}) {

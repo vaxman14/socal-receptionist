@@ -45,7 +45,7 @@ export default function App() {
 // browser holds a still-valid device-trust token, in which case MFA is skipped.
 function MfaGate() {
   const { session } = useAuth();
-  // 'checking' | 'challenge' | 'cleared'
+  // 'checking' | 'challenge' | 'cleared' | 'error'
   const [state, setState] = useState('checking');
 
   const check = useCallback(async () => {
@@ -53,21 +53,15 @@ function MfaGate() {
     try {
       const status = await getMfaStatus();
       if (!status.needed) {
-        // No verified factor, or already at aal2 — nothing to do.
         setState('cleared');
         return;
       }
-      // The account has a verified factor and the session is aal1. Skip the
-      // challenge only if this device is still trusted.
       const trusted = await isDeviceTrusted();
       setState(trusted ? 'cleared' : 'challenge');
     } catch {
-      // If the assurance-level lookup fails, fail open to the app rather than
-      // hard-locking the user out — AAL2-gated routes (if any) still enforce
-      // server-side. The far more common case is "no factor enrolled".
-      setState('cleared');
+      // Fail closed: unknown MFA state must not be treated as cleared.
+      setState('error');
     }
-    // Re-run whenever the underlying session changes (sign-in, factor verify).
   }, [session?.access_token]);
 
   useEffect(() => {
@@ -75,11 +69,8 @@ function MfaGate() {
   }, [check]);
 
   if (state === 'checking') return <Loading label="Checking security…" />;
-  if (state === 'challenge') {
-    // onVerified: the factor was cleared (session is now aal2) — re-check and
-    // fall through to the app.
-    return <MfaChallenge onVerified={check} />;
-  }
+  if (state === 'error') return <ErrorState message="Could not verify your security status. Please try again." onRetry={check} />;
+  if (state === 'challenge') return <MfaChallenge onVerified={check} />;
   return <RoleRouter />;
 }
 

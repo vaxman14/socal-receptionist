@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const helmet = require('helmet');
 const twilio = require('twilio');
 const config = require('./src/config');
 const { handleMessage } = require('./src/ai');
@@ -17,6 +18,8 @@ require('express-ws')(app);
 
 // Trust only the first proxy (DigitalOcean LB). `true` would trust any forged X-Forwarded-For.
 app.set('trust proxy', 1);
+
+app.use(helmet());
 
 // Redirect naked domain → www
 app.use((req, res, next) => {
@@ -74,7 +77,8 @@ if (process.env.NODE_ENV !== 'production') {
       }
       res.send(`<h2>Authorized ${state}! ✅</h2><p>Copy the token from the server console, add it to your secrets, then remove this route.</p>`);
     } catch (err) {
-      res.send('Error: ' + err.message);
+      console.error('[google-auth] token exchange error:', err.message);
+      res.send('Authorization failed. Check server logs.');
     }
   });
 }
@@ -675,7 +679,9 @@ app.post('/voice/sales', rateLimit(5, 60_000), (req, res) => {
     return res.status(403).send('Invalid Twilio signature');
   }
 
-  const host = req.headers.host;
+  const apiHost = process.env.API_PUBLIC_BASE_URL
+    ? process.env.API_PUBLIC_BASE_URL.replace(/^https?:\/\//, '').replace(/\/+$/, '')
+    : req.headers.host;
   const rawFrom = req.body.From || '';
   const callSid = req.body.CallSid || '';
 
@@ -684,7 +690,7 @@ app.post('/voice/sales', rateLimit(5, 60_000), (req, res) => {
   // Auth passed as a Parameter (not URL query) — DO strips query params from WS upgrades
   res.type('text/xml');
   res.send(
-    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${host}/voice/sales/stream"><Parameter name="from" value="${safeFrom}"/><Parameter name="auth" value="${token}"/></Stream></Connect></Response>`
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${apiHost}/voice/sales/stream"><Parameter name="from" value="${safeFrom}"/><Parameter name="auth" value="${token}"/></Stream></Connect></Response>`
   );
 });
 
@@ -737,12 +743,12 @@ app.post('/voice/outbound/call', express.json(), async (req, res) => {
   }
 
   try {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const callSid = await initiateCall(to, { name, businessType, reason }, baseUrl);
+    const apiBase = (process.env.API_PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+    const callSid = await initiateCall(to, { name, businessType, reason }, apiBase);
     res.json({ success: true, callSid });
   } catch (err) {
     console.error('[voice/outbound/call] error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Call initiation failed' });
   }
 });
 
@@ -752,7 +758,9 @@ app.post('/voice/outbound/start', (req, res) => {
     return res.status(403).send('Invalid Twilio signature');
   }
 
-  const host = req.headers.host;
+  const apiHost = process.env.API_PUBLIC_BASE_URL
+    ? process.env.API_PUBLIC_BASE_URL.replace(/^https?:\/\//, '').replace(/\/+$/, '')
+    : req.headers.host;
   const callSid = req.body.CallSid || '';
   const to = req.body.To || '';
 
@@ -761,7 +769,7 @@ app.post('/voice/outbound/start', (req, res) => {
 
   res.type('text/xml');
   res.send(
-    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${host}/voice/outbound/stream"><Parameter name="to" value="${safeTo}"/><Parameter name="auth" value="${token}"/></Stream></Connect></Response>`
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${apiHost}/voice/outbound/stream"><Parameter name="to" value="${safeTo}"/><Parameter name="auth" value="${token}"/></Stream></Connect></Response>`
   );
 });
 

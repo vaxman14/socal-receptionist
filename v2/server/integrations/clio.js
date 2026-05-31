@@ -10,6 +10,7 @@
 
 const fetch = require('node-fetch');
 const { supabase } = require('../lib/supabase');
+const { encryptToken, decryptToken } = require('../lib/token-crypto');
 
 const CLIO_BASE = 'https://app.clio.com/api/v4';
 const CLIO_AUTH_URL = 'https://app.clio.com/oauth/authorize';
@@ -65,7 +66,7 @@ async function refreshAccessToken(tenantId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       grant_type: 'refresh_token',
-      refresh_token: integration.refresh_token,
+      refresh_token: decryptToken(integration.refresh_token),
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
     }),
@@ -74,8 +75,8 @@ async function refreshAccessToken(tenantId) {
   const tokens = await res.json();
 
   await supabase.from('tenant_integrations').update({
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token || integration.refresh_token,
+    access_token: encryptToken(tokens.access_token),
+    refresh_token: encryptToken(tokens.refresh_token || decryptToken(integration.refresh_token)),
     token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
     last_error: null,
   }).eq('tenant_id', tenantId).eq('provider', 'clio');
@@ -94,7 +95,7 @@ async function getAccessToken(tenantId) {
 
   const expires = data.token_expires_at ? new Date(data.token_expires_at) : null;
   const needsRefresh = !expires || expires <= new Date(Date.now() + 5 * 60 * 1000);
-  return needsRefresh ? refreshAccessToken(tenantId) : data.access_token;
+  return needsRefresh ? refreshAccessToken(tenantId) : decryptToken(data.access_token);
 }
 
 async function saveTokens(tenantId, tokens, extra = {}) {

@@ -130,8 +130,24 @@ export default function TimeTickets() {
     }
   }
 
-  function exportCsv() {
-    window.location.href = `${api.base}/admin/time-tickets/export.csv`;
+  async function exportCsv() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`${api.base}/admin/time-tickets/export.csv`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'time-tickets.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || 'Export failed');
+    }
   }
 
   if (loading) return <Loading label="Loading time tickets…" />;

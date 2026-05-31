@@ -17,6 +17,7 @@
     "express": "^4.19.2",
     "express-ws": "^5.0.2",
     "googleapis": "^172.0.0",
+    "helmet": "^8.2.0",
     "nodemailer": "^8.0.10",
     "openai": "^4.56.0",
     "twilio": "^5.2.3",

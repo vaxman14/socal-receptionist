@@ -20,15 +20,17 @@ const validateSignature = isDev
   : true;
 
 // Verify a request genuinely came from Twilio (X-Twilio-Signature).
-// Uses APP_BASE_URL to build the canonical webhook URL so a spoofed
-// Host header cannot bypass signature validation (issue #14).
+// Uses API_PUBLIC_BASE_URL (the backend's public origin) — not APP_BASE_URL
+// which is the SPA/frontend origin and may differ.
 function isValidTwilioRequest(req) {
   if (!validateSignature) return true;
   const signature = req.header('X-Twilio-Signature') || '';
-  const appBase = process.env.APP_BASE_URL
-    ? process.env.APP_BASE_URL.replace(/\/+$/, '')
-    : `${req.protocol}://${req.get('host')}`;
-  const url = `${appBase}${req.originalUrl}`;
+  const apiBase = (
+    process.env.API_PUBLIC_BASE_URL ||
+    process.env.APP_BASE_URL ||
+    `${req.protocol}://${req.get('host')}`
+  ).replace(/\/+$/, '');
+  const url = `${apiBase}${req.originalUrl}`;
   return twilio.validateRequest(authToken, signature, url, req.body);
 }
 
