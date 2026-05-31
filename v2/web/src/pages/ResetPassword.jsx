@@ -18,7 +18,7 @@ export default function ResetPassword() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // PKCE flow: exchange the ?code= param for a session
+    // PKCE flow: ?code= in query string
     const code = new URLSearchParams(window.location.search).get('code');
     if (code) {
       supabase.auth.exchangeCodeForSession(code)
@@ -26,13 +26,28 @@ export default function ResetPassword() {
           if (error) setError('Reset link is invalid or expired. Request a new one.');
           else setReady(true);
         });
-    } else {
-      // Implicit flow fallback: session already set by onAuthStateChange
-      supabase.auth.getSession().then(({ data }) => {
-        if (data?.session) setReady(true);
-        else setError('Reset link is invalid or expired. Request a new one.');
-      });
+      return;
     }
+
+    // Implicit/token flow: #access_token=...&refresh_token=... in hash
+    // (detectSessionInUrl is false so we handle it manually)
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = hash.get('access_token');
+    const refreshToken = hash.get('refresh_token');
+    if (accessToken && refreshToken) {
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ error }) => {
+          if (error) setError('Reset link is invalid or expired. Request a new one.');
+          else setReady(true);
+        });
+      return;
+    }
+
+    // Already have a session (e.g. page refresh after token was consumed)
+    supabase.auth.getSession().then(({ data }) => {
+      if (data?.session) setReady(true);
+      else setError('Reset link is invalid or expired. Request a new one.');
+    });
   }, []);
 
   const submit = async (e) => {
