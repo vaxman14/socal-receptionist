@@ -1,7 +1,5 @@
 'use strict';
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
-
 const {
   app,
   BrowserWindow,
@@ -10,25 +8,50 @@ const {
   nativeImage,
   globalShortcut,
   ipcMain,
-  shell,
 } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const os = require('os');
 const { createClient } = require('@supabase/supabase-js');
+const { autoUpdater } = require('electron-updater');
 const screenTracker = require('./screen-tracker');
 
-// ── Prevent second instance ─────────────────────────────────────────────────
+// ── Config persistence ───────────────────────────────────────────────────────
+const CONFIG_DIR = path.join(os.homedir(), '.socal-desktop');
+const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+
+// Baked-in V3 Supabase endpoint — users just log in with email/password
+const SUPABASE_URL = 'https://xcngpfeuvvcsxgwyukch.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjbmdwZmV1dnZjc3hnd3l1a2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMDI5MjksImV4cCI6MjA5NTc3ODkyOX0.HCFgA6MNWH_as3i9YSOH6liyszTfHxCIpHqiqg53N4c';
+
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    }
+  } catch {}
+  return null;
+}
+
+function saveConfig(cfg) {
+  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+}
+
+// ── Prevent second instance ──────────────────────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) { app.quit(); }
 
 // ── State ────────────────────────────────────────────────────────────────────
 let tray = null;
 let quickLogWin = null;
+let setupWin = null;
 let todayMinutes = 0;
 let supabase = null;
 let realtimeChannel = null;
+let tenantId = null;
 
-// ── Tray icon (inline SVG → base64) ─────────────────────────────────────────
+// ── Tray icon (inline SVG) ───────────────────────────────────────────────────
 const TRAY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22">
   <circle cx="11" cy="11" r="10" fill="#1e3a5f" stroke="#4a9eff" stroke-width="1.5"/>
   <text x="11" y="15" font-size="11" font-family="Arial" font-weight="bold"
@@ -37,11 +60,9 @@ const TRAY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height
 
 function makeTrayIcon() {
   const b64 = Buffer.from(TRAY_ICON_SVG).toString('base64');
-  const dataUrl = `data:image/svg+xml;base64,${b64}`;
-  return nativeImage.createFromDataURL(dataUrl);
+  return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${b64}`);
 }
 
-// ── Format hours for tray tooltip / menu ────────────────────────────────────
 function fmtHours(mins) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -49,25 +70,14 @@ function fmtHours(mins) {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
-// ── Build / refresh tray context menu ───────────────────────────────────────
 function buildTrayMenu() {
   return Menu.buildFromTemplate([
-    {
-      label: 'Open Quick Log',
-      click: () => showQuickLog(),
-    },
-    {
-      label: `Today: ${fmtHours(todayMinutes)} tracked`,
-      enabled: false,
-    },
+    { label: 'Quick Log  (⌘⇧T)', click: () => showQuickLog() },
+    { label: `Today: ${fmtHours(todayMinutes)} tracked`, enabled: false },
     { type: 'separator' },
-    {
-      label: 'Quit',
-      click: () => {
-        app.isQuitting = true;
-        app.quit();
-      },
-    },
+    { label: 'Check for Updates', click: () => autoUpdater.checkForUpdatesAndNotify() },
+    { type: 'separator' },
+    { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } },
   ]);
 }
 
@@ -96,29 +106,13 @@ function createQuickLogWindow() {
   });
 
   quickLogWin.loadFile(path.join(__dirname, 'renderer', 'quicklog.html'));
-
-  // Hide to tray instead of closing
-  quickLogWin.on('close', (e) => {
-    if (!app.isQuitting) {
-      e.preventDefault();
-      quickLogWin.hide();
-    }
-  });
-
-  quickLogWin.on('blur', () => {
-    // Auto-hide when clicking away
-    quickLogWin.hide();
-  });
+  quickLogWin.on('close', (e) => { if (!app.isQuitting) { e.preventDefault(); quickLogWin.hide(); } });
+  quickLogWin.on('blur', () => quickLogWin.hide());
 }
 
 function showQuickLog() {
   if (!quickLogWin) createQuickLogWindow();
-  if (quickLogWin.isVisible()) {
-    quickLogWin.hide();
-    return;
-  }
-
-  // Position near top-center of primary display
+  if (quickLogWin.isVisible()) { quickLogWin.hide(); return; }
   const { screen } = require('electron');
   const { width } = screen.getPrimaryDisplay().workAreaSize;
   quickLogWin.setPosition(Math.round(width / 2 - 200), 60);
@@ -126,108 +120,122 @@ function showQuickLog() {
   quickLogWin.focus();
 }
 
-// ── Supabase realtime ────────────────────────────────────────────────────────
-function connectSupabase() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  const tenantId = process.env.TENANT_ID;
+// ── Setup / login window ─────────────────────────────────────────────────────
+function showSetupWindow() {
+  setupWin = new BrowserWindow({
+    width: 460,
+    height: 420,
+    resizable: false,
+    titleBarStyle: 'hidden',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  setupWin.loadFile(path.join(__dirname, 'renderer', 'setup.html'));
+  setupWin.on('closed', () => { setupWin = null; });
+}
 
-  if (!url || !key) {
-    console.warn('[supabase] SUPABASE_URL / SUPABASE_ANON_KEY not set — realtime disabled');
-    return;
-  }
-
-  supabase = createClient(url, key, {
+// ── Supabase ─────────────────────────────────────────────────────────────────
+function initSupabase(accessToken) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
     realtime: { params: { eventsPerSecond: 10 } },
   });
 
   const filter = tenantId ? `tenant_id=eq.${tenantId}` : undefined;
-
   realtimeChannel = supabase
     .channel('time_tickets_changes')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'time_tickets',
-        ...(filter ? { filter } : {}),
-      },
-      (payload) => {
-        // Accumulate today's minutes from INSERT/UPDATE
-        if (payload.eventType === 'INSERT' && payload.new?.duration_minutes) {
-          todayMinutes += payload.new.duration_minutes;
-          refreshTray();
-        }
-        // Forward to renderer
-        if (quickLogWin && !quickLogWin.isDestroyed()) {
-          quickLogWin.webContents.send('ticket-update', payload);
-        }
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'time_tickets', ...(filter ? { filter } : {}) }, (payload) => {
+      if (payload.eventType === 'INSERT' && payload.new?.billable_mins) {
+        todayMinutes += payload.new.billable_mins;
+        refreshTray();
       }
-    )
-    .subscribe((status) => {
-      console.log('[supabase] realtime status:', status);
-    });
+      if (quickLogWin && !quickLogWin.isDestroyed()) {
+        quickLogWin.webContents.send('ticket-update', payload);
+      }
+    })
+    .subscribe((status) => console.log('[supabase] realtime:', status));
 }
 
-// ── IPC handlers ─────────────────────────────────────────────────────────────
+async function loginAndStart({ email, password }) {
+  const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  const { data, error } = await anonClient.auth.signInWithPassword({ email, password });
+  if (error) return { error: error.message };
+
+  const accessToken = data.session.access_token;
+  const userId = data.user.id;
+
+  // Resolve tenant
+  const { data: tenant } = await anonClient.from('tenants')
+    .select('id')
+    .eq('owner_user_id', userId)
+    .single();
+
+  tenantId = tenant?.id || null;
+  saveConfig({ accessToken, userId, tenantId, email });
+  initSupabase(accessToken);
+
+  if (setupWin) { setupWin.close(); }
+  finishBoot();
+  return { error: null };
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+function finishBoot() {
+  createQuickLogWindow();
+
+  const shortcut = process.platform === 'darwin' ? 'Command+Shift+T' : 'Ctrl+Shift+T';
+  globalShortcut.register(shortcut, () => showQuickLog());
+
+  screenTracker.start((entry) => {
+    if (quickLogWin && !quickLogWin.isDestroyed()) quickLogWin.webContents.send('activity-log', entry);
+  });
+
+  autoUpdater.checkForUpdatesAndNotify();
+  refreshTray();
+}
+
+// ── IPC ───────────────────────────────────────────────────────────────────────
 function registerIpcHandlers() {
+  ipcMain.handle('setup-connect', async (_event, creds) => loginAndStart(creds));
+
   ipcMain.handle('submit-quick-log', async (_event, data) => {
-    if (!supabase) return { error: 'Supabase not connected' };
-    const tenantId = process.env.TENANT_ID;
+    if (!supabase) return { error: 'Not connected' };
     const { error } = await supabase.from('time_tickets').insert({
       tenant_id: tenantId || null,
-      client_matter: data.clientMatter,
       description: data.description,
-      duration_minutes: Number(data.durationMins) || 0,
-      logged_at: new Date().toISOString(),
-      source: 'desktop-manual',
+      billable_mins: Number(data.durationMins) || 0,
+      activity: data.activity || 'phone_call',
+      status: 'accepted',
     });
-    if (!error) {
-      todayMinutes += Number(data.durationMins) || 0;
-      refreshTray();
-    }
+    if (!error) { todayMinutes += Number(data.durationMins) || 0; refreshTray(); }
     return { error: error?.message || null };
   });
 
-  ipcMain.handle('get-recent-activity', (_event, n = 5) => {
-    return screenTracker.getRecentEntries(n);
-  });
+  ipcMain.handle('get-recent-activity', (_event, n = 5) => screenTracker.getRecentEntries(n));
 }
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
-  // No dock icon on macOS
-  if (process.platform === 'darwin') {
-    app.dock.hide();
-  }
+  if (process.platform === 'darwin') app.dock.hide();
 
-  // Tray
   tray = new Tray(makeTrayIcon());
-  refreshTray();
   tray.on('click', () => showQuickLog());
+  refreshTray();
 
-  // Quick Log window (preload)
-  createQuickLogWindow();
-
-  // Global shortcut
-  const shortcut = process.platform === 'darwin' ? 'Command+Shift+T' : 'Ctrl+Shift+T';
-  globalShortcut.register(shortcut, () => showQuickLog());
-
-  // IPC
   registerIpcHandlers();
 
-  // Supabase
-  connectSupabase();
-
-  // Screen tracker
-  screenTracker.start((entry) => {
-    if (quickLogWin && !quickLogWin.isDestroyed()) {
-      quickLogWin.webContents.send('activity-log', entry);
-    }
-    console.log('[activity]', entry.ts, entry.app, '—', entry.title);
-  });
+  const config = loadConfig();
+  if (config?.accessToken) {
+    tenantId = config.tenantId || null;
+    initSupabase(config.accessToken);
+    finishBoot();
+  } else {
+    showSetupWindow();
+  }
 });
 
 app.on('will-quit', () => {
@@ -236,11 +244,5 @@ app.on('will-quit', () => {
   if (realtimeChannel) supabase?.removeChannel(realtimeChannel);
 });
 
-// macOS: prevent full quit when all windows closed
-app.on('window-all-closed', (e) => {
-  if (!app.isQuitting) e.preventDefault();
-});
-
-app.on('second-instance', () => {
-  showQuickLog();
-});
+app.on('window-all-closed', (e) => { if (!app.isQuitting) e.preventDefault(); });
+app.on('second-instance', () => showQuickLog());

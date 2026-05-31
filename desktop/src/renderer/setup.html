@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>SoCal Receptionist — Setup</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1e35;
+      color: #e2e8f0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      -webkit-app-region: drag;
+    }
+    .card {
+      background: #1a2d4a;
+      border: 1px solid #2d4a6e;
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      -webkit-app-region: no-drag;
+    }
+    .logo { font-size: 28px; margin-bottom: 8px; }
+    h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    p { font-size: 13px; color: #94a3b8; margin-bottom: 24px; }
+    label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px; margin-top: 14px; }
+    input {
+      width: 100%;
+      background: #0f1e35;
+      border: 1px solid #2d4a6e;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 14px;
+      padding: 9px 12px;
+      outline: none;
+    }
+    input:focus { border-color: #4a9eff; }
+    .btn {
+      width: 100%;
+      margin-top: 24px;
+      background: #4a9eff;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 11px;
+      cursor: pointer;
+    }
+    .btn:hover { background: #3a8eef; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .error { margin-top: 12px; font-size: 13px; color: #f87171; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">⚖️</div>
+    <h1>SoCal Receptionist</h1>
+    <p>Connect your account to get started.</p>
+
+    <label>Email</label>
+    <input id="email" type="email" placeholder="you@example.com" autocomplete="username">
+
+    <label>Password</label>
+    <input id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+
+    <button class="btn" id="btnConnect">Connect</button>
+    <div class="error" id="err"></div>
+  </div>
+
+  <script>
+    const btn = document.getElementById('btnConnect');
+    const errEl = document.getElementById('err');
+
+    btn.addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      if (!email || !password) { errEl.textContent = 'Enter email and password.'; return; }
+      btn.disabled = true;
+      btn.textContent = 'Connecting…';
+      errEl.textContent = '';
+      const result = await window.setupAPI.connect({ email, password });
+      if (result.error) {
+        errEl.textContent = result.error;
+        btn.disabled = false;
+        btn.textContent = 'Connect';
+      }
+    });
+  </script>
+</body>
+</html>
