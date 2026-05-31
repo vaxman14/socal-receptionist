@@ -6,6 +6,15 @@ const crypto = require('crypto');
 
 const KEY_HEX = process.env.TOKEN_ENCRYPTION_KEY || '';
 
+// Warn at boot if TOKEN_ENCRYPTION_KEY is missing and practice management
+// integrations are potentially in use (non-development environment).
+if (!KEY_HEX && process.env.NODE_ENV !== 'development') {
+  console.warn(
+    '[token-crypto] TOKEN_ENCRYPTION_KEY is not set — OAuth tokens will be stored ' +
+    'in plaintext. Set a 64-hex-char AES-256 key in production.'
+  );
+}
+
 function encryptToken(plaintext) {
   if (!KEY_HEX || !plaintext) return plaintext;
   const key = Buffer.from(KEY_HEX, 'hex');
