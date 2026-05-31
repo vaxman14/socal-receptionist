@@ -626,3 +626,5 @@ alter table trusted_devices enable row level security;
 -- Find the user id in Supabase Auth > Users, then:
 --   insert into platform_admins (user_id) values ('<roman-auth-user-uuid>');
 -- =============================================================================
+
+\i 010_rls_complete.sql
