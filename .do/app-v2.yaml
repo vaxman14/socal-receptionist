@@ -37,7 +37,7 @@ services:
       # --- Supabase -----------------------------------------------------------
       - key: SUPABASE_URL
         scope: RUN_TIME
-        value: https://YOUR-PROJECT.supabase.co
+        value: https://fxjbxeckzeplixdgwbqk.supabase.co
       - key: SUPABASE_SERVICE_KEY
         scope: RUN_TIME
         type: SECRET

@@ -1,25 +1,32 @@
-// Multi-tenant AI receptionist.
-//
-// Per-tenant: the system prompt is built from the tenant's business config (or
-// a stored override), and conversation history comes from Postgres. Captured
-// leads and human-handoff requests are written to the `leads` table.
+// Multi-tenant AI receptionist — v3 routing:
+//   SMS / text channels  → Groq (llama-3.3-70b-versatile, near-zero cost)
+//   Voice calls          → OpenAI gpt-4o (lower latency for speech turn-around)
 
 const OpenAI = require('openai');
+const Groq = require('groq-sdk');
 const { supabase } = require('./supabase');
 const { loadTranscript, appendMessage } = require('./conversations');
 const { recordUsage, estimateOpenaiCostCents } = require('./usage');
 
-// Lazily constructed: the OpenAI SDK throws if the API key is missing, so
-// building the client at import time would crash the whole service whenever
-// OPENAI_API_KEY is unset. Deferring it lets the billing / onboarding / admin
-// routes boot fine; only the SMS path needs the key.
+// Lazy singletons — SDKs throw if the key is missing at import time.
 let _openai;
+let _groq;
+
 function openaiClient() {
   if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   return _openai;
 }
 
+function groqClient() {
+  if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  return _groq;
+}
+
 const MAX_TOOL_ROUNDS = 3;
+
+// Default models per channel. Override per-tenant via ai_model column.
+const DEFAULT_VOICE_MODEL = 'gpt-4o';
+const DEFAULT_SMS_MODEL = 'llama-3.3-70b-versatile';
 
 function buildSystemPrompt(tenant) {
   if (tenant.ai_system_prompt) return tenant.ai_system_prompt;
@@ -126,8 +133,19 @@ async function runTool(call, tenant, conversation, customerPhone) {
   return 'Unknown tool.';
 }
 
-function completion(model, messages) {
-  return openaiClient().chat.completions.create({
+// channel: 'sms' (default) → Groq | 'voice' → OpenAI
+function completion(model, messages, channel) {
+  if (channel === 'voice') {
+    return openaiClient().chat.completions.create({
+      model,
+      messages,
+      tools,
+      temperature: 0.5,
+      max_tokens: 300,
+    });
+  }
+  // Groq — OpenAI-compatible SDK so response shape is identical
+  return groqClient().chat.completions.create({
     model,
     messages,
     tools,
@@ -136,9 +154,9 @@ function completion(model, messages) {
   });
 }
 
-// Handle one inbound SMS for a tenant. Persists the inbound + outbound turns to
-// the transcript and returns the reply text to send back to the customer.
-async function handleMessage(tenant, conversation, customerPhone, userText) {
+// Handle one inbound message (SMS or voice turn).
+// channel: 'sms' | 'voice'
+async function handleMessage(tenant, conversation, customerPhone, userText, channel = 'sms') {
   const history = await loadTranscript(conversation.id);
   const messages = [
     { role: 'system', content: buildSystemPrompt(tenant) },
@@ -146,7 +164,9 @@ async function handleMessage(tenant, conversation, customerPhone, userText) {
     { role: 'user', content: userText },
   ];
 
-  const model = tenant.ai_model || 'gpt-4o';
+  const defaultModel = channel === 'voice' ? DEFAULT_VOICE_MODEL : DEFAULT_SMS_MODEL;
+  const model = tenant.ai_model || defaultModel;
+
   let promptTokens = 0;
   let completionTokens = 0;
   const tally = (r) => {
@@ -155,12 +175,10 @@ async function handleMessage(tenant, conversation, customerPhone, userText) {
     completionTokens += r.usage.completion_tokens || 0;
   };
 
-  let response = await completion(model, messages);
+  let response = await completion(model, messages, channel);
   tally(response);
   let message = response.choices[0].message;
 
-  // Resolve tool calls, then let the model produce its final reply. Bounded so
-  // a misbehaving model can never loop forever.
   let rounds = 0;
   while (message.tool_calls && message.tool_calls.length && rounds < MAX_TOOL_ROUNDS) {
     messages.push(message);
@@ -168,7 +186,7 @@ async function handleMessage(tenant, conversation, customerPhone, userText) {
       const result = await runTool(call, tenant, conversation, customerPhone);
       messages.push({ role: 'tool', tool_call_id: call.id, content: result });
     }
-    response = await completion(model, messages);
+    response = await completion(model, messages, channel);
     tally(response);
     message = response.choices[0].message;
     rounds += 1;
@@ -178,7 +196,7 @@ async function handleMessage(tenant, conversation, customerPhone, userText) {
     (message.content && message.content.trim()) ||
     `Thanks for contacting ${tenant.business_name}! I'll have someone follow up with you shortly.`;
 
-  const costCents = estimateOpenaiCostCents(promptTokens, completionTokens);
+  const costCents = channel === 'voice' ? estimateOpenaiCostCents(promptTokens, completionTokens) : 0;
 
   await appendMessage(conversation, { direction: 'inbound', role: 'user', body: userText });
   await appendMessage(conversation, {
@@ -189,7 +207,6 @@ async function handleMessage(tenant, conversation, customerPhone, userText) {
     costCents,
   });
 
-  // Track AI spend against the tenant's monthly cap.
   try {
     await recordUsage(tenant.id, { openaiCostCents: costCents });
   } catch (err) {

@@ -232,7 +232,7 @@ router.post('/voice/converse', async (req, res) => {
   try {
     const conversation = await getOrCreateConversation(tenant.id, from);
     if (callSid) await updateCall(callSid, { conversation_id: conversation.id, outcome: 'ai_handled' });
-    reply = await handleMessage(tenant, conversation, from, speech);
+    reply = await handleMessage(tenant, conversation, from, speech, 'voice');
   } catch (err) {
     logger.error('voice.ai_failed', { tenant_id: tenant.id, error: err.message });
     reply = 'I am sorry, I ran into a problem. Let me take a message so someone can call you back.';
