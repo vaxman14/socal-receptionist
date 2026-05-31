@@ -2,9 +2,10 @@
 // Supabase automatically signs the user in via the recovery token in the URL;
 // we just show a form to set the new password.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 export default function ResetPassword() {
   const { updatePassword } = useAuth();
@@ -14,6 +15,25 @@ export default function ResetPassword() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    // PKCE flow: exchange the ?code= param for a session
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code)
+        .then(({ error }) => {
+          if (error) setError('Reset link is invalid or expired. Request a new one.');
+          else setReady(true);
+        });
+    } else {
+      // Implicit flow fallback: session already set by onAuthStateChange
+      supabase.auth.getSession().then(({ data }) => {
+        if (data?.session) setReady(true);
+        else setError('Reset link is invalid or expired. Request a new one.');
+      });
+    }
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -52,7 +72,11 @@ export default function ResetPassword() {
         {error && <div className="alert alert-error">{error}</div>}
         {done && <div className="alert alert-success">Password updated! Redirecting…</div>}
 
-        {!done && (
+        {!ready && !error && !done && (
+          <p className="muted" style={{ fontSize: '0.88rem' }}>Verifying reset link…</p>
+        )}
+
+        {ready && !done && (
           <form onSubmit={submit}>
             <label className="field">
               <span className="label">New password</span>
