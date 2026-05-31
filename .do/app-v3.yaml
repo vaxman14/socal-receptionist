@@ -1,0 +1,146 @@
+# DigitalOcean App Platform spec — SoCal Receptionist V3 (dev/staging)
+#
+# Tracks v3-alpha branch. Auto-deploys on every push so dev is always current.
+# Uses a SEPARATE Supabase project from V2 — no risk to live data.
+#
+# Create:  doctl apps create --spec .do/app-v3.yaml
+# Update:  doctl apps update <APP_ID> --spec .do/app-v3.yaml
+#
+# BEFORE GOING LIVE:
+#   1. Replace SUPABASE_URL + SUPABASE_SERVICE_KEY with V3 project values
+#   2. Add Stripe TEST keys (not live)
+#   3. Set COMING_SOON=false
+
+name: socal-receptionist-v3
+region: nyc
+
+services:
+  - name: api
+    github:
+      repo: vaxman14/socal-receptionist
+      branch: v3-alpha
+      deploy_on_push: true
+    source_dir: v2
+    dockerfile_path: v2/Dockerfile
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /health
+    routes:
+      - path: /
+    envs:
+      # Boot in coming-soon mode until V3 Supabase is wired up.
+      # Set to false once SUPABASE_URL + SUPABASE_SERVICE_KEY are real V3 values.
+      - key: COMING_SOON
+        scope: RUN_TIME
+        value: "false"
+
+      # --- Supabase (V3 project — set these after creating the V3 project) ----
+      - key: SUPABASE_URL
+        scope: RUN_TIME
+        value: REPLACE_WITH_V3_SUPABASE_URL
+      - key: SUPABASE_SERVICE_KEY
+        scope: RUN_TIME
+        type: SECRET
+
+      # --- Twilio (reuse V2 creds for now — dev webhook validation off) -------
+      - key: TWILIO_ACCOUNT_SID
+        scope: RUN_TIME
+        type: SECRET
+      - key: TWILIO_AUTH_TOKEN
+        scope: RUN_TIME
+        type: SECRET
+      - key: TWILIO_PHONE_NUMBER
+        scope: RUN_TIME
+        value: "+18557608975"
+      - key: TWILIO_VALIDATE_SIGNATURE
+        scope: RUN_TIME
+        value: "false"
+
+      # --- OpenAI (Realtime voice) --------------------------------------------
+      - key: OPENAI_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+
+      # --- Groq (SMS AI + time tickets) ---------------------------------------
+      - key: GROQ_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: GROQ_MODEL
+        scope: RUN_TIME
+        value: llama-3.3-70b-versatile
+
+      # --- Outbound calling ---------------------------------------------------
+      - key: OUTBOUND_API_KEY
+        scope: RUN_TIME
+        value: v3-dev-outbound-key
+
+      # --- Stripe (use TEST keys for V3 dev — never live keys here) -----------
+      - key: STRIPE_SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: STRIPE_WEBHOOK_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: STRIPE_PRICE_ID_ESSENTIALS
+        scope: RUN_TIME
+        value: price_TEST_ESSENTIALS
+      - key: STRIPE_PRICE_ID_ESSENTIALS_ANNUAL
+        scope: RUN_TIME
+        value: price_TEST_ESSENTIALS_ANNUAL
+      - key: STRIPE_PRICE_ID_CONCIERGE
+        scope: RUN_TIME
+        value: price_TEST_CONCIERGE
+      - key: STRIPE_PRICE_ID_CONCIERGE_ANNUAL
+        scope: RUN_TIME
+        value: price_TEST_CONCIERGE_ANNUAL
+      - key: STRIPE_SETUP_PRICE_ID_CONCIERGE
+        scope: RUN_TIME
+        value: price_TEST_SETUP
+
+      # --- Email (Resend) -----------------------------------------------------
+      - key: RESEND_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: EMAIL_FROM
+        scope: RUN_TIME
+        value: "SoCal Receptionist Dev <noreply@noreply.socalreceptionist.com>"
+
+      # --- Practice management integrations -----------------------------------
+      - key: CLIO_CLIENT_ID
+        scope: RUN_TIME
+        value: ""
+      - key: CLIO_CLIENT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: MYCASE_CLIENT_ID
+        scope: RUN_TIME
+        value: ""
+      - key: MYCASE_CLIENT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+
+      # --- Frontend SPA origin ------------------------------------------------
+      - key: APP_BASE_URL
+        scope: RUN_TIME
+        value: REPLACE_WITH_NETLIFY_V3_URL
+
+      # --- Rate limiting (relaxed for dev) ------------------------------------
+      - key: RATE_TENANT_PER_MIN
+        scope: RUN_TIME
+        value: "200"
+      - key: RATE_CUSTOMER_PER_MIN
+        scope: RUN_TIME
+        value: "60"
+      - key: ABUSE_PER_MIN
+        scope: RUN_TIME
+        value: "100"
+
+      # --- Worker -------------------------------------------------------------
+      - key: RUN_WORKER
+        scope: RUN_TIME
+        value: "true"
+      - key: WORKER_INTERVAL_MS
+        scope: RUN_TIME
+        value: "5000"
