@@ -5,7 +5,7 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "build:mac": "electron-builder --mac --universal",
+    "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
     "build:all": "electron-builder --mac --win --universal"
   },
@@ -31,7 +31,7 @@
       "repo": "socal-receptionist"
     },
     "mac": {
-      "target": [{ "target": "dmg", "arch": ["universal"] }],
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
       "category": "public.app-category.productivity",
       "darkModeSupport": true,
       "icon": "assets/icon.icns"
@@ -55,7 +55,9 @@
     "files": [
       "src/**/*",
       "assets/**/*",
-      "package.json"
+      "package.json",
+      "!**/build-tmp-napi-v6/**",
+      "!**/*.map"
     ],
     "extraResources": []
   }

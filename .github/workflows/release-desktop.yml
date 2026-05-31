@@ -22,7 +22,7 @@ jobs:
         run: npm install
         working-directory: desktop
 
-      - name: Build Mac DMG (universal)
+      - name: Build Mac DMG (arm64 + x64)
         run: npm run build:mac
         working-directory: desktop
         env:
