@@ -306,15 +306,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- Billing toggle -->
   <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:36px;">
-    <span id="lbl-monthly" style="font-weight:700;font-size:0.95rem;">Monthly</span>
+    <span id="lbl-monthly" style="font-size:0.95rem;color:var(--muted);">Monthly</span>
     <button id="billing-toggle" onclick="toggleBilling()" aria-label="Toggle billing period" style="
       background:var(--orange);border:none;border-radius:999px;width:52px;height:28px;
       cursor:pointer;position:relative;transition:background 0.2s;padding:0;flex-shrink:0;">
       <span id="toggle-thumb" style="
         display:block;width:22px;height:22px;border-radius:50%;background:#fff;
-        position:absolute;top:3px;left:3px;transition:transform 0.2s;"></span>
+        position:absolute;top:3px;left:3px;transition:transform 0.2s;transform:translateX(24px);"></span>
     </button>
-    <span id="lbl-annual" style="font-size:0.95rem;color:var(--muted);">
+    <span id="lbl-annual" style="font-size:0.95rem;font-weight:700;">
       Annual <span style="background:#e8f5e9;color:#2e7d32;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:4px;">Save 20%</span>
     </span>
   </div>
@@ -323,8 +323,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- Essentials -->
     <div class="price-card">
       <div class="price-name">Essentials</div>
-      <div class="price-amount"><span>$</span><span class="js-price" data-monthly="500" data-annual="400">500</span></div>
-      <div class="price-period">per month<span class="js-billed-note" style="display:none;color:var(--muted);font-size:0.8rem;margin-left:6px;">· billed $4,800/yr</span></div>
+      <div class="price-amount"><span>$</span><span class="js-price" data-monthly="500" data-annual="400">400</span></div>
+      <div class="price-period">per month<span class="js-billed-note" style="display:inline;color:var(--muted);font-size:0.8rem;margin-left:6px;">· billed $4,800/yr</span></div>
       <div class="price-setup" style="color:#2ecc71;font-weight:600;">No setup fee</div>
       <ul class="price-features">
         <li>AI answers <strong>after-hours calls</strong></li>
@@ -342,8 +342,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="price-card" style="border:2px solid var(--orange);position:relative;">
       <div class="price-badge">White Glove</div>
       <div class="price-name">Concierge</div>
-      <div class="price-amount"><span>$</span><span class="js-price" data-monthly="500" data-annual="400">500</span></div>
-      <div class="price-period">per month<span class="js-billed-note" style="display:none;color:var(--muted);font-size:0.8rem;margin-left:6px;">· billed $4,800/yr</span></div>
+      <div class="price-amount"><span>$</span><span class="js-price" data-monthly="500" data-annual="400">400</span></div>
+      <div class="price-period">per month<span class="js-billed-note" style="display:inline;color:var(--muted);font-size:0.8rem;margin-left:6px;">· billed $4,800/yr</span></div>
       <div class="price-setup">+ $1,500 one-time setup <em>(non-refundable)</em></div>
       <ul class="price-features">
         <li>AI answers <strong>after-hours calls</strong></li>
@@ -363,7 +363,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <script>
 (function() {
-  var annual = false;
+  var annual = true;
   window.toggleBilling = function() {
     annual = !annual;
     var thumb = document.getElementById('toggle-thumb');
@@ -795,6 +795,44 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState==='hidden'&&history.length) sendTranscript();
   });
+})();
+</script>
+
+<!-- Cookie consent banner -->
+<div id="cookie-banner" style="
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;
+  background:#1a1a2e;color:#e2e8f0;padding:16px 24px;
+  box-shadow:0 -4px 24px rgba(0,0,0,0.3);
+  font-size:0.875rem;line-height:1.5;">
+  <div style="max-width:900px;margin:0 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <p style="margin:0;flex:1;min-width:200px;">
+      We use cookies to improve your experience. You can accept all cookies or opt out of non-essential ones.
+      <a href="/cookies" style="color:#f97316;text-decoration:underline;margin-left:4px;">Cookie Policy</a>
+    </p>
+    <div style="display:flex;gap:10px;flex-shrink:0;flex-wrap:wrap;">
+      <button onclick="cookieConsent('reject')" style="
+        background:transparent;border:1px solid rgba(255,255,255,0.3);color:#e2e8f0;
+        padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.875rem;white-space:nowrap;">
+        Reject Non-Essential
+      </button>
+      <button onclick="cookieConsent('accept')" style="
+        background:#f97316;border:none;color:#fff;
+        padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.875rem;font-weight:600;white-space:nowrap;">
+        Accept All
+      </button>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  if (!localStorage.getItem('cookie_consent')) {
+    document.getElementById('cookie-banner').style.display = 'block';
+  }
+  window.cookieConsent = function(choice) {
+    localStorage.setItem('cookie_consent', choice);
+    localStorage.setItem('cookie_consent_date', new Date().toISOString());
+    document.getElementById('cookie-banner').style.display = 'none';
+  };
 })();
 </script>
 </body>
