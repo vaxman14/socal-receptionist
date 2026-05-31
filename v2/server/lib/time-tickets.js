@@ -164,6 +164,15 @@ async function exportCsv(tenantId) {
 
   if (error) throw error;
 
+  // Escape a CSV cell: quote it, double any interior quotes, and prefix
+  // formula-leading characters (=, +, -, @, tab, CR) with a tab so spreadsheet
+  // apps don't execute them as formulas (CSV injection, issue #8).
+  function csvCell(value) {
+    const s = String(value ?? '');
+    const safe = /^[=+\-@\t\r]/.test(s) ? `\t${s}` : s;
+    return `"${safe.replace(/"/g, '""')}"`;
+  }
+
   const headers = ['date', 'client', 'matter', 'activity', 'description', 'duration_min', 'billable_min', 'rate', 'amount'];
   const rows = (data || []).map((t) => {
     const date = new Date(t.created_at).toISOString().slice(0, 10);
@@ -171,15 +180,15 @@ async function exportCsv(tenantId) {
     const rate = t.hourly_rate || '';
     const amount = rate ? ((mins / 60) * rate).toFixed(2) : '';
     return [
-      date,
-      t.client_name || '',
-      t.matter_name || '',
-      t.activity || '',
-      `"${(t.description || '').replace(/"/g, '""')}"`,
-      t.duration_sec ? Math.round(t.duration_sec / 60) : '',
-      mins,
-      rate,
-      amount,
+      csvCell(date),
+      csvCell(t.client_name || ''),
+      csvCell(t.matter_name || ''),
+      csvCell(t.activity || ''),
+      csvCell(t.description || ''),
+      csvCell(t.duration_sec ? Math.round(t.duration_sec / 60) : ''),
+      csvCell(mins),
+      csvCell(rate),
+      csvCell(amount),
     ].join(',');
   });
 

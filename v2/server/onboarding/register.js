@@ -51,7 +51,10 @@ router.get('/business', async (req, res) => {
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('[onboarding] get business failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
   res.json({ tenant: data || null });
 });
 

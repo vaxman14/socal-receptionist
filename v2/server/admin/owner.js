@@ -5,7 +5,7 @@
 
 const express = require('express');
 const { supabase } = require('../lib/supabase');
-const { requireAuth, requirePlatformAdmin } = require('../lib/auth');
+const { requireAuth, requirePlatformAdmin, requireAal2 } = require('../lib/auth');
 const {
   DocumentError,
   LEGAL_DOC_SLUGS,
@@ -20,7 +20,7 @@ const {
 
 const router = express.Router();
 
-router.use(requireAuth, requirePlatformAdmin);
+router.use(requireAuth, requireAal2, requirePlatformAdmin);
 
 // GET /admin/owner/tenants — every tenant with a subscription summary.
 router.get('/tenants', async (req, res) => {
@@ -28,7 +28,10 @@ router.get('/tenants', async (req, res) => {
     .from('tenants')
     .select('*, subscriptions(status, plan, current_period_end, trial_ends_at)')
     .order('created_at', { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('[owner] list tenants failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
   res.json({ tenants: data });
 });
 
@@ -39,7 +42,10 @@ router.get('/tenants/:id', async (req, res) => {
     .select('*, subscriptions(*), phone_numbers(*)')
     .eq('id', req.params.id)
     .maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('[owner] get tenant failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
   if (!data) return res.status(404).json({ error: 'tenant not found' });
   res.json({ tenant: data });
 });
@@ -90,7 +96,10 @@ router.get('/conversations/:id/messages', async (req, res) => {
     .select('*')
     .eq('conversation_id', req.params.id)
     .order('created_at', { ascending: true });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('[owner] list messages failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
   res.json({ messages: data });
 });
 
@@ -102,7 +111,10 @@ router.get('/audit-log', async (req, res) => {
     .select('*')
     .order('created_at', { ascending: false })
     .limit(limit);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('[owner] audit-log failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
   res.json({ audit_log: data });
 });
 

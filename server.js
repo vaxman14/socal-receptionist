@@ -51,25 +51,33 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
 });
 
-// Temporary Google OAuth callback — captures refresh tokens for multiple accounts
-app.get('/auth/google-callback', async (req, res) => {
-  const code = req.query.code;
-  const state = req.query.state || 'unknown';
-  if (!code) return res.send('No code in request.');
-  try {
-    const { google } = require('googleapis');
-    const oauth2 = new google.auth.OAuth2(
-      config.gcal.clientId,
-      config.gcal.clientSecret,
-      'https://www.socalreceptionist.com/auth/google-callback'
-    );
-    const { tokens } = await oauth2.getToken(code);
-    console.log(`[google-auth] ACCOUNT=${state} REFRESH_TOKEN=${tokens.refresh_token}`);
-    res.send(`<h2>Authorized ${state}! ✅</h2><p>Josi has the token. Close this tab and authorize the next account.</p>`);
-  } catch (err) {
-    res.send('Error: ' + err.message);
-  }
-});
+// Temporary Google OAuth callback — only usable in development (not production).
+// Tokens are stored in env/config, not logged. Remove this route when no longer needed.
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/auth/google-callback', async (req, res) => {
+    const code = req.query.code;
+    const state = req.query.state || 'unknown';
+    if (!code) return res.send('No code in request.');
+    try {
+      const { google } = require('googleapis');
+      const oauth2 = new google.auth.OAuth2(
+        config.gcal.clientId,
+        config.gcal.clientSecret,
+        'https://www.socalreceptionist.com/auth/google-callback'
+      );
+      const { tokens } = await oauth2.getToken(code);
+      // Tokens are printed only to a local dev console — never log in production.
+      // Store the refresh_token shown here in your .env / DO secrets, then remove this route.
+      if (tokens.refresh_token) {
+        process.stdout.write(`[google-auth] ACCOUNT=${state} — copy refresh_token from the server console.\n`);
+        process.stdout.write(`REFRESH_TOKEN=${tokens.refresh_token}\n`);
+      }
+      res.send(`<h2>Authorized ${state}! ✅</h2><p>Copy the token from the server console, add it to your secrets, then remove this route.</p>`);
+    } catch (err) {
+      res.send('Error: ' + err.message);
+    }
+  });
+}
 
 // Coming Soon mode — must be before static middleware so it intercepts /
 if (process.env.COMING_SOON === 'true') {

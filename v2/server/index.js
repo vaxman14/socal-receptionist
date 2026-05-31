@@ -16,6 +16,8 @@ if (process.env.SENTRY_DSN) {
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const smsRouter = require('./sms/webhook');
 const voiceRouter = require('./voice/webhook');
 const billingWebhookRouter = require('./billing/webhook');
@@ -29,6 +31,41 @@ const integrationsRouter = require('./integrations/router');
 const app = express();
 app.set('trust proxy', true); // behind the DigitalOcean / Cloudflare proxy
 
+// Security headers (issue #6)
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// Restrict CORS to known origins (issue #7)
+const ALLOWED_ORIGINS = [
+  process.env.APP_BASE_URL,
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:8080',
+].filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // server-to-server / curl
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+
+// Rate limiting for admin and onboarding routes (issue #11)
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+const strictLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+
 // Redirect naked domain → www
 app.use((req, res, next) => {
   if (req.hostname === 'socalreceptionist.com') {
@@ -36,12 +73,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-
-// The browser SPA (admin + onboarding wizard) is served from a separate origin
-// (Netlify / app.socalreceptionist.com), so its API calls are cross-origin and
-// need CORS. Auth is bearer-token (Supabase access_token), not cookies, so
-// reflecting any origin is safe — tighten to APP_BASE_URL post-launch if wanted.
-app.use(cors());
 
 // The Stripe webhook needs the raw request body for signature verification, so
 // it is mounted BEFORE the JSON/urlencoded parsers. Its route applies its own
@@ -60,19 +91,19 @@ app.use('/', voiceRouter);
 
 // Onboarding API — business registration, then service-agreement e-signature
 // (which gates provisioning). Register is mounted first; both share /onboarding.
-app.use('/onboarding', onboardingRegisterRouter);
+app.use('/onboarding', strictLimiter, onboardingRegisterRouter);
 app.use('/onboarding', onboardingAgreementRouter);
 
 // MFA API — trusted-device ("trust this device for 30 days") issue / verify /
 // revoke. The TOTP + passkey factors themselves are handled by Supabase Auth
 // directly from the browser; this only owns the app-side trust ledger.
-app.use('/auth/mfa', mfaRouter);
+app.use('/auth/mfa', strictLimiter, mfaRouter);
 
 // Admin API. The owner router is mounted first so /admin/owner/* never falls
 // into the client router's requireTenant middleware.
-app.use('/admin/owner', ownerAdminRouter);
-app.use('/admin', clientAdminRouter);
-app.use('/integrations', integrationsRouter);
+app.use('/admin/owner', adminLimiter, ownerAdminRouter);
+app.use('/admin', adminLimiter, clientAdminRouter);
+app.use('/integrations', adminLimiter, integrationsRouter);
 
 // Serve the landing page (public/) and the React SPA (web/dist/).
 // API routes above take priority; everything else falls through to the SPA.

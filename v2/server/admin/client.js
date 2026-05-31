@@ -6,10 +6,27 @@
 
 const express = require('express');
 const { supabase } = require('../lib/supabase');
-const { requireAuth, requireTenant } = require('../lib/auth');
+const { requireAuth, requireTenant, requireAal2 } = require('../lib/auth');
 const { createCheckoutSession, createPortalSession } = require('../lib/billing');
 const { listTickets, updateTicket, bulkAccept, exportCsv } = require('../lib/time-tickets');
 const { listLeads: listOutboundLeads, createLead, bulkCreateLeads, updateLead, deleteLead } = require('../lib/outbound-leads');
+
+// ---------------------------------------------------------------------------
+// Server-side price ID allowlist (issue #3 — client-supplied price IDs)
+// ---------------------------------------------------------------------------
+const ALLOWED_PRICE_IDS = new Set([
+  process.env.STRIPE_PRICE_ID_ESSENTIALS,
+  process.env.STRIPE_PRICE_ID_ESSENTIALS_ANNUAL,
+  process.env.STRIPE_PRICE_ID_CONCIERGE,
+  process.env.STRIPE_PRICE_ID_CONCIERGE_ANNUAL,
+  // Legacy single-price fallback
+  process.env.STRIPE_PRICE_ID,
+].filter(Boolean));
+
+const ALLOWED_SETUP_PRICE_IDS = new Set([
+  process.env.STRIPE_SETUP_PRICE_ID_CONCIERGE,
+  process.env.STRIPE_SETUP_PRICE_ID,
+].filter(Boolean));
 
 const router = express.Router();
 
@@ -60,7 +77,10 @@ router.patch('/tenant', async (req, res) => {
     .eq('id', req.tenant.id)
     .select()
     .single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('[admin] update tenant failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
   res.json({ tenant: data });
 });
 
@@ -72,7 +92,10 @@ router.get('/leads', async (req, res) => {
     .eq('tenant_id', req.tenant.id)
     .order('created_at', { ascending: false })
     .limit(200);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('[admin] list leads failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
   res.json({ leads: data });
 });
 
@@ -84,7 +107,10 @@ router.get('/conversations', async (req, res) => {
     .eq('tenant_id', req.tenant.id)
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .limit(200);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('[admin] list conversations failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
   res.json({ conversations: data });
 });
 
@@ -96,7 +122,10 @@ router.get('/conversations/:id/messages', async (req, res) => {
     .eq('conversation_id', req.params.id)
     .eq('tenant_id', req.tenant.id) // scope guard — can't read another tenant's thread
     .order('created_at', { ascending: true });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('[admin] list messages failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
   res.json({ messages: data });
 });
 
@@ -108,35 +137,65 @@ router.get('/calls', async (req, res) => {
     .eq('tenant_id', req.tenant.id)
     .order('created_at', { ascending: false })
     .limit(200);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('[admin] list calls failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
   res.json({ calls: data });
 });
 
 // POST /admin/billing/checkout — start a subscription. Billed as a one-time
 // setup fee (includes month one) plus the recurring monthly price, which is
 // deferred 30 days via a trial.
-router.post('/billing/checkout', async (req, res) => {
+// SECURITY: priceId and setupPriceId are validated against a server-side
+// allowlist — client-supplied IDs are never used directly (issue #3).
+// successUrl and cancelUrl are always derived from APP_BASE_URL (issue #14).
+router.post('/billing/checkout', requireAal2, async (req, res) => {
   try {
-    const priceId = req.body.priceId || process.env.STRIPE_PRICE_ID;
+    // Validate priceId against server-side allowlist
+    const requestedPriceId = req.body.priceId;
+    let priceId;
+    if (requestedPriceId) {
+      if (!ALLOWED_PRICE_IDS.has(requestedPriceId)) {
+        return res.status(400).json({ error: 'invalid price' });
+      }
+      priceId = requestedPriceId;
+    } else {
+      priceId = process.env.STRIPE_PRICE_ID;
+    }
     if (!priceId) return res.status(400).json({ error: 'no plan price configured' });
-    const setupPriceId = req.body.setupPriceId || process.env.STRIPE_SETUP_PRICE_ID;
-    const base = process.env.APP_BASE_URL || '';
+
+    // Validate setupPriceId against server-side allowlist
+    const requestedSetupPriceId = req.body.setupPriceId;
+    let setupPriceId;
+    if (requestedSetupPriceId) {
+      if (!ALLOWED_SETUP_PRICE_IDS.has(requestedSetupPriceId)) {
+        return res.status(400).json({ error: 'invalid setup price' });
+      }
+      setupPriceId = requestedSetupPriceId;
+    } else {
+      setupPriceId = process.env.STRIPE_SETUP_PRICE_ID;
+    }
+
+    // Build redirect URLs server-side from APP_BASE_URL — never trust the client
+    const base = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
     const session = await createCheckoutSession({
       tenant: req.tenant,
       priceId,
       setupPriceId,
-      successUrl: req.body.successUrl || `${base}/billing/success`,
-      cancelUrl: req.body.cancelUrl || `${base}/billing/cancel`,
+      successUrl: `${base}/billing/success`,
+      cancelUrl: `${base}/billing/cancel`,
     });
     res.json({ url: session.url });
   } catch (err) {
-    console.error('[admin] checkout failed:', err.message);
+    console.error('[admin] checkout failed:', err);
     res.status(500).json({ error: 'checkout failed' });
   }
 });
 
 // POST /admin/billing/portal — open the Stripe Customer Portal.
-router.post('/billing/portal', async (req, res) => {
+// SECURITY: returnUrl is always derived from APP_BASE_URL (issue #14).
+router.post('/billing/portal', requireAal2, async (req, res) => {
   try {
     const { data: sub } = await supabase
       .from('subscriptions')
@@ -146,14 +205,14 @@ router.post('/billing/portal', async (req, res) => {
     if (!sub || !sub.stripe_customer_id) {
       return res.status(400).json({ error: 'no billing account yet' });
     }
-    const base = process.env.APP_BASE_URL || '';
+    const base = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
     const session = await createPortalSession({
       stripeCustomerId: sub.stripe_customer_id,
-      returnUrl: req.body.returnUrl || `${base}/billing`,
+      returnUrl: `${base}/billing`,
     });
     res.json({ url: session.url });
   } catch (err) {
-    console.error('[admin] portal failed:', err.message);
+    console.error('[admin] portal failed:', err);
     res.status(500).json({ error: 'portal failed' });
   }
 });
@@ -168,8 +227,8 @@ router.get('/time-tickets', async (req, res) => {
     const tickets = await listTickets(req.tenant.id, { status: req.query.status });
     res.json({ tickets });
   } catch (err) {
-    console.error('[admin] list tickets failed:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('[admin] list tickets failed:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -179,8 +238,8 @@ router.patch('/time-tickets/:id', express.json(), async (req, res) => {
     const ticket = await updateTicket(req.params.id, req.tenant.id, req.body);
     res.json({ ticket });
   } catch (err) {
-    console.error('[admin] update ticket failed:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('[admin] update ticket failed:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -190,7 +249,8 @@ router.delete('/time-tickets/:id', async (req, res) => {
     await updateTicket(req.params.id, req.tenant.id, { status: 'rejected' });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[admin] reject ticket failed:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -200,7 +260,8 @@ router.post('/time-tickets/bulk-approve', express.json(), async (req, res) => {
     const count = await bulkAccept(req.tenant.id);
     res.json({ accepted: count });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[admin] bulk-approve failed:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -212,7 +273,8 @@ router.get('/time-tickets/export.csv', async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="time-tickets.csv"');
     res.send(csv);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[admin] export csv failed:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -225,17 +287,27 @@ router.get('/outbound-leads', async (req, res) => {
     const leads = await listOutboundLeads(req.tenant.id, { status });
     res.json({ leads });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[admin] list outbound-leads failed:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // POST /admin/outbound-leads — create single lead
 router.post('/outbound-leads', express.json(), async (req, res) => {
+  // Basic input validation (issue #12)
+  const { phone, name } = req.body || {};
+  if (!phone || typeof phone !== 'string' || phone.trim().length < 7) {
+    return res.status(400).json({ error: 'phone is required and must be valid' });
+  }
+  if (name !== undefined && (typeof name !== 'string' || name.length > 200)) {
+    return res.status(400).json({ error: 'name must be a string under 200 characters' });
+  }
   try {
     const lead = await createLead(req.tenant.id, req.body);
     res.status(201).json({ lead });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('[admin] create outbound-lead failed:', err);
+    res.status(400).json({ error: err.message || 'could not create lead' });
   }
 });
 
@@ -245,11 +317,15 @@ router.post('/outbound-leads/bulk', express.json(), async (req, res) => {
   if (!Array.isArray(rows) || !rows.length) {
     return res.status(400).json({ error: 'leads array required' });
   }
+  if (rows.length > 500) {
+    return res.status(400).json({ error: 'maximum 500 leads per bulk import' });
+  }
   try {
     const created = await bulkCreateLeads(req.tenant.id, rows);
     res.status(201).json({ created: created.length, leads: created });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[admin] bulk create leads failed:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -259,7 +335,8 @@ router.patch('/outbound-leads/:id', express.json(), async (req, res) => {
     const lead = await updateLead(req.tenant.id, req.params.id, req.body);
     res.json({ lead });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[admin] update outbound-lead failed:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -269,7 +346,8 @@ router.delete('/outbound-leads/:id', async (req, res) => {
     await deleteLead(req.tenant.id, req.params.id);
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[admin] delete outbound-lead failed:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -293,8 +371,9 @@ router.post('/outbound-leads/:id/call', async (req, res) => {
 
   // Delegate to the V1 outbound calling endpoint (same process, different router)
   // We make an internal HTTP call to keep concerns separated.
+  // Use APP_BASE_URL for the internal call URL (issue #14).
   try {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = (process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
     const fetch = require('node-fetch');
     const callRes = await fetch(`${baseUrl}/voice/outbound/call`, {
       method: 'POST',
@@ -326,8 +405,10 @@ router.post('/outbound-leads/:id/call', async (req, res) => {
 
     res.json({ ok: true, callSid });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[admin] outbound call failed:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
+// Also fix the PATCH /admin/tenant error response
 module.exports = router;

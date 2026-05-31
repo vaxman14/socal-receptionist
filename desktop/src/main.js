@@ -8,6 +8,7 @@ const {
   nativeImage,
   globalShortcut,
   ipcMain,
+  safeStorage,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -27,7 +28,13 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
-      return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      // Decrypt access token if it was stored encrypted (issue #9)
+      if (cfg._tokenEncrypted && cfg.accessToken && safeStorage.isEncryptionAvailable()) {
+        cfg.accessToken = safeStorage.decryptString(Buffer.from(cfg.accessToken, 'base64'));
+        delete cfg._tokenEncrypted;
+      }
+      return cfg;
     }
   } catch {}
   return null;
@@ -35,7 +42,13 @@ function loadConfig() {
 
 function saveConfig(cfg) {
   fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+  const stored = { ...cfg };
+  // Encrypt access token at rest using OS keychain/credential store (issue #9)
+  if (cfg.accessToken && safeStorage.isEncryptionAvailable()) {
+    stored.accessToken = safeStorage.encryptString(cfg.accessToken).toString('base64');
+    stored._tokenEncrypted = true;
+  }
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(stored, null, 2));
 }
 
 // ── Prevent second instance ──────────────────────────────────────────────────
