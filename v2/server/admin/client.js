@@ -9,6 +9,7 @@ const { supabase } = require('../lib/supabase');
 const { requireAuth, requireTenant } = require('../lib/auth');
 const { createCheckoutSession, createPortalSession } = require('../lib/billing');
 const { listTickets, updateTicket, bulkAccept, exportCsv } = require('../lib/time-tickets');
+const { listLeads: listOutboundLeads, createLead, bulkCreateLeads, updateLead, deleteLead } = require('../lib/outbound-leads');
 
 const router = express.Router();
 
@@ -210,6 +211,120 @@ router.get('/time-tickets/export.csv', async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="time-tickets.csv"');
     res.send(csv);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Outbound leads ──────────────────────────────────────────────────────────
+
+// GET /admin/outbound-leads
+router.get('/outbound-leads', async (req, res) => {
+  try {
+    const { status } = req.query;
+    const leads = await listOutboundLeads(req.tenant.id, { status });
+    res.json({ leads });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /admin/outbound-leads — create single lead
+router.post('/outbound-leads', express.json(), async (req, res) => {
+  try {
+    const lead = await createLead(req.tenant.id, req.body);
+    res.status(201).json({ lead });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /admin/outbound-leads/bulk — import array of leads
+router.post('/outbound-leads/bulk', express.json(), async (req, res) => {
+  const rows = req.body?.leads;
+  if (!Array.isArray(rows) || !rows.length) {
+    return res.status(400).json({ error: 'leads array required' });
+  }
+  try {
+    const created = await bulkCreateLeads(req.tenant.id, rows);
+    res.status(201).json({ created: created.length, leads: created });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /admin/outbound-leads/:id
+router.patch('/outbound-leads/:id', express.json(), async (req, res) => {
+  try {
+    const lead = await updateLead(req.tenant.id, req.params.id, req.body);
+    res.json({ lead });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /admin/outbound-leads/:id
+router.delete('/outbound-leads/:id', async (req, res) => {
+  try {
+    await deleteLead(req.tenant.id, req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /admin/outbound-leads/:id/call — trigger an outbound call
+router.post('/outbound-leads/:id/call', async (req, res) => {
+  const outboundApiKey = process.env.OUTBOUND_API_KEY;
+  if (!outboundApiKey) {
+    return res.status(503).json({ error: 'Outbound calling not configured (OUTBOUND_API_KEY missing)' });
+  }
+
+  const { data: lead, error } = await supabase
+    .from('outbound_leads')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('tenant_id', req.tenant.id)
+    .single();
+  if (error || !lead) return res.status(404).json({ error: 'Lead not found' });
+  if (['calling', 'dnc'].includes(lead.status)) {
+    return res.status(409).json({ error: `Cannot call lead with status: ${lead.status}` });
+  }
+
+  // Delegate to the V1 outbound calling endpoint (same process, different router)
+  // We make an internal HTTP call to keep concerns separated.
+  try {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const fetch = require('node-fetch');
+    const callRes = await fetch(`${baseUrl}/voice/outbound/call`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${outboundApiKey}`,
+      },
+      body: JSON.stringify({
+        to: lead.phone,
+        name: lead.name,
+        businessType: lead.business_type,
+        reason: lead.reason,
+      }),
+    });
+
+    if (!callRes.ok) {
+      const body = await callRes.json().catch(() => ({}));
+      return res.status(callRes.status).json({ error: body.error || 'Call failed' });
+    }
+
+    const { callSid } = await callRes.json();
+    // Mark as calling in the DB
+    await supabase.from('outbound_leads').update({
+      status: 'calling',
+      call_sid: callSid,
+      last_called_at: new Date().toISOString(),
+      call_attempts: (lead.call_attempts || 0) + 1,
+    }).eq('id', lead.id);
+
+    res.json({ ok: true, callSid });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

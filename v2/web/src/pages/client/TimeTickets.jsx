@@ -1,9 +1,10 @@
 // Time Tickets — review AI-drafted billable time entries from calls.
 // Attorneys accept/edit/reject drafts, bulk-approve, and export to CSV.
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useFetch } from '../../lib/useFetch';
 import { api } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 import { Loading, ErrorState, EmptyState } from '../../components/States';
 import { Badge } from '../../components/Badge';
 import { formatDate, formatDuration, titleCase } from '../../lib/format';
@@ -86,6 +87,19 @@ export default function TimeTickets() {
   const { data, loading, error, reload } = useFetch(`/admin/time-tickets?status=${filter}`);
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  // Supabase realtime: reload when a time_ticket row changes for this tenant.
+  // The subscription fires on INSERT/UPDATE/DELETE so the list stays fresh
+  // without polling.
+  useEffect(() => {
+    const channel = supabase
+      .channel('time-tickets-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'time_tickets' }, () => {
+        reload();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [reload]);
 
   const tickets = data?.tickets || [];
   const draftCount = tickets.filter((t) => t.status === 'draft').length;

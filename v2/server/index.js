@@ -24,6 +24,7 @@ const ownerAdminRouter = require('./admin/owner');
 const onboardingAgreementRouter = require('./onboarding/agreement');
 const onboardingRegisterRouter = require('./onboarding/register');
 const mfaRouter = require('./auth/mfa');
+const integrationsRouter = require('./integrations/router');
 
 const app = express();
 app.set('trust proxy', true); // behind the DigitalOcean / Cloudflare proxy
@@ -71,6 +72,7 @@ app.use('/auth/mfa', mfaRouter);
 // into the client router's requireTenant middleware.
 app.use('/admin/owner', ownerAdminRouter);
 app.use('/admin', clientAdminRouter);
+app.use('/integrations', integrationsRouter);
 
 // Serve the landing page (public/) and the React SPA (web/dist/).
 // API routes above take priority; everything else falls through to the SPA.

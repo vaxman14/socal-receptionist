@@ -8,6 +8,8 @@ import Leads from './Leads';
 import Conversations from './Conversations';
 import Calls from './Calls';
 import TimeTickets from './TimeTickets';
+import OutboundLeads from './OutboundLeads';
+import IntegrationSettings from './IntegrationSettings';
 import Settings from './Settings';
 import Billing from './Billing';
 
@@ -17,6 +19,8 @@ const LINKS = [
   ...(SMS_ENABLED ? [{ to: '/conversations', label: 'Conversations' }] : []),
   { to: '/calls', label: 'Calls' },
   { to: '/time-tickets', label: 'Time Tickets' },
+  { to: '/outbound', label: 'Outbound' },
+  { to: '/integrations', label: 'Integrations' },
   { to: '/settings', label: 'Settings' },
   { to: '/billing', label: 'Billing' },
 ];
@@ -30,6 +34,8 @@ export default function ClientApp() {
         <Route path="conversations" element={<Conversations />} />
         <Route path="calls" element={<Calls />} />
         <Route path="time-tickets" element={<TimeTickets />} />
+        <Route path="outbound" element={<OutboundLeads />} />
+        <Route path="integrations" element={<IntegrationSettings />} />
         <Route path="settings" element={<Settings />} />
         <Route path="billing" element={<Billing />} />
         <Route path="*" element={<Navigate to="/" replace />} />
