@@ -494,6 +494,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   });
 </script>
 
+
+<!-- Cookie consent banner -->
+<div id="cookie-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#0f1f3d;color:#fff;padding:14px 20px;z-index:9999;box-shadow:0 -2px 12px rgba(0,0,0,0.2);">
+  <div style="max-width:860px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <p style="margin:0;font-size:0.875rem;flex:1;">
+      We use cookies to improve your experience and analyze site usage. See our
+      <a href="/cookies" style="color:#f97316;text-decoration:underline;">Cookie Policy</a>.
+    </p>
+    <div style="display:flex;gap:10px;flex-shrink:0;">
+      <button onclick="cookieChoice(false)" style="padding:6px 16px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:#fff;cursor:pointer;font-size:0.85rem;">Decline</button>
+      <button onclick="cookieChoice(true)" style="padding:6px 16px;border-radius:6px;border:none;background:#f97316;color:#fff;cursor:pointer;font-weight:600;font-size:0.85rem;">Accept</button>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  if (!localStorage.getItem('cookie_consent')) {
+    document.getElementById('cookie-banner').style.display = 'block';
+  }
+  window.cookieChoice = function(accepted) {
+    localStorage.setItem('cookie_consent', accepted ? 'accepted' : 'declined');
+    document.getElementById('cookie-banner').style.display = 'none';
+  };
+})();
+</script>
+
 </div><!-- /page-wrap -->
 
 <!-- Accessibility Widget -->

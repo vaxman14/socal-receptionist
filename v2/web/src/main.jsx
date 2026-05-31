@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import App from './App';
+import CookieBanner from './components/CookieBanner';
 import { initAnalytics } from './analytics';
 import './styles/global.css';
 
@@ -14,6 +15,7 @@ createRoot(document.getElementById('root')).render(
   <BrowserRouter>
     <AuthProvider>
       <App />
+      <CookieBanner />
     </AuthProvider>
   </BrowserRouter>
 );

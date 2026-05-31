@@ -32,7 +32,7 @@ const PLANS = [
 ];
 
 export default function StepPlan({ onSelected }) {
-  const [billing, setBilling] = useState('monthly');
+  const [billing, setBilling] = useState('annual');
   const isAnnual = billing === 'annual';
 
   return (
