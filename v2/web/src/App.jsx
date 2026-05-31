@@ -21,6 +21,7 @@ import ClientApp from './pages/client/ClientApp';
 import Wizard from './pages/onboarding/Wizard';
 import Register from './pages/Register';
 import Welcome from './pages/Welcome';
+import ResetPassword from './pages/ResetPassword';
 
 export default function App() {
   const { session, loading } = useAuth();
@@ -28,6 +29,7 @@ export default function App() {
 
   // Public routes: accessible without a session.
   if (location.pathname.startsWith('/register')) return <Register />;
+  if (location.pathname.startsWith('/reset-password')) return <ResetPassword />;
 
   if (loading) return <Loading label="Loading…" />;
   if (!session) return <Login />;

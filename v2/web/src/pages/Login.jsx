@@ -7,20 +7,41 @@ import { useAuth } from '../context/AuthContext';
 import { ph } from '../analytics';
 
 export default function Login() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, forgotPassword } = useAuth();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
+  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
 
+  const switchMode = (next) => {
+    setMode(next);
+    setError(null);
+    setNotice(null);
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setError(null);
     setNotice(null);
+
+    if (mode === 'forgot') {
+      if (!email.trim()) { setError('Enter your email address.'); return; }
+      setBusy(true);
+      try {
+        await forgotPassword(email.trim());
+        setNotice('Check your inbox — we sent a password reset link.');
+        switchMode('signin');
+      } catch (err) {
+        setError(err?.message || 'Could not send reset email. Try again.');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
 
     if (!email.trim() || !password) {
       setError('Email and password are required.');
@@ -40,17 +61,14 @@ export default function Login() {
         navigate('/', { replace: true });
       } else {
         const data = await signUp(email.trim(), password);
-        // If the project requires email confirmation there is no session yet.
         if (data.session) {
           ph.identify(data.session.user.id, { email: email.trim() });
           ph.capture('signed_up');
           navigate('/', { replace: true });
         } else {
           ph.capture('signed_up_email_confirmation_required');
-          setNotice(
-            'Account created. Check your inbox to confirm your email, then sign in.'
-          );
-          setMode('signin');
+          setNotice('Account created. Check your inbox to confirm your email, then sign in.');
+          switchMode('signin');
         }
       }
     } catch (err) {
@@ -58,6 +76,17 @@ export default function Login() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const titles = {
+    signin: 'Sign in',
+    signup: 'Create your account',
+    forgot: 'Reset your password',
+  };
+  const subtitles = {
+    signin: 'Access your business console.',
+    signup: 'Set up your AI receptionist in a few minutes.',
+    forgot: "Enter your email and we'll send a reset link.",
   };
 
   return (
@@ -71,13 +100,9 @@ export default function Login() {
           </span>
         </div>
 
-        <h1 style={{ fontSize: '1.3rem', marginBottom: 4 }}>
-          {mode === 'signin' ? 'Sign in' : 'Create your account'}
-        </h1>
+        <h1 style={{ fontSize: '1.3rem', marginBottom: 4 }}>{titles[mode]}</h1>
         <p className="muted" style={{ fontSize: '0.88rem', marginBottom: 18 }}>
-          {mode === 'signin'
-            ? 'Access your business console.'
-            : 'Set up your AI receptionist in a few minutes.'}
+          {subtitles[mode]}
         </p>
 
         {error && <div className="alert alert-error">{error}</div>}
@@ -87,6 +112,7 @@ export default function Login() {
           <label className="field">
             <span className="label">Email</span>
             <input
+              id="email"
               type="email"
               autoComplete="email"
               value={email}
@@ -94,23 +120,41 @@ export default function Login() {
               placeholder="you@business.com"
             />
           </label>
-          <label className="field">
-            <span className="label">Password</span>
-            <input
-              type="password"
-              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
-            />
-          </label>
+
+          {mode !== 'forgot' && (
+            <label className="field">
+              <span className="label">Password</span>
+              <input
+                id="password"
+                type="password"
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
+              />
+            </label>
+          )}
+
+          {mode === 'signin' && (
+            <div style={{ textAlign: 'right', marginTop: -8, marginBottom: 12 }}>
+              <button
+                type="button"
+                onClick={() => switchMode('forgot')}
+                style={{ background: 'none', border: 'none', color: 'var(--green-dark)', font: 'inherit', fontWeight: 600, cursor: 'pointer', fontSize: '0.82rem', padding: 0 }}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
 
           <button className="btn btn-primary btn-block" disabled={busy} type="submit">
             {busy
               ? 'Please wait…'
               : mode === 'signin'
                 ? 'Sign in'
-                : 'Create account'}
+                : mode === 'signup'
+                  ? 'Create account'
+                  : 'Send reset link'}
           </button>
         </form>
 
@@ -118,29 +162,14 @@ export default function Login() {
           {mode === 'signin' ? (
             <>
               New here?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signup');
-                  setError(null);
-                  setNotice(null);
-                }}
-              >
+              <button type="button" onClick={() => switchMode('signup')}>
                 Create an account
               </button>
             </>
           ) : (
             <>
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signin');
-                  setError(null);
-                  setNotice(null);
-                }}
-              >
-                Sign in
+              <button type="button" onClick={() => switchMode('signin')}>
+                Back to sign in
               </button>
             </>
           )}

@@ -57,6 +57,18 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
+  const forgotPassword = useCallback(async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) throw error;
+  }, []);
+
+  const updatePassword = useCallback(async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+  }, []);
+
   const value = {
     session,
     user: session?.user || null,
@@ -64,6 +76,8 @@ export function AuthProvider({ children }) {
     signIn,
     signUp,
     signOut,
+    forgotPassword,
+    updatePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
