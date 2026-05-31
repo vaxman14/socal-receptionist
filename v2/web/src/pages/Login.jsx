@@ -33,8 +33,8 @@ export default function Login() {
       setBusy(true);
       try {
         await forgotPassword(email.trim());
-        setNotice('Check your inbox — we sent a password reset link.');
         switchMode('signin');
+        setNotice('✅ Password reset link sent! Check your inbox.');
       } catch (err) {
         setError(err?.message || 'Could not send reset email. Try again.');
       } finally {
