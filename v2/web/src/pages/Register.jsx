@@ -493,6 +493,7 @@ function StepCheckout({ tenant }) {
     try {
       const base = window.location.origin;
       const data = await api.post('/admin/billing/checkout', {
+        planKey: 'essentials_monthly',
         successUrl: `${base}/welcome?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${base}/register`,
       });
