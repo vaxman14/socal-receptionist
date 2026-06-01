@@ -64,7 +64,7 @@ async function createCheckoutSession({ tenant, priceId, setupPriceId, successUrl
     line_items: lineItems,
     customer_email: tenant.owner_email,
     client_reference_id: tenant.id,
-    payment_method_collection: 'always', // keep a card on file through the trial
+    payment_method_collection: 'if_required',
     subscription_data: {
       trial_period_days: TRIAL_DAYS,
       metadata: { tenant_id: tenant.id },
