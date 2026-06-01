@@ -57,6 +57,14 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
+  const signInWithOAuth = useCallback(async (provider) => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) throw error;
+  }, []);
+
   const value = {
     session,
     user: session?.user || null,
@@ -64,6 +72,7 @@ export function AuthProvider({ children }) {
     signIn,
     signUp,
     signOut,
+    signInWithOAuth,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
