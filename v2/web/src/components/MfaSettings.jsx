@@ -1,6 +1,7 @@
 // Security section for the client Settings page.
 //
-// Three blocks:
+// Four blocks:
+//   * Email OTP — enroll, verify, unenroll.
 //   * Authenticator app (TOTP) — enroll (QR + secret), verify, list, unenroll.
 //   * Passkeys — enroll + list + remove if the Supabase project supports the
 //     WebAuthn factor; otherwise a "coming soon" state (see notes below).
@@ -11,6 +12,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   listFactors,
   enrollTotp,
+  enrollEmail,
   verifyFactor,
   unenrollFactor,
   browserSupportsPasskeys,
@@ -37,6 +39,10 @@ export default function MfaSettings() {
   // TOTP enrollment state.
   const [enroll, setEnroll] = useState(null); // { factorId, qrSvg, secret }
   const [code, setCode] = useState('');
+  // Email OTP enrollment state.
+  const [emailEnroll, setEmailEnroll] = useState(null); // { factorId, email } | 'input'
+  const [emailInput, setEmailInput] = useState('');
+  const [emailCode, setEmailCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -59,7 +65,64 @@ export default function MfaSettings() {
   if (!factors && !loadError) return <Loading label="Loading security…" />;
 
   const verifiedTotp = (factors?.totp || []).filter((f) => f.status === 'verified');
+  const verifiedEmail = (factors?.email || []).filter((f) => f.status === 'verified');
   const verifiedPasskeys = (factors?.webauthn || []).filter((f) => f.status === 'verified');
+
+  // --- Email OTP actions ----------------------------------------------------
+
+  const startEmailEnroll = () => {
+    setError(null);
+    setNotice(null);
+    setEmailEnroll('input');
+    setEmailInput('');
+    setEmailCode('');
+  };
+
+  const cancelEmailEnroll = async () => {
+    if (emailEnroll?.factorId) {
+      try { await unenrollFactor(emailEnroll.factorId); } catch { /* best-effort */ }
+    }
+    setEmailEnroll(null);
+    setEmailInput('');
+    setEmailCode('');
+    setError(null);
+  };
+
+  const sendEmailOtp = async (e) => {
+    e.preventDefault();
+    if (!emailInput.includes('@')) { setError('Enter a valid email address.'); return; }
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await enrollEmail(emailInput);
+      setEmailEnroll(result);
+    } catch (err) {
+      setError(err?.message || 'Could not send verification code.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmEmailEnroll = async (e) => {
+    e.preventDefault();
+    setError(null);
+    if (!/^\d{6}$/.test(emailCode.replace(/\s/g, ''))) {
+      setError('Enter the 6-digit code from your email.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await verifyFactor(emailEnroll.factorId, emailCode);
+      setEmailEnroll(null);
+      setEmailCode('');
+      setNotice('Email OTP enabled. A code will be sent to your email at each sign-in.');
+      await reload();
+    } catch (err) {
+      setError(err?.message || 'That code was not accepted. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // --- TOTP actions ---------------------------------------------------------
 
@@ -189,6 +252,60 @@ export default function MfaSettings() {
       {loadError && <div className="alert alert-error">{loadError}</div>}
       {error && <div className="alert alert-error">{error}</div>}
       {notice && <div className="alert alert-success">{notice}</div>}
+
+      {/* --- Email OTP --- */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontWeight: 600, marginBottom: 6 }}>Email verification code</div>
+
+        {verifiedEmail.length > 0 && (
+          <ul className="mfa-list">
+            {verifiedEmail.map((f) => (
+              <li key={f.id} className="mfa-row">
+                <div>
+                  <div style={{ fontWeight: 600 }}>{f.friendly_name || f.email || 'Email OTP'}</div>
+                  <div className="muted" style={{ fontSize: '0.8rem' }}>Added {fmtDate(f.created_at)}</div>
+                </div>
+                <button type="button" className="btn btn-danger btn-sm" disabled={busy}
+                  onClick={() => removeFactor(f.id, 'email OTP')}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {emailEnroll === 'input' ? (
+          <form onSubmit={sendEmailOtp} className="row-gap" style={{ marginTop: 8 }}>
+            <input type="email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)}
+              placeholder="your@email.com" style={{ maxWidth: 240 }} />
+            <button className="btn btn-primary" disabled={busy} type="submit">
+              {busy ? 'Sending…' : 'Send code'}
+            </button>
+            <button type="button" className="btn btn-secondary" disabled={busy} onClick={cancelEmailEnroll}>Cancel</button>
+          </form>
+        ) : emailEnroll?.factorId ? (
+          <div className="mfa-enroll">
+            <p className="muted" style={{ fontSize: '0.84rem' }}>
+              A 6-digit code was sent to <strong>{emailEnroll.email}</strong>. Enter it below to confirm.
+            </p>
+            <form onSubmit={confirmEmailEnroll} className="row-gap" style={{ marginTop: 8 }}>
+              <input type="text" inputMode="numeric" maxLength={7} value={emailCode}
+                onChange={(e) => setEmailCode(e.target.value)} placeholder="123456" style={{ maxWidth: 130 }} />
+              <button className="btn btn-primary" disabled={busy} type="submit">
+                {busy ? 'Verifying…' : 'Verify & enable'}
+              </button>
+              <button type="button" className="btn btn-secondary" disabled={busy} onClick={cancelEmailEnroll}>Cancel</button>
+            </form>
+          </div>
+        ) : (
+          <>
+            <p className="muted" style={{ fontSize: '0.84rem' }}>
+              Receive a one-time code by email each time you sign in.
+            </p>
+            <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={startEmailEnroll}>
+              {verifiedEmail.length > 0 ? 'Add another email' : 'Set up email OTP'}
+            </button>
+          </>
+        )}
+      </div>
 
       {/* --- Authenticator app (TOTP) --- */}
       <div style={{ marginBottom: 18 }}>
