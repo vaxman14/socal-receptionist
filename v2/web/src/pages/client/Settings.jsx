@@ -33,12 +33,21 @@ const FIELDS = [
 
 const VOICE_OPTIONS = [
   { value: 'Polly.Joanna-Neural',  label: 'Joanna — US English, Female (Default)' },
-  { value: 'Polly.Matthew-Neural', label: 'Matthew — US English, Male' },
-  { value: 'Polly.Salli-Neural',   label: 'Salli — US English, Female (Warm)' },
-  { value: 'Polly.Joey-Neural',    label: 'Joey — US English, Male (Friendly)' },
-  { value: 'Polly.Amy-Neural',     label: 'Amy — British English, Female' },
-  { value: 'Polly.Brian-Neural',   label: 'Brian — British English, Male' },
+  { value: 'Polly.Matthew-Neural', label: 'Matthew — US English, Male'             },
+  { value: 'Polly.Salli-Neural',   label: 'Salli — US English, Female (Warm)'      },
+  { value: 'Polly.Joey-Neural',    label: 'Joey — US English, Male (Friendly)'      },
+  { value: 'Polly.Amy-Neural',     label: 'Amy — British English, Female'           },
+  { value: 'Polly.Brian-Neural',   label: 'Brian — British English, Male'           },
 ];
+
+let previewAudio = null;
+
+async function previewVoice(voiceValue) {
+  if (previewAudio) { previewAudio.pause(); previewAudio = null; }
+  const url = `/admin/voice/preview?voice=${encodeURIComponent(voiceValue)}`;
+  previewAudio = new Audio(url);
+  previewAudio.play().catch(() => {});
+}
 
 export default function Settings() {
   const { data, loading, error, reload } = useFetch('/admin/me');
@@ -203,15 +212,29 @@ export default function Settings() {
               account email.
             </span>
           </label>
-          <label className="field" style={{ marginBottom: 0 }}>
+          <div className="field" style={{ marginBottom: 0 }}>
             <span className="label">Receptionist voice</span>
-            <select value={form.voice_id} onChange={set('voice_id')}>
-              {VOICE_OPTIONS.map((v) => (
-                <option key={v.value} value={v.value}>{v.label}</option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <select
+                value={form.voice_id}
+                onChange={set('voice_id')}
+                style={{ flex: 1 }}
+              >
+                {VOICE_OPTIONS.map((v) => (
+                  <option key={v.value} value={v.value}>{v.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ whiteSpace: 'nowrap', padding: '0 14px', height: 38 }}
+                onClick={() => previewVoice(form.voice_id)}
+              >
+                ▶ Preview
+              </button>
+            </div>
             <span className="hint">The voice your AI receptionist uses when answering calls.</span>
-          </label>
+          </div>
         </div>
 
         <div className="card card-pad">

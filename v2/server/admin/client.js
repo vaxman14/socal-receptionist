@@ -85,6 +85,48 @@ router.get('/me', async (req, res) => {
   });
 });
 
+// GET /admin/voice/preview?voice=Polly.Joanna-Neural
+// Streams an OpenAI TTS audio clip so the client can hear how each voice sounds.
+const POLLY_TO_OPENAI = {
+  'Polly.Joanna-Neural': 'nova',
+  'Polly.Salli-Neural':  'nova',
+  'Polly.Matthew-Neural': 'echo',
+  'Polly.Joey-Neural':   'echo',
+  'Polly.Amy-Neural':    'shimmer',
+  'Polly.Brian-Neural':  'onyx',
+};
+const PREVIEW_TEXT = 'Thank you for calling. How can I help you today?';
+
+router.get('/voice/preview', async (req, res) => {
+  const voiceId = req.query.voice || 'Polly.Joanna-Neural';
+  const oaiVoice = POLLY_TO_OPENAI[voiceId] || 'nova';
+  try {
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'tts-1',
+        input: PREVIEW_TEXT,
+        voice: oaiVoice,
+        speed: 0.95,
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.text();
+      return res.status(502).json({ error: 'TTS failed', detail: err });
+    }
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    const buf = await response.arrayBuffer();
+    res.send(Buffer.from(buf));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // PATCH /admin/tenant — update business config (whitelisted fields only).
 router.patch('/tenant', requireAal2, async (req, res) => {
   const patch = {};
