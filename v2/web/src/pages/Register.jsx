@@ -17,7 +17,7 @@ const STORAGE_KEY = 'socal-register';
 
 function loadSaved() {
   try {
-    const s = sessionStorage.getItem(STORAGE_KEY);
+    const s = localStorage.getItem(STORAGE_KEY);
     return s ? JSON.parse(s) : null;
   } catch { return null; }
 }
@@ -498,7 +498,7 @@ function StepCheckout({ tenant }) {
         cancelUrl: `${base}/register`,
       });
       if (data?.url) {
-        try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+        try { localStorage.removeItem(STORAGE_KEY); } catch {}
         ph.capture('checkout_started', { business: tenant?.business_name });
         window.location.href = data.url;
       } else {
@@ -572,7 +572,7 @@ export default function Register() {
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ step, userInfo, tenant }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ step, userInfo, tenant }));
     } catch {}
   }, [step, userInfo, tenant]);
 
