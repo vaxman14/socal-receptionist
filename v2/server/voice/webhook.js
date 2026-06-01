@@ -56,16 +56,22 @@ function menuGather(vr, tenant) {
     numDigits: 1,
     action: '/voice/menu',
     method: 'POST',
-    timeout: 6,
+    timeout: 8,
   });
   const greeting =
     tenant.voice_greeting ||
     `Thank you for calling ${tenant.business_name}.`;
-  gather.say(
-    voice(tenant),
-    `${greeting} To book or ask about an appointment, press 1. ` +
-      `To speak with our staff, press 2.`
-  );
+  // SSML: slight slow-down + natural pauses between sentences so it doesn't
+  // sound rushed. Polly Neural supports SSML natively via Twilio.
+  const ssml =
+    `<speak><prosody rate="95%">` +
+    `${greeting}` +
+    `<break time="700ms"/>` +
+    `To reach our staff directly, press 2.` +
+    `<break time="400ms"/>` +
+    `Otherwise, stay on the line and I'll be happy to help you.` +
+    `</prosody></speak>`;
+  gather.say(voice(tenant), ssml);
 }
 
 // --- Entry: a call arrives --------------------------------------------------
@@ -108,8 +114,8 @@ router.post('/voice', async (req, res) => {
 
   const vr = new VoiceResponse();
   menuGather(vr, tenant);
-  // Fallback if the caller pressed nothing: one re-prompt, then voicemail.
-  vr.redirect({ method: 'POST' }, '/voice/menu?reprompt=1');
+  // Caller stayed on the line (no digit) -> send them straight to the AI.
+  vr.redirect({ method: 'POST' }, '/voice/converse');
   sendTwiml(res, vr);
 });
 
@@ -165,14 +171,8 @@ router.post('/voice/menu', async (req, res) => {
     return sendTwiml(res, vr);
   }
 
-  // No / invalid digit. Re-prompt once, then fall through to voicemail.
-  if (req.query.reprompt) {
-    vr.say(voice(tenant), 'I did not get that.');
-    vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
-    return sendTwiml(res, vr);
-  }
-  menuGather(vr, tenant);
-  vr.redirect({ method: 'POST' }, '/voice/menu?reprompt=1');
+  // No digit / timeout / invalid -> send to AI receptionist.
+  vr.redirect({ method: 'POST' }, '/voice/converse');
   sendTwiml(res, vr);
 });
 
