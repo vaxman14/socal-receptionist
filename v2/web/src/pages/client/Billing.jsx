@@ -4,11 +4,17 @@ import { useFetch } from '../../lib/useFetch';
 import { Loading, ErrorState } from '../../components/States';
 import { formatDate } from '../../lib/format';
 
+// Maps both planKey slugs AND raw Stripe price IDs to display names.
 const PLAN_LABELS = {
   essentials_monthly: 'Essentials — Monthly',
   essentials_annual:  'Essentials — Annual',
   concierge_monthly:  'Concierge — Monthly',
   concierge_annual:   'Concierge — Annual',
+  // Stripe price IDs (what actually gets stored in the DB)
+  price_1TcJHMA1syxoZwwL93BhYH69: 'Essentials — Monthly',
+  price_1TcJHMA1syxoZwwLgwAHwmQB:  'Essentials — Annual',
+  price_1TcJHMA1syxoZwwL0NED90bf:  'Concierge — Monthly',
+  price_1TcJHMA1syxoZwwLRAcY1vjz:  'Concierge — Annual',
 };
 
 function statusBadge(status) {
