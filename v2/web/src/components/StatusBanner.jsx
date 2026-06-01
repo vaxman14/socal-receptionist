@@ -29,11 +29,9 @@ const COPY = {
 };
 
 export function StatusBanner({ status }) {
-  const c = COPY[status] || {
-    tone: 'info',
-    title: status || 'Unknown',
-    text: 'Current account status.',
-  };
+  // Treat any unknown/legacy SMS status as active.
+  const resolved = COPY[status] ? status : 'active';
+  const c = COPY[resolved];
   return (
     <div className={`banner banner-${c.tone}`}>
       <strong>{c.title}.</strong>
