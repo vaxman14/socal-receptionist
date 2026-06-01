@@ -19,7 +19,7 @@ const { transitionTenant } = require('./state-machine');
 // via a Stripe trial — the client is not billed the monthly fee until the
 // prepaid first month is up. Stripe reports the subscription as `trialing`
 // during this window; that status is entitled (see ENTITLED_STATUSES).
-const TRIAL_DAYS = 30;
+const TRIAL_DAYS = 7;
 
 // 14-day cancellation policy: a client who cancels within 14 days of paying the
 // setup fee is refunded $1,000 of it. The remaining $500 (the first month) is
