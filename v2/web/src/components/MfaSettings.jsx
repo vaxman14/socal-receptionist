@@ -11,6 +11,8 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   listFactors,
   enrollTotp,
+  enrollPhone,
+  challengePhone,
   verifyFactor,
   unenrollFactor,
   browserSupportsPasskeys,
@@ -33,6 +35,11 @@ export default function MfaSettings() {
   const [factors, setFactors] = useState(null);
   const [devices, setDevices] = useState([]);
   const [loadError, setLoadError] = useState(null);
+
+  // Phone enrollment state.
+  const [phoneEnroll, setPhoneEnroll] = useState(null); // 'input' | { factorId, phone, challengeId }
+  const [phoneInput, setPhoneInput] = useState('');
+  const [phoneCode, setPhoneCode] = useState('');
 
   // TOTP enrollment state.
   const [enroll, setEnroll] = useState(null); // { factorId, qrSvg, secret }
@@ -59,7 +66,46 @@ export default function MfaSettings() {
   if (!factors && !loadError) return <Loading label="Loading security…" />;
 
   const verifiedTotp = (factors?.totp || []).filter((f) => f.status === 'verified');
+  const verifiedPhone = (factors?.phone || []).filter((f) => f.status === 'verified');
   const verifiedPasskeys = (factors?.webauthn || []).filter((f) => f.status === 'verified');
+
+  // --- Phone OTP actions ----------------------------------------------------
+
+  const startPhoneEnroll = () => { setError(null); setNotice(null); setPhoneEnroll('input'); setPhoneInput(''); setPhoneCode(''); };
+
+  const cancelPhoneEnroll = async () => {
+    if (phoneEnroll?.factorId) {
+      try { await unenrollFactor(phoneEnroll.factorId); } catch { /* best-effort */ }
+    }
+    setPhoneEnroll(null); setPhoneInput(''); setPhoneCode(''); setError(null);
+  };
+
+  const sendPhoneSms = async (e) => {
+    e.preventDefault();
+    if (!phoneInput.match(/^\+?[1-9]\d{7,14}$/)) { setError('Enter a valid phone number in international format (e.g. +19515149294).'); return; }
+    setError(null); setBusy(true);
+    try {
+      const result = await enrollPhone(phoneInput.startsWith('+') ? phoneInput : `+1${phoneInput}`);
+      const { challengeId } = await challengePhone(result.factorId);
+      setPhoneEnroll({ ...result, challengeId });
+    } catch (err) {
+      setError(err?.message || 'Could not send SMS code.');
+    } finally { setBusy(false); }
+  };
+
+  const confirmPhoneEnroll = async (e) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(phoneCode.replace(/\s/g, ''))) { setError('Enter the 6-digit code from the SMS.'); return; }
+    setError(null); setBusy(true);
+    try {
+      await verifyFactor(phoneEnroll.factorId, phoneCode);
+      setPhoneEnroll(null); setPhoneCode('');
+      setNotice('Phone SMS OTP enabled. A code will be texted to you at each sign-in.');
+      await reload();
+    } catch (err) {
+      setError(err?.message || 'That code was not accepted. Please try again.');
+    } finally { setBusy(false); }
+  };
 
   // --- TOTP actions ---------------------------------------------------------
 
@@ -189,6 +235,58 @@ export default function MfaSettings() {
       {loadError && <div className="alert alert-error">{loadError}</div>}
       {error && <div className="alert alert-error">{error}</div>}
       {notice && <div className="alert alert-success">{notice}</div>}
+
+      {/* --- Phone SMS OTP --- */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontWeight: 600, marginBottom: 6 }}>SMS verification code</div>
+
+        {verifiedPhone.length > 0 && (
+          <ul className="mfa-list">
+            {verifiedPhone.map((f) => (
+              <li key={f.id} className="mfa-row">
+                <div>
+                  <div style={{ fontWeight: 600 }}>{f.phone || f.friendly_name || 'Phone'}</div>
+                  <div className="muted" style={{ fontSize: '0.8rem' }}>Added {fmtDate(f.created_at)}</div>
+                </div>
+                <button type="button" className="btn btn-danger btn-sm" disabled={busy}
+                  onClick={() => removeFactor(f.id, 'phone')}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {phoneEnroll === 'input' ? (
+          <form onSubmit={sendPhoneSms} className="row-gap" style={{ marginTop: 8 }}>
+            <input type="tel" value={phoneInput} onChange={(e) => setPhoneInput(e.target.value)}
+              placeholder="+19515149294" style={{ maxWidth: 200 }} />
+            <button className="btn btn-primary" disabled={busy} type="submit">
+              {busy ? 'Sending…' : 'Send SMS code'}
+            </button>
+            <button type="button" className="btn btn-secondary" disabled={busy} onClick={cancelPhoneEnroll}>Cancel</button>
+          </form>
+        ) : phoneEnroll?.factorId ? (
+          <div className="mfa-enroll">
+            <p className="muted" style={{ fontSize: '0.84rem' }}>
+              Code sent to <strong>{phoneEnroll.phone}</strong>. Enter it below.
+            </p>
+            <form onSubmit={confirmPhoneEnroll} className="row-gap" style={{ marginTop: 8 }}>
+              <input type="text" inputMode="numeric" maxLength={7} value={phoneCode}
+                onChange={(e) => setPhoneCode(e.target.value)} placeholder="123456" style={{ maxWidth: 130 }} />
+              <button className="btn btn-primary" disabled={busy} type="submit">
+                {busy ? 'Verifying…' : 'Verify & enable'}
+              </button>
+              <button type="button" className="btn btn-secondary" disabled={busy} onClick={cancelPhoneEnroll}>Cancel</button>
+            </form>
+          </div>
+        ) : (
+          <>
+            <p className="muted" style={{ fontSize: '0.84rem' }}>Receive a one-time code by SMS at each sign-in.</p>
+            <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={startPhoneEnroll}>
+              {verifiedPhone.length > 0 ? 'Add another phone' : 'Set up SMS OTP'}
+            </button>
+          </>
+        )}
+      </div>
 
       {/* --- Authenticator app (TOTP) --- */}
       <div style={{ marginBottom: 18 }}>

@@ -64,6 +64,24 @@ export async function listFactors() {
     webauthn: (data.all || []).filter((f) => f.factor_type === 'webauthn'),
     all: data.all || [],
   };
+
+}
+
+// Begin a phone (SMS OTP) enrollment. Returns { factorId, phone }.
+export async function enrollPhone(phone) {
+  const { data, error } = await supabase.auth.mfa.enroll({
+    factorType: 'phone',
+    phone,
+  });
+  if (error) throw error;
+  return { factorId: data.id, phone };
+}
+
+// Challenge a phone factor — sends the SMS. Returns { challengeId }.
+export async function challengePhone(factorId) {
+  const { data, error } = await supabase.auth.mfa.challenge({ factorId });
+  if (error) throw error;
+  return { challengeId: data.id };
 }
 
 // Begin a TOTP enrollment. Returns { factorId, qrSvg, secret, uri }.
