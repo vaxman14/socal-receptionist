@@ -70,6 +70,7 @@ async function createCheckoutSession({ tenant, priceId, setupPriceId, successUrl
       metadata: { tenant_id: tenant.id },
     },
     metadata: { tenant_id: tenant.id },
+    allow_promotion_codes: true,
     success_url: successUrl,
     cancel_url: cancelUrl,
   });
