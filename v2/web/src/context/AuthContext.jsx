@@ -57,6 +57,14 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
+  const signInWithOAuth = useCallback(async (provider) => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) throw error;
+  }, []);
+
   const forgotPassword = useCallback(async (email) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
@@ -76,6 +84,7 @@ export function AuthProvider({ children }) {
     signIn,
     signUp,
     signOut,
+    signInWithOAuth,
     forgotPassword,
     updatePassword,
   };
