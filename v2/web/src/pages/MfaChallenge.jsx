@@ -12,7 +12,6 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   listFactors,
-  challengePhone,
   verifyFactor,
   authenticatePasskey,
   trustThisDevice,
@@ -25,11 +24,6 @@ export default function MfaChallenge({ onVerified }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [loadError, setLoadError] = useState(null);
-
-  // Phone OTP challenge state.
-  const [phoneMode, setPhoneMode] = useState(false);
-  const [phoneChallengeId, setPhoneChallengeId] = useState(null);
-  const [phoneFactor, setPhoneFactor] = useState(null);
 
   // Account-recovery ("lost my authenticator") sub-flow.
   const [recoverMode, setRecoverMode] = useState(false);
@@ -63,37 +57,9 @@ export default function MfaChallenge({ onVerified }) {
     onVerified();
   };
 
-  const sendPhoneChallenge = async () => {
-    setError(null);
-    const factor = factors?.phone?.find((f) => f.status === 'verified');
-    if (!factor) { setError('No phone factor found.'); return; }
-    setBusy(true);
-    try {
-      const { challengeId } = await challengePhone(factor.id);
-      setPhoneFactor(factor);
-      setPhoneChallengeId(challengeId);
-      setPhoneMode(true);
-    } catch (err) {
-      setError(err?.message || 'Could not send SMS code.');
-    } finally { setBusy(false); }
-  };
-
   const submitCode = async (e) => {
     e.preventDefault();
     setError(null);
-
-    if (phoneMode) {
-      if (!/^\d{6}$/.test(code.replace(/\s/g, ''))) { setError('Enter the 6-digit code from the SMS.'); return; }
-      setBusy(true);
-      try {
-        await verifyFactor(phoneFactor.id, code);
-        await afterVerified();
-      } catch (err) {
-        setError(err?.message || 'That code was not accepted. Please try again.');
-        setBusy(false);
-      }
-      return;
-    }
 
     const totp = factors?.totp?.find((f) => f.status === 'verified');
     if (!totp) {
@@ -225,19 +191,13 @@ export default function MfaChallenge({ onVerified }) {
           <>
             <h1 style={{ fontSize: '1.3rem', marginBottom: 4 }}>Verify it's you</h1>
             <p className="muted" style={{ fontSize: '0.88rem', marginBottom: 18 }}>
-              {phoneMode
-                ? `Enter the 6-digit code sent to ${phoneFactor?.phone || 'your phone'}.`
-                : 'Enter the 6-digit code from your authenticator app.'}
+              Enter the 6-digit code from your authenticator app to finish
+              signing in.
             </p>
 
             {loadError && <div className="alert alert-error">{loadError}</div>}
             {error && <div className="alert alert-error">{error}</div>}
 
-            {phoneMode && !phoneChallengeId ? (
-              <button className="btn btn-primary btn-block" disabled={busy} onClick={sendPhoneChallenge}>
-                {busy ? 'Sending…' : 'Send SMS code'}
-              </button>
-            ) : (
             <form onSubmit={submitCode}>
               <label className="field">
                 <span className="label">Authentication code</span>
@@ -270,22 +230,15 @@ export default function MfaChallenge({ onVerified }) {
                 {busy ? 'Verifying…' : 'Verify'}
               </button>
             </form>
-            )}
-
-            {/* Toggle between phone and TOTP */}
-            {factors?.phone?.some((f) => f.status === 'verified') && (
-              <button type="button" className="btn btn-secondary btn-block" style={{ marginTop: 10 }}
-                disabled={busy} onClick={() => {
-                  if (!phoneMode) { setPhoneMode(true); setPhoneChallengeId(null); setCode(''); setError(null); sendPhoneChallenge(); }
-                  else { setPhoneMode(false); setCode(''); setError(null); }
-                }}>
-                {phoneMode ? 'Use authenticator app instead' : 'Send SMS code instead'}
-              </button>
-            )}
 
             {factors?.webauthn?.some((f) => f.status === 'verified') && (
-              <button type="button" className="btn btn-secondary btn-block" style={{ marginTop: 10 }}
-                disabled={busy} onClick={usePasskey}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-block"
+                style={{ marginTop: 10 }}
+                disabled={busy}
+                onClick={usePasskey}
+              >
                 Use a passkey instead
               </button>
             )}
