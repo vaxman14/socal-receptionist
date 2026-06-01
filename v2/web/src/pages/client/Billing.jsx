@@ -42,7 +42,8 @@ export default function Billing() {
       const result = await api.post('/admin/billing/portal', { returnUrl: `${base}/billing` });
       if (result?.url) window.location.href = result.url;
     } catch (err) {
-      setActionError(err?.message || 'Could not open billing portal. Please try again.');
+      if (err?.status === 403) setActionError('mfa_required');
+      else setActionError(err?.message || 'Could not open billing portal. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -60,7 +61,8 @@ export default function Billing() {
       });
       if (result?.url) window.location.href = result.url;
     } catch (err) {
-      setActionError(err?.message || 'Could not start checkout. Please try again.');
+      if (err?.status === 403) setActionError('mfa_required');
+      else setActionError(err?.message || 'Could not start checkout. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -79,9 +81,14 @@ export default function Billing() {
         <p>Manage your subscription and payment method.</p>
       </div>
 
-      {actionError && (
+      {actionError === 'mfa_required' ? (
+        <div className="alert alert-error" style={{ marginBottom: 16 }}>
+          Two-factor authentication is required before subscribing.{' '}
+          <a href="/settings">Set up MFA in Settings →</a>
+        </div>
+      ) : actionError ? (
         <div className="alert alert-error" style={{ marginBottom: 16 }}>{actionError}</div>
-      )}
+      ) : null}
 
       <div className="card card-pad">
         {isActive ? (
