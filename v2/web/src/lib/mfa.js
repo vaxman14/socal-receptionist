@@ -60,7 +60,6 @@ export async function listFactors() {
   return {
     totp: data.totp || [],
     phone: data.phone || [],
-    email: (data.all || []).filter((f) => f.factor_type === 'email'),
     // Passkeys come back under `all` with factor_type 'webauthn'.
     webauthn: (data.all || []).filter((f) => f.factor_type === 'webauthn'),
     all: data.all || [],
@@ -80,16 +79,6 @@ export async function enrollTotp(friendlyName) {
     secret: data.totp.secret, // the base32 secret, for manual entry
     uri: data.totp.uri,
   };
-}
-
-// Begin an email OTP enrollment. Returns { factorId, email }.
-export async function enrollEmail(email) {
-  const { data, error } = await supabase.auth.mfa.enroll({
-    factorType: 'email',
-    email,
-  });
-  if (error) throw error;
-  return { factorId: data.id, email: data.email?.email || email };
 }
 
 // Verify a 6-digit code against a factor — used both to finish enrollment and

@@ -57,54 +57,9 @@ export default function MfaChallenge({ onVerified }) {
     onVerified();
   };
 
-  // Which MFA methods the user has set up.
-  const hasTotp = factors?.totp?.some((f) => f.status === 'verified');
-  const hasEmail = factors?.email?.some((f) => f.status === 'verified');
-
-  // If user has email OTP, default to that; TOTP otherwise.
-  const [useEmailOtp, setUseEmailOtp] = useState(false);
-  const [emailOtpSent, setEmailOtpSent] = useState(false);
-  const [emailFactor, setEmailFactor] = useState(null);
-
-  const sendEmailOtpChallenge = async () => {
-    setError(null);
-    setBusy(true);
-    try {
-      const factor = factors?.email?.find((f) => f.status === 'verified');
-      if (!factor) { setError('No email OTP factor found.'); return; }
-      // challengeAndVerify will send the email; we just need the factorId.
-      setEmailFactor(factor);
-      // Trigger a challenge (sends the email).
-      await supabase.auth.mfa.challenge({ factorId: factor.id });
-      setEmailOtpSent(true);
-    } catch (err) {
-      setError(err?.message || 'Could not send email code.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const submitCode = async (e) => {
     e.preventDefault();
     setError(null);
-
-    if (useEmailOtp) {
-      const factor = emailFactor || factors?.email?.find((f) => f.status === 'verified');
-      if (!factor) { setError('No email OTP factor found.'); return; }
-      if (!/^\d{6}$/.test(code.replace(/\s/g, ''))) {
-        setError('Enter the 6-digit code from your email.');
-        return;
-      }
-      setBusy(true);
-      try {
-        await verifyFactor(factor.id, code);
-        await afterVerified();
-      } catch (err) {
-        setError(err?.message || 'That code was not accepted. Please try again.');
-        setBusy(false);
-      }
-      return;
-    }
 
     const totp = factors?.totp?.find((f) => f.status === 'verified');
     if (!totp) {
@@ -236,65 +191,54 @@ export default function MfaChallenge({ onVerified }) {
           <>
             <h1 style={{ fontSize: '1.3rem', marginBottom: 4 }}>Verify it's you</h1>
             <p className="muted" style={{ fontSize: '0.88rem', marginBottom: 18 }}>
-              {useEmailOtp
-                ? emailOtpSent
-                  ? 'Enter the 6-digit code sent to your email.'
-                  : "We'll send a code to your registered email address."
-                : 'Enter the 6-digit code from your authenticator app.'}
+              Enter the 6-digit code from your authenticator app to finish
+              signing in.
             </p>
 
             {loadError && <div className="alert alert-error">{loadError}</div>}
             {error && <div className="alert alert-error">{error}</div>}
 
-            {useEmailOtp && !emailOtpSent ? (
-              <button className="btn btn-primary btn-block" disabled={busy} onClick={sendEmailOtpChallenge}>
-                {busy ? 'Sending…' : 'Send code to my email'}
-              </button>
-            ) : (
-              <form onSubmit={submitCode}>
-                <label className="field">
-                  <span className="label">Authentication code</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    maxLength={7}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="123456"
-                    autoFocus
-                  />
-                </label>
+            <form onSubmit={submitCode}>
+              <label className="field">
+                <span className="label">Authentication code</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={7}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="123456"
+                  autoFocus
+                />
+              </label>
 
-                <label className="checkbox" style={{ marginBottom: 14 }}>
-                  <input type="checkbox" checked={trust} onChange={(e) => setTrust(e.target.checked)} />
-                  <span>Trust this device for 30 days</span>
-                </label>
+              <label className="checkbox" style={{ marginBottom: 14 }}>
+                <input
+                  type="checkbox"
+                  checked={trust}
+                  onChange={(e) => setTrust(e.target.checked)}
+                />
+                <span>Trust this device for 30 days</span>
+              </label>
 
-                <button className="btn btn-primary btn-block" disabled={busy || !factors} type="submit">
-                  {busy ? 'Verifying…' : 'Verify'}
-                </button>
-              </form>
-            )}
-
-            {/* Toggle between email OTP and TOTP if user has both */}
-            {hasEmail && hasTotp && (
-              <button type="button" className="btn btn-secondary btn-block" style={{ marginTop: 10 }}
-                disabled={busy} onClick={() => { setUseEmailOtp(!useEmailOtp); setEmailOtpSent(false); setCode(''); setError(null); }}>
-                {useEmailOtp ? 'Use authenticator app instead' : 'Use email code instead'}
+              <button
+                className="btn btn-primary btn-block"
+                disabled={busy || !factors}
+                type="submit"
+              >
+                {busy ? 'Verifying…' : 'Verify'}
               </button>
-            )}
-            {/* Show email option if only email is set up */}
-            {hasEmail && !hasTotp && !useEmailOtp && (
-              <button type="button" className="btn btn-secondary btn-block" style={{ marginTop: 10 }}
-                disabled={busy} onClick={() => { setUseEmailOtp(true); setError(null); }}>
-                Use email code instead
-              </button>
-            )}
+            </form>
 
             {factors?.webauthn?.some((f) => f.status === 'verified') && (
-              <button type="button" className="btn btn-secondary btn-block" style={{ marginTop: 10 }}
-                disabled={busy} onClick={usePasskey}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-block"
+                style={{ marginTop: 10 }}
+                disabled={busy}
+                onClick={usePasskey}
+              >
                 Use a passkey instead
               </button>
             )}
