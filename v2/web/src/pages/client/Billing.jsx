@@ -126,7 +126,11 @@ export default function Billing() {
                 </div>
               )}
             </div>
-
+            {sub.cancel_at_period_end && (
+              <div className="alert alert-error" style={{ marginTop: 16 }}>
+                <strong>Your subscription is scheduled to cancel.</strong> On {formatDate(sub.current_period_end)}, your AI receptionist number will be <strong>permanently released</strong> and will stop accepting calls. If you'd like to keep your service, reactivate before that date via the billing portal.
+              </div>
+            )}
             <p style={{ marginTop: 16, fontSize: 13, color: 'var(--muted)' }}>
               Update payment method, download invoices, or cancel your subscription via the billing portal.
             </p>

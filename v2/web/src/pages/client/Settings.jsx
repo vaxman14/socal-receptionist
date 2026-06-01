@@ -28,6 +28,16 @@ const FIELDS = [
   'staff_phone',
   'voice_greeting',
   'voicemail_email',
+  'voice_id',
+];
+
+const VOICE_OPTIONS = [
+  { value: 'Polly.Joanna-Neural',  label: 'Joanna — US English, Female (Default)' },
+  { value: 'Polly.Matthew-Neural', label: 'Matthew — US English, Male' },
+  { value: 'Polly.Salli-Neural',   label: 'Salli — US English, Female (Warm)' },
+  { value: 'Polly.Joey-Neural',    label: 'Joey — US English, Male (Friendly)' },
+  { value: 'Polly.Amy-Neural',     label: 'Amy — British English, Female' },
+  { value: 'Polly.Brian-Neural',   label: 'Brian — British English, Male' },
 ];
 
 export default function Settings() {
@@ -44,6 +54,7 @@ export default function Settings() {
       for (const f of FIELDS) {
         next[f] = f === 'voice_enabled' ? Boolean(t[f]) : t[f] ?? '';
       }
+      if (!next.voice_id) next.voice_id = 'Polly.Joanna-Neural';
       setForm(next);
     }
   }, [data]);
@@ -96,6 +107,20 @@ export default function Settings() {
         <h1>Settings</h1>
         <p>Configure how your AI receptionist handles calls.</p>
       </div>
+
+      {data?.phoneNumber && (
+        <div className="card card-pad" style={{ marginBottom: 0 }}>
+          <div className="section-title">Your Receptionist Number</div>
+          <p style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '0.05em', margin: '8px 0 4px' }}>
+            {data.phoneNumber.phone_e164}
+          </p>
+          <p className="muted" style={{ fontSize: '0.82rem' }}>
+            {data.phoneNumber.is_byo
+              ? 'Bring-your-own number — forwarded to this receptionist.'
+              : 'This number was provisioned by SoCal Receptionist. Give it to your clients to call.'}
+          </p>
+        </div>
+      )}
 
       {saveError && <div className="alert alert-error">{saveError}</div>}
       {saved && <div className="alert alert-success">Settings saved.</div>}
@@ -170,13 +195,22 @@ export default function Settings() {
             <textarea value={form.voice_greeting} onChange={set('voice_greeting')} />
             <span className="hint">Leave blank for a generated default greeting.</span>
           </label>
-          <label className="field" style={{ marginBottom: 0 }}>
+          <label className="field">
             <span className="label">Voicemail notification email</span>
             <input type="email" value={form.voicemail_email} onChange={set('voicemail_email')} />
             <span className="hint">
               Where missed-call and voicemail alerts are sent. Blank uses your
               account email.
             </span>
+          </label>
+          <label className="field" style={{ marginBottom: 0 }}>
+            <span className="label">Receptionist voice</span>
+            <select value={form.voice_id} onChange={set('voice_id')}>
+              {VOICE_OPTIONS.map((v) => (
+                <option key={v.value} value={v.value}>{v.label}</option>
+              ))}
+            </select>
+            <span className="hint">The voice your AI receptionist uses when answering calls.</span>
           </label>
         </div>
 

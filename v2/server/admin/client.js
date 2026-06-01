@@ -57,21 +57,31 @@ const EDITABLE_FIELDS = [
   'staff_phone',      // "press 2 / speak to staff" transfer target
   'voice_greeting',
   'voicemail_email',
+  'voice_id',         // Twilio Polly Neural voice selection
 ];
 
 router.use(requireAuth, requireTenant);
 
-// GET /admin/me — account, tenant, subscription.
+// GET /admin/me — account, tenant, subscription, phone number.
 router.get('/me', async (req, res) => {
-  const { data: subscription } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('tenant_id', req.tenant.id)
-    .maybeSingle();
+  const [{ data: subscription }, { data: phoneNumbers }] = await Promise.all([
+    supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('tenant_id', req.tenant.id)
+      .maybeSingle(),
+    supabase
+      .from('phone_numbers')
+      .select('phone_e164, status, is_byo')
+      .eq('tenant_id', req.tenant.id)
+      .eq('status', 'active')
+      .limit(1),
+  ]);
   res.json({
     user: { id: req.user.id, email: req.user.email },
     tenant: req.tenant,
     subscription: subscription || null,
+    phoneNumber: phoneNumbers && phoneNumbers[0] ? phoneNumbers[0] : null,
   });
 });
 

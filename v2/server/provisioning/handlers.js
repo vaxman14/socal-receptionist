@@ -10,8 +10,14 @@
 //
 //   provision_tenant -> setup_messaging -> finalize_onboarding
 
+const twilio = require('twilio');
 const { supabase } = require('../lib/supabase');
 const { enqueue, ManualReviewRequired } = require('../lib/jobs');
+
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
 const { transitionTenant } = require('../lib/state-machine');
 const { hasSignedCurrent } = require('../lib/agreements');
 
@@ -103,13 +109,35 @@ async function releaseNumber(job) {
   if (!numberId) {
     throw new ManualReviewRequired('release_number job missing payload.phone_number_id');
   }
+
+  // Fetch the number record for the Twilio SID and BYO flag.
+  const { data: numRow, error: fetchErr } = await supabase
+    .from('phone_numbers')
+    .select('id, twilio_sid, is_byo, status')
+    .eq('id', numberId)
+    .eq('tenant_id', job.tenant_id)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (!numRow) return; // already gone
+
+  // Release from Twilio unless it's a bring-your-own number.
+  if (!numRow.is_byo && numRow.twilio_sid) {
+    try {
+      await twilioClient.incomingPhoneNumbers(numRow.twilio_sid).remove();
+      console.log(`[worker] released Twilio number ${numRow.twilio_sid} for tenant ${job.tenant_id}`);
+    } catch (err) {
+      // If Twilio says the number doesn't exist, treat as already released.
+      if (err.code !== 20404) throw err;
+      console.warn(`[worker] Twilio number ${numRow.twilio_sid} already absent (20404), marking released`);
+    }
+  }
+
   const { error } = await supabase
     .from('phone_numbers')
     .update({ status: 'released', released_at: new Date().toISOString() })
     .eq('id', numberId)
-    .eq('tenant_id', job.tenant_id); // scope guard
+    .eq('tenant_id', job.tenant_id);
   if (error) throw error;
-  // TODO: twilioClient.incomingPhoneNumbers(sid).remove() once Twilio is wired.
 }
 
 // Purge transcript messages past a tenant's retention window.
