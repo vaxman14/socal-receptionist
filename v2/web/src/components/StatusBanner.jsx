@@ -1,4 +1,5 @@
 // Tenant status banner — explains the tenant lifecycle state in plain language.
+// sms_pending_compliance is treated as active since SMS is not a launched feature.
 
 const COPY = {
   onboarding: {
@@ -34,7 +35,9 @@ const COPY = {
 };
 
 export function StatusBanner({ status }) {
-  const c = COPY[status] || {
+  // SMS isn't launched — don't surface SMS compliance state to clients.
+  const resolvedStatus = status === 'sms_pending_compliance' ? 'active' : status;
+  const c = COPY[resolvedStatus] || {
     tone: 'info',
     title: status || 'Unknown',
     text: 'Current account status.',
