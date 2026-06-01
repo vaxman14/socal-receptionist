@@ -1,16 +1,10 @@
 // Tenant status banner — explains the tenant lifecycle state in plain language.
-// sms_pending_compliance is treated as active since SMS is not a launched feature.
 
 const COPY = {
   onboarding: {
     tone: 'info',
     title: 'Onboarding',
     text: 'Finish signing your Service Agreement to begin provisioning.',
-  },
-  sms_pending_compliance: {
-    tone: 'warn',
-    title: 'Pending carrier compliance',
-    text: 'Your number is registered and we are awaiting A2P / carrier approval. Texting goes live automatically once approved.',
   },
   active: {
     tone: 'green',
@@ -35,9 +29,7 @@ const COPY = {
 };
 
 export function StatusBanner({ status }) {
-  // SMS isn't launched — don't surface SMS compliance state to clients.
-  const resolvedStatus = status === 'sms_pending_compliance' ? 'active' : status;
-  const c = COPY[resolvedStatus] || {
+  const c = COPY[status] || {
     tone: 'info',
     title: status || 'Unknown',
     text: 'Current account status.',

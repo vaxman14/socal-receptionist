@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { api } from '../../lib/api';
-import { SMS_ENABLED } from '../../lib/config';
 
 const TIMEZONES = [
   'America/Los_Angeles',
@@ -78,9 +77,8 @@ export default function StepBusiness({ onCreated }) {
     <div className="card card-pad">
       <h1>Tell us about your business</h1>
       <p className="muted" style={{ marginBottom: 18, fontSize: '0.92rem' }}>
-        This configures how your AI receptionist answers{' '}
-        {SMS_ENABLED ? 'texts and calls' : 'calls'}. You can change everything
-        later in Settings.
+        This configures how your AI receptionist answers calls. You can change
+        everything later in Settings.
       </p>
 
       {error && <div className="alert alert-error">{error}</div>}

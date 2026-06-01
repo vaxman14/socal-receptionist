@@ -34,7 +34,7 @@ export default function Tenants() {
                   <th>Slug</th>
                   <th>Status</th>
                   <th>Subscription</th>
-                  <th>SMS / mo</th>
+
                   <th>Created</th>
                 </tr>
               </thead>
@@ -68,7 +68,7 @@ export default function Tenants() {
                           <span className="muted">None</span>
                         )}
                       </td>
-                      <td>{t.monthly_sms_count ?? 0}</td>
+
                       <td className="muted">{formatDateShort(t.created_at)}</td>
                     </tr>
                   );

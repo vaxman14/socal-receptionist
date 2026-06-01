@@ -2,7 +2,6 @@
 
 import { Link } from 'react-router-dom';
 import { useFetch } from '../../lib/useFetch';
-import { SMS_ENABLED } from '../../lib/config';
 import { Loading, ErrorState } from '../../components/States';
 import { StatusBanner } from '../../components/StatusBanner';
 import { Badge } from '../../components/Badge';
@@ -12,9 +11,6 @@ export default function Overview() {
   const me = useFetch('/admin/me');
   const leads = useFetch('/admin/leads');
   const calls = useFetch('/admin/calls');
-  // SMS is a voice-first launch gate — skip the conversations fetch entirely
-  // while the text channel is dark.
-  const convos = useFetch('/admin/conversations', { skip: !SMS_ENABLED });
 
   if (me.loading) return <Loading label="Loading your dashboard…" />;
   if (me.error) return <ErrorState message={me.error} onRetry={me.reload} />;
@@ -22,8 +18,6 @@ export default function Overview() {
   const tenant = me.data?.tenant || {};
   const leadList = leads.data?.leads || [];
   const callList = calls.data?.calls || [];
-  const convoList = convos.data?.conversations || [];
-  const openConvos = convoList.filter((c) => c.status === 'open').length;
 
   return (
     <>
@@ -45,20 +39,6 @@ export default function Overview() {
           <div className="value">{calls.loading ? '—' : callList.length}</div>
           <div className="sub">Inbound phone calls</div>
         </div>
-        {SMS_ENABLED && (
-          <>
-            <div className="stat">
-              <div className="label">Open conversations</div>
-              <div className="value">{convos.loading ? '—' : openConvos}</div>
-              <div className="sub">{convoList.length} total threads</div>
-            </div>
-            <div className="stat">
-              <div className="label">SMS this month</div>
-              <div className="value">{tenant.monthly_sms_count ?? 0}</div>
-              <div className="sub">Messages sent + received</div>
-            </div>
-          </>
-        )}
       </div>
 
       <div className="grid grid-2">

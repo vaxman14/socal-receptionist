@@ -70,9 +70,9 @@ export default function StepDone({ tenant, signResult, onContinue }) {
       </div>
 
       <p className="muted" style={{ fontSize: '0.88rem', margin: '16px 0' }}>
-        Provisioning a phone number and A2P registration can take a little time.
-        Your dashboard shows live status — you'll see it move to{' '}
-        <strong>active</strong> once everything is ready.
+        Provisioning your phone number can take a little time. Your dashboard
+        shows live status — you'll see it move to <strong>active</strong> once
+        everything is ready.
       </p>
 
       <div className="row-gap">

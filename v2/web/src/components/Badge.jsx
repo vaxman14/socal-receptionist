@@ -5,7 +5,6 @@ import { titleCase } from '../lib/format';
 const TONE = {
   // tenant status
   onboarding: 'info',
-  sms_pending_compliance: 'warn',
   active: 'green',
   suspended_billing: 'danger',
   suspended_compliance: 'danger',
@@ -16,9 +15,6 @@ const TONE = {
   contacted: 'warn',
   won: 'green',
   lost: 'gray',
-  // conversation status
-  open: 'green',
-  closed: 'gray',
   // call outcome
   in_progress: 'info',
   ai_handled: 'green',

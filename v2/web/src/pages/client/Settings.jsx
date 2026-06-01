@@ -4,7 +4,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { useFetch } from '../../lib/useFetch';
-import { SMS_ENABLED } from '../../lib/config';
 import { Loading, ErrorState } from '../../components/States';
 import MfaSettings from '../../components/MfaSettings';
 
@@ -95,7 +94,7 @@ export default function Settings() {
     <>
       <div className="page-head">
         <h1>Settings</h1>
-        <p>Configure how your AI receptionist handles texts and calls.</p>
+        <p>Configure how your AI receptionist handles calls.</p>
       </div>
 
       {saveError && <div className="alert alert-error">{saveError}</div>}

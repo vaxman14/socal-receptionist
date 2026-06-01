@@ -112,36 +112,6 @@ router.get('/leads', async (req, res) => {
   res.json({ leads: data });
 });
 
-// GET /admin/conversations — this tenant's conversation threads.
-router.get('/conversations', async (req, res) => {
-  const { data, error } = await supabase
-    .from('conversations')
-    .select('*')
-    .eq('tenant_id', req.tenant.id)
-    .order('last_message_at', { ascending: false, nullsFirst: false })
-    .limit(200);
-  if (error) {
-    console.error('[admin] list conversations failed:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-  res.json({ conversations: data });
-});
-
-// GET /admin/conversations/:id/messages — a transcript, scoped to the tenant.
-router.get('/conversations/:id/messages', async (req, res) => {
-  const { data, error } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('conversation_id', req.params.id)
-    .eq('tenant_id', req.tenant.id) // scope guard — can't read another tenant's thread
-    .order('created_at', { ascending: true });
-  if (error) {
-    console.error('[admin] list messages failed:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-  res.json({ messages: data });
-});
-
 // GET /admin/calls — this tenant's inbound calls, newest first.
 router.get('/calls', async (req, res) => {
   const { data, error } = await supabase

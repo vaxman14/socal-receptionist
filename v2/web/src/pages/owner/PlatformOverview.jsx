@@ -64,7 +64,7 @@ export default function PlatformOverview() {
         <div className="stat">
           <div className="label">Messages</div>
           <div className="value">{s.messages_total ?? 0}</div>
-          <div className="sub">Total SMS handled</div>
+          <div className="sub">Total messages handled</div>
         </div>
       </div>
 
