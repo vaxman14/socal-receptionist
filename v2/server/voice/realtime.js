@@ -140,6 +140,7 @@ function handleMediaStream(twilioWs, req) {
     openaiWs.send(JSON.stringify({
       type: 'session.update',
       session: {
+        type: 'realtime',
         modalities: ['audio', 'text'],
         voice: realtimeVoice,
         input_audio_format: 'g711_ulaw',
