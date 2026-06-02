@@ -55,7 +55,8 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'socal-receptionist-v2', ts: new Date().toISOString() });
 });
 
-// Public voice preview — no auth required (sample phrase only, cached 1h).
+// Public voice preview — no auth required (sample phrase only, cached per process).
+const OpenAI = require('openai');
 const POLLY_TO_OPENAI_PUBLIC = {
   'Polly.Joanna-Neural': 'nova',
   'Polly.Salli-Neural':  'nova',
@@ -74,18 +75,20 @@ app.get('/voice/preview', async (req, res) => {
     return res.send(_voicePreviewCache.get(oaiVoice));
   }
   try {
-    const r = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'tts-1', input: 'Thank you for calling. How can I help you today?', voice: oaiVoice, speed: 0.95 }),
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const mp3 = await openai.audio.speech.create({
+      model: 'tts-1',
+      input: 'Thank you for calling. How can I help you today?',
+      voice: oaiVoice,
+      speed: 0.95,
     });
-    if (!r.ok) return res.status(502).json({ error: 'TTS failed' });
-    const buf = Buffer.from(await r.arrayBuffer());
+    const buf = Buffer.from(await mp3.arrayBuffer());
     _voicePreviewCache.set(oaiVoice, buf);
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Cache-Control', 'public, max-age=3600');
     res.send(buf);
   } catch (err) {
+    console.error('[voice/preview]', err.message);
     res.status(500).json({ error: err.message });
   }
 });
