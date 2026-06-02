@@ -8,6 +8,7 @@ const OpenAI = require('openai');
 const { supabase } = require('./supabase');
 const { loadTranscript, appendMessage } = require('./conversations');
 const { recordUsage, estimateOpenaiCostCents } = require('./usage');
+const { sendEmail } = require('./email');
 
 // Lazily constructed: the OpenAI SDK throws if the API key is missing, so
 // building the client at import time would crash the whole service whenever
@@ -21,8 +22,37 @@ function openaiClient() {
 
 const MAX_TOOL_ROUNDS = 3;
 
-function buildSystemPrompt(tenant) {
+function buildSystemPrompt(tenant, opts = {}) {
   if (tenant.ai_system_prompt) return tenant.ai_system_prompt;
+
+  const isVoice = opts.channel === 'voice';
+  const callerPhone = opts.callerPhone || null;
+
+  if (isVoice) {
+    return `You are the virtual receptionist for ${tenant.business_name}, speaking with a caller on the phone.
+Be warm, friendly, professional, and concise. Keep every reply to 1-2 short spoken sentences — no bullet points, no lists, no links.
+
+Business details:
+- Name: ${tenant.business_name}
+- Hours: ${tenant.business_hours || 'Not specified'}
+- Services: ${tenant.business_services || 'Not specified'}
+- Booking link: ${tenant.calendly_link ? 'available (do not read aloud — offer to send via text instead)' : 'Not available'}
+
+${callerPhone ? `The caller's phone number is already known: ${callerPhone}. Do NOT ask for their phone number. If they want a callback to a different number, ask for that number instead.` : ''}
+
+Your responsibilities:
+1. Answer questions about hours and services naturally, like a human receptionist.
+2. Qualify the lead: collect the caller's name, confirm their callback number (or get a different one), and the service they need.
+3. Once you have name + callback number + service, call the "capture_lead" tool with their phone as the contact. Then say "Great, someone from our team will be in touch soon. Is there anything else I can help you with?"
+4. If you cannot help, say "I'll have someone follow up with you shortly" and call "request_human_followup".
+
+Rules:
+- ONE question at a time. Never stack multiple questions in one turn.
+- Speak naturally — no markdown, no bullet points, no URLs.
+- Never invent prices, availability, medical or professional advice, or policies.
+- Stay on topic: you represent ${tenant.business_name} only.`;
+  }
+
   return `You are the virtual receptionist for ${tenant.business_name}.
 You speak with customers over SMS text message. Be warm, friendly, professional, and concise.
 
@@ -93,7 +123,8 @@ async function runTool(call, tenant, conversation, customerPhone) {
   }
 
   if (call.function.name === 'capture_lead') {
-    const notes = [args.contact ? `Contact: ${args.contact}` : null, args.notes]
+    const contact = args.contact || customerPhone || null;
+    const notes = [contact ? `Contact: ${contact}` : null, args.notes]
       .filter(Boolean)
       .join(' — ');
     await supabase.from('leads').insert({
@@ -105,6 +136,20 @@ async function runTool(call, tenant, conversation, customerPhone) {
       notes: notes || null,
       status: 'qualified',
     });
+    // Notify the tenant owner.
+    const notifyTo = tenant.voicemail_email || tenant.owner_email;
+    if (notifyTo) {
+      await sendEmail({
+        to: notifyTo,
+        subject: `New lead — ${args.name || 'Unknown'} — ${tenant.business_name}`,
+        html: `<p><strong>Name:</strong> ${args.name || '—'}</p>
+<p><strong>Phone:</strong> ${customerPhone || '—'}</p>
+<p><strong>Contact provided:</strong> ${contact || '—'}</p>
+<p><strong>Service:</strong> ${args.service || '—'}</p>
+<p><strong>Notes:</strong> ${args.notes || '—'}</p>`,
+        text: `New lead for ${tenant.business_name}\nName: ${args.name || '—'}\nPhone: ${customerPhone || '—'}\nService: ${args.service || '—'}\nNotes: ${args.notes || '—'}`,
+      });
+    }
     return `Lead recorded. Now share the booking link with the customer: ${
       tenant.calendly_link || '(no booking link configured)'
     }`;
@@ -141,7 +186,7 @@ function completion(model, messages) {
 async function handleMessage(tenant, conversation, customerPhone, userText, opts = {}) {
   const history = await loadTranscript(conversation.id);
   const messages = [
-    { role: 'system', content: buildSystemPrompt(tenant) },
+    { role: 'system', content: buildSystemPrompt(tenant, { channel: opts.channel, callerPhone: customerPhone }) },
     ...history,
     { role: 'user', content: userText },
   ];

@@ -21,6 +21,7 @@ const { resolveTenantByNumber } = require('../lib/tenants');
 const { getOrCreateConversation } = require('../lib/conversations');
 const { handleMessage } = require('../lib/ai');
 const { recordCallStart, updateCall, getCallBySid } = require('../lib/calls');
+const { sendEmail } = require('../lib/email');
 const logger = require('../lib/logger');
 
 const router = express.Router();
@@ -244,7 +245,7 @@ router.post('/voice/converse', async (req, res) => {
   try {
     const conversation = await getOrCreateConversation(tenant.id, from);
     if (callSid) await updateCall(callSid, { conversation_id: conversation.id, outcome: 'ai_handled' });
-    reply = await handleMessage(tenant, conversation, from, speech, { model: 'gpt-4o-mini' });
+    reply = await handleMessage(tenant, conversation, from, speech, { model: 'gpt-4o-mini', channel: 'voice' });
   } catch (err) {
     logger.error('voice.ai_failed', { tenant_id: tenant.id, error: err.message });
     reply = 'I am sorry, I ran into a problem. Let me take a message so someone can call you back.';
@@ -329,12 +330,36 @@ router.post('/voice/voicemail', async (req, res) => {
     return res.status(403).send('Invalid Twilio signature');
   }
   const callSid = req.body.CallSid;
+  const from = req.body.From;
+  const to = req.body.To;
+  const recordingUrl = req.body.RecordingUrl || null;
+
   await updateCall(callSid, {
     outcome: 'voicemail',
-    recording_url: req.body.RecordingUrl || null,
+    recording_url: recordingUrl,
     recording_sid: req.body.RecordingSid || null,
   });
+
+  // Notify the tenant owner about the voicemail.
+  try {
+    const tenant = await resolveTenantByNumber(to);
+    if (tenant) {
+      const notifyTo = tenant.voicemail_email || tenant.owner_email;
+      if (notifyTo) {
+        await sendEmail({
+          to: notifyTo,
+          subject: `Voicemail from ${from} — ${tenant.business_name}`,
+          html: `<p>You have a new voicemail from <strong>${from}</strong>.</p>${recordingUrl ? `<p><a href="${recordingUrl}">Listen to recording</a></p>` : ''}`,
+          text: `New voicemail from ${from} for ${tenant.business_name}.${recordingUrl ? `\nRecording: ${recordingUrl}` : ''}`,
+        });
+      }
+    }
+  } catch (err) {
+    logger.error('voice.voicemail_notify_failed', { error: err.message });
+  }
+
   const vr = new VoiceResponse();
+  const tenant = await resolveTenantByNumber(to).catch(() => null);
   vr.say(voice(tenant), 'Thank you. We have your message and will get back to you soon. Goodbye.');
   vr.hangup();
   sendTwiml(res, vr);
