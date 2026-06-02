@@ -56,7 +56,7 @@ function menuGather(vr, tenant) {
     numDigits: 1,
     action: '/voice/menu',
     method: 'POST',
-    timeout: 8,
+    timeout: 3,
   });
   const greeting =
     tenant.voice_greeting ||
