@@ -162,7 +162,9 @@ function handleMediaStream(twilioWs, req) {
     openaiWs.send(JSON.stringify({
       type: 'response.create',
       response: {
-        instructions: `Greet the caller warmly and ask how you can help them today. Keep it to one sentence. Do not say anything about AI or virtual receptionist.`,
+        instructions: tenant.voice_greeting
+          ? `Say this greeting exactly: "${tenant.voice_greeting}"`
+          : `Greet the caller by saying "Thank you for calling ${tenant.business_name}," then ask how you can help. One sentence. Do not mention AI or virtual receptionist.`,
       },
     }));
   }
