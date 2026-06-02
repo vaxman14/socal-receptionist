@@ -1,5 +1,5 @@
-// Day-by-day business hours picker.
-// Stores as a human-readable multiline string compatible with the AI prompt.
+// Day-by-day business hours picker with optional lunch break.
+// Serializes to a human-readable string the AI prompt can understand.
 
 import { useState, useEffect } from 'react';
 
@@ -21,22 +21,27 @@ const TIMES = (() => {
   return t;
 })();
 
-const DEFAULT_OPEN = '09:00';
+const DEFAULT_OPEN  = '09:00';
 const DEFAULT_CLOSE = '17:00';
-
-function serialize(days) {
-  return days
-    .map((d) =>
-      d.isOpen
-        ? `${d.name}: ${toLabel(d.from)} – ${toLabel(d.to)}`
-        : `${d.name}: Closed`
-    )
-    .join('\n');
-}
+const DEFAULT_LUNCH_START = '12:00';
+const DEFAULT_LUNCH_END   = '13:00';
 
 function toLabel(value) {
-  const t = TIMES.find((t) => t.value === value);
-  return t ? t.label : value;
+  return TIMES.find((t) => t.value === value)?.label ?? value;
+}
+
+function labelToValue(label) {
+  return TIMES.find((t) => t.label.toLowerCase() === label.toLowerCase())?.value;
+}
+
+function serialize(days) {
+  return days.map((d) => {
+    if (!d.isOpen) return `${d.name}: Closed`;
+    if (d.hasLunch) {
+      return `${d.name}: ${toLabel(d.from)} – ${toLabel(d.lunchStart)}, ${toLabel(d.lunchEnd)} – ${toLabel(d.to)}`;
+    }
+    return `${d.name}: ${toLabel(d.from)} – ${toLabel(d.to)}`;
+  }).join('\n');
 }
 
 function parse(str) {
@@ -44,23 +49,35 @@ function parse(str) {
   const lines = str.split('\n').map((l) => l.trim()).filter(Boolean);
   return DAYS.map((name) => {
     const line = lines.find((l) => l.toLowerCase().startsWith(name.toLowerCase()));
-    if (!line) return { name, isOpen: true, from: DEFAULT_OPEN, to: DEFAULT_CLOSE };
+    if (!line) return { name, isOpen: true, from: DEFAULT_OPEN, to: DEFAULT_CLOSE, hasLunch: false, lunchStart: DEFAULT_LUNCH_START, lunchEnd: DEFAULT_LUNCH_END };
     if (line.toLowerCase().includes('closed'))
-      return { name, isOpen: false, from: DEFAULT_OPEN, to: DEFAULT_CLOSE };
-    // try to parse "Day: H:MM AM – H:MM PM"
-    const match = line.match(/:\s*(\d+:\d+\s*[AP]M)\s*[–-]\s*(\d+:\d+\s*[AP]M)/i);
-    if (match) {
-      const from = labelToValue(match[1].trim()) || DEFAULT_OPEN;
-      const to   = labelToValue(match[2].trim()) || DEFAULT_CLOSE;
-      return { name, isOpen: true, from, to };
-    }
-    return { name, isOpen: true, from: DEFAULT_OPEN, to: DEFAULT_CLOSE };
-  });
-}
+      return { name, isOpen: false, from: DEFAULT_OPEN, to: DEFAULT_CLOSE, hasLunch: false, lunchStart: DEFAULT_LUNCH_START, lunchEnd: DEFAULT_LUNCH_END };
 
-function labelToValue(label) {
-  const t = TIMES.find((t) => t.label.toLowerCase() === label.toLowerCase());
-  return t?.value;
+    // "Day: 9:00 AM – 12:00 PM, 1:00 PM – 5:00 PM"  (lunch break)
+    const lunchMatch = line.match(/:\s*(\d+:\d+\s*[AP]M)\s*[–-]\s*(\d+:\d+\s*[AP]M)\s*,\s*(\d+:\d+\s*[AP]M)\s*[–-]\s*(\d+:\d+\s*[AP]M)/i);
+    if (lunchMatch) {
+      return {
+        name, isOpen: true, hasLunch: true,
+        from:       labelToValue(lunchMatch[1].trim()) ?? DEFAULT_OPEN,
+        lunchStart: labelToValue(lunchMatch[2].trim()) ?? DEFAULT_LUNCH_START,
+        lunchEnd:   labelToValue(lunchMatch[3].trim()) ?? DEFAULT_LUNCH_END,
+        to:         labelToValue(lunchMatch[4].trim()) ?? DEFAULT_CLOSE,
+      };
+    }
+
+    // "Day: 9:00 AM – 5:00 PM"
+    const simple = line.match(/:\s*(\d+:\d+\s*[AP]M)\s*[–-]\s*(\d+:\d+\s*[AP]M)/i);
+    if (simple) {
+      return {
+        name, isOpen: true, hasLunch: false,
+        from: labelToValue(simple[1].trim()) ?? DEFAULT_OPEN,
+        to:   labelToValue(simple[2].trim()) ?? DEFAULT_CLOSE,
+        lunchStart: DEFAULT_LUNCH_START, lunchEnd: DEFAULT_LUNCH_END,
+      };
+    }
+
+    return { name, isOpen: true, from: DEFAULT_OPEN, to: DEFAULT_CLOSE, hasLunch: false, lunchStart: DEFAULT_LUNCH_START, lunchEnd: DEFAULT_LUNCH_END };
+  });
 }
 
 function buildDefaults() {
@@ -69,16 +86,16 @@ function buildDefaults() {
     isOpen: !['Saturday', 'Sunday'].includes(name),
     from: DEFAULT_OPEN,
     to: DEFAULT_CLOSE,
+    hasLunch: false,
+    lunchStart: DEFAULT_LUNCH_START,
+    lunchEnd: DEFAULT_LUNCH_END,
   }));
 }
 
 export default function BusinessHoursPicker({ value, onChange }) {
   const [days, setDays] = useState(() => parse(value));
 
-  // Sync inbound value changes (e.g. initial load from API).
-  useEffect(() => {
-    setDays(parse(value));
-  }, [value]);
+  useEffect(() => { setDays(parse(value)); }, [value]);
 
   function update(index, patch) {
     const next = days.map((d, i) => (i === index ? { ...d, ...patch } : d));
@@ -91,33 +108,38 @@ export default function BusinessHoursPicker({ value, onChange }) {
       {days.map((day, i) => (
         <div key={day.name} className="hours-row">
           <label className="hours-toggle">
-            <input
-              type="checkbox"
-              checked={day.isOpen}
-              onChange={(e) => update(i, { isOpen: e.target.checked })}
-            />
+            <input type="checkbox" checked={day.isOpen} onChange={(e) => update(i, { isOpen: e.target.checked })} />
             <span className="hours-day">{day.name.slice(0, 3)}</span>
           </label>
 
           {day.isOpen ? (
-            <div className="hours-times">
-              <select
-                value={day.from}
-                onChange={(e) => update(i, { from: e.target.value })}
-              >
-                {TIMES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-              <span className="hours-sep">to</span>
-              <select
-                value={day.to}
-                onChange={(e) => update(i, { to: e.target.value })}
-              >
-                {TIMES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
+            <div className="hours-open-block">
+              <div className="hours-times">
+                <select value={day.from} onChange={(e) => update(i, { from: e.target.value })}>
+                  {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                <span className="hours-sep">to</span>
+                <select value={day.to} onChange={(e) => update(i, { to: e.target.value })}>
+                  {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                <label className="hours-lunch-toggle">
+                  <input type="checkbox" checked={day.hasLunch} onChange={(e) => update(i, { hasLunch: e.target.checked })} />
+                  <span>Lunch</span>
+                </label>
+              </div>
+
+              {day.hasLunch && (
+                <div className="hours-times hours-lunch-row">
+                  <span className="hours-sep" style={{ minWidth: 50 }}>Break:</span>
+                  <select value={day.lunchStart} onChange={(e) => update(i, { lunchStart: e.target.value })}>
+                    {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                  <span className="hours-sep">to</span>
+                  <select value={day.lunchEnd} onChange={(e) => update(i, { lunchEnd: e.target.value })}>
+                    {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
           ) : (
             <span className="hours-closed">Closed</span>
