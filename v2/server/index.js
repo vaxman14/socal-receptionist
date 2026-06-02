@@ -55,6 +55,41 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'socal-receptionist-v2', ts: new Date().toISOString() });
 });
 
+// Public voice preview — no auth required (sample phrase only, cached 1h).
+const POLLY_TO_OPENAI_PUBLIC = {
+  'Polly.Joanna-Neural': 'nova',
+  'Polly.Salli-Neural':  'nova',
+  'Polly.Matthew-Neural': 'echo',
+  'Polly.Joey-Neural':   'echo',
+  'Polly.Amy-Neural':    'shimmer',
+  'Polly.Brian-Neural':  'onyx',
+};
+const _voicePreviewCache = new Map();
+app.get('/voice/preview', async (req, res) => {
+  const voiceId = req.query.voice || 'Polly.Joanna-Neural';
+  const oaiVoice = POLLY_TO_OPENAI_PUBLIC[voiceId] || 'nova';
+  if (_voicePreviewCache.has(oaiVoice)) {
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.send(_voicePreviewCache.get(oaiVoice));
+  }
+  try {
+    const r = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'tts-1', input: 'Thank you for calling. How can I help you today?', voice: oaiVoice, speed: 0.95 }),
+    });
+    if (!r.ok) return res.status(502).json({ error: 'TTS failed' });
+    const buf = Buffer.from(await r.arrayBuffer());
+    _voicePreviewCache.set(oaiVoice, buf);
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(buf);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.use('/', smsRouter);
 app.use('/', voiceRouter);
 

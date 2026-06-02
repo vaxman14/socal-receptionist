@@ -40,13 +40,14 @@ const VOICE_OPTIONS = [
   { value: 'Polly.Brian-Neural',   label: 'Brian — British English, Male'           },
 ];
 
+const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '');
 let previewAudio = null;
 
-async function previewVoice(voiceValue) {
-  if (previewAudio) { previewAudio.pause(); previewAudio = null; }
-  const url = `/admin/voice/preview?voice=${encodeURIComponent(voiceValue)}`;
+function previewVoice(voiceValue) {
+  if (previewAudio) { previewAudio.pause(); }
+  const url = `${API_BASE}/voice/preview?voice=${encodeURIComponent(voiceValue)}`;
   previewAudio = new Audio(url);
-  previewAudio.play().catch(() => {});
+  previewAudio.play().catch(console.error);
 }
 
 export default function Settings() {
