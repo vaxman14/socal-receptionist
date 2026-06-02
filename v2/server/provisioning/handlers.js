@@ -104,7 +104,7 @@ async function setupMessaging(job) {
     phone_e164: purchased.phoneNumber,
     twilio_sid: purchased.sid,
     status: 'active',
-    number_type: 'local',
+    number_type: 'local_10dlc',
   });
   if (dbErr) {
     await twilioClient.incomingPhoneNumbers(purchased.sid).remove().catch(() => {});

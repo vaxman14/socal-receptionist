@@ -78,7 +78,7 @@ router.post('/numbers/provision', express.json(), async (req, res) => {
       phone_e164: purchased.phoneNumber,
       twilio_sid: purchased.sid,
       status: 'active',
-      number_type: 'local',
+      number_type: 'local_10dlc',
     });
     if (dbErr) {
       // Best-effort cleanup — release the number back to Twilio.
