@@ -11,10 +11,14 @@ const authToken = process.env.TWILIO_AUTH_TOKEN || '';
 const validateSignature = process.env.TWILIO_VALIDATE_SIGNATURE !== 'false';
 
 // Verify a request genuinely came from Twilio (X-Twilio-Signature).
+// Use APP_BASE_URL when set — avoids proxy/header reconstruction mismatches.
 function isValidTwilioRequest(req) {
   if (!validateSignature) return true;
   const signature = req.header('X-Twilio-Signature') || '';
-  const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+  const base = process.env.APP_BASE_URL
+    ? process.env.APP_BASE_URL.replace(/\/+$/, '')
+    : `${req.protocol}://${req.get('host')}`;
+  const url = `${base}${req.originalUrl}`;
   return twilio.validateRequest(authToken, signature, url, req.body);
 }
 
