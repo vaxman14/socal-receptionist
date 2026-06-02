@@ -124,7 +124,7 @@ async function finalizeOnboarding(job) {
   if (error) throw error;
 
   const hasActiveNumber = (numbers || []).some((n) => n.status === 'active');
-  const next = hasActiveNumber ? 'active' : 'sms_pending_compliance';
+  const next = hasActiveNumber ? 'active' : 'active'; // voice-only, no SMS compliance gate
 
   await transitionTenant(job.tenant_id, next, {
     reason: 'onboarding pipeline complete',

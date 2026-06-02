@@ -9,7 +9,12 @@ const COPY = {
   active: {
     tone: 'green',
     title: 'Active',
-    text: 'Your AI receptionist is live and answering customers.',
+    text: 'Your AI receptionist is live and answering calls.',
+  },
+  sms_pending_compliance: {
+    tone: 'green',
+    title: 'Active',
+    text: 'Your AI receptionist is live and answering calls.',
   },
   suspended_billing: {
     tone: 'danger',

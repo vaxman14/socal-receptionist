@@ -10,12 +10,12 @@ const { supabase } = require('./supabase');
 // Allowed transitions: current status -> set of permitted next statuses.
 // Statuses are defined by the `tenant_status` enum in db/001_init.sql.
 const TRANSITIONS = {
-  onboarding:            ['sms_pending_compliance', 'active', 'failed_provisioning'],
-  sms_pending_compliance:['active', 'suspended_compliance', 'failed_provisioning'],
+  onboarding:            ['active', 'failed_provisioning'],
+  sms_pending_compliance:['active', 'suspended_compliance', 'failed_provisioning'], // legacy, kept for existing rows
   active:                ['suspended_billing', 'suspended_compliance'],
   suspended_billing:     ['active', 'failed_provisioning'],
   suspended_compliance:  ['active', 'failed_provisioning'],
-  failed_provisioning:   ['onboarding'], // manual retry by a platform admin
+  failed_provisioning:   ['onboarding'],
 };
 
 function canTransition(from, to) {
