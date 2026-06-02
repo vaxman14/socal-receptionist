@@ -140,17 +140,16 @@ function handleMediaStream(twilioWs, req) {
     openaiWs.send(JSON.stringify({
       type: 'session.update',
       session: {
-        type: 'realtime',
-        output_modalities: ['audio'],
-        audio: {
-          input: {
-            format: { type: 'audio/pcmu' },
-            turn_detection: { type: 'semantic_vad' },
-          },
-          output: {
-            format: { type: 'audio/pcmu' },
-            voice: realtimeVoice,
-          },
+        modalities: ['audio', 'text'],
+        voice: realtimeVoice,
+        input_audio_format: 'g711_ulaw',
+        output_audio_format: 'g711_ulaw',
+        turn_detection: {
+          type: 'server_vad',
+          threshold: 0.6,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 800,
+          create_response: true,
         },
         instructions,
         tools: buildTools(tenant),
