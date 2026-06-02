@@ -34,7 +34,7 @@ async function provisionTenant(job) {
   // Already past onboarding — pipeline ran before. Idempotent no-op.
   if (tenant.status !== 'onboarding') return;
 
-  const missing = ['business_name', 'business_hours', 'business_services', 'owner_email']
+  const missing = ['business_name', 'owner_email']
     .filter((field) => !tenant[field]);
   if (missing.length) {
     throw new ManualReviewRequired(
