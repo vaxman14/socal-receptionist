@@ -15,6 +15,7 @@ if (process.env.SENTRY_DSN) {
 
 const path = require('path');
 const express = require('express');
+const expressWs = require('express-ws');
 const cors = require('cors');
 const smsRouter = require('./sms/webhook');
 const voiceRouter = require('./voice/webhook');
@@ -27,6 +28,7 @@ const onboardingNumbersRouter = require('./onboarding/numbers');
 const mfaRouter = require('./auth/mfa');
 
 const app = express();
+expressWs(app); // enable app.ws() for WebSocket routes
 app.set('trust proxy', true); // behind the DigitalOcean / Cloudflare proxy
 
 // Redirect naked domain → www
@@ -95,6 +97,10 @@ app.get('/voice/preview', async (req, res) => {
 
 app.use('/', smsRouter);
 app.use('/', voiceRouter);
+
+// OpenAI Realtime WebSocket endpoint — Twilio Media Stream connects here.
+const { handleMediaStream } = require('./voice/realtime');
+app.ws('/voice/stream', handleMediaStream);
 
 // Onboarding API — business registration, then service-agreement e-signature
 // (which gates provisioning). Register is mounted first; both share /onboarding.

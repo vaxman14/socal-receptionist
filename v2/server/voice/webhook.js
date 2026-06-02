@@ -107,16 +107,15 @@ router.post('/voice', async (req, res) => {
     );
   }
 
-  try {
-    await recordCallStart({ tenantId: tenant.id, callSid, from, to });
-  } catch (err) {
-    logger.error('voice.record_call_failed', { error: err.message });
-  }
+  // Use OpenAI Realtime API — stream audio directly, no TTS/STT round trips.
+  const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
+  const wsUrl = baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
 
   const vr = new VoiceResponse();
-  menuGather(vr, tenant);
-  // Caller stayed on the line (no digit) -> send them straight to the AI.
-  vr.redirect({ method: 'POST' }, '/voice/converse');
+  const connect = vr.connect();
+  const stream = connect.stream({ url: wsUrl });
+  stream.parameter({ name: 'tenant_id',    value: tenant.id });
+  stream.parameter({ name: 'from_number',  value: from });
   sendTwiml(res, vr);
 });
 
