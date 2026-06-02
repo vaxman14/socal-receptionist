@@ -25,6 +25,7 @@ const ownerAdminRouter = require('./admin/owner');
 const onboardingAgreementRouter = require('./onboarding/agreement');
 const onboardingRegisterRouter = require('./onboarding/register');
 const onboardingNumbersRouter = require('./onboarding/numbers');
+const onboardingChatRouter = require('./onboarding/chat');
 const mfaRouter = require('./auth/mfa');
 
 const app = express();
@@ -107,6 +108,7 @@ app.ws('/voice/stream', handleMediaStream);
 app.use('/onboarding', onboardingRegisterRouter);
 app.use('/onboarding', onboardingAgreementRouter);
 app.use('/onboarding', onboardingNumbersRouter);
+app.use('/onboarding', onboardingChatRouter);
 
 // MFA API — trusted-device ("trust this device for 30 days") issue / verify /
 // revoke. The TOTP + passkey factors themselves are handled by Supabase Auth

@@ -6,8 +6,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import StepBusiness from './StepBusiness';
+import ChatWizard from './ChatWizard';
 import StepAgreement from './StepAgreement';
 import StepDone from './StepDone';
+
+const USE_CHAT = import.meta.env.VITE_CHAT_ONBOARDING === 'true';
 
 const STEPS = ['Your business', 'Service agreement', 'All set'];
 const STORAGE_KEY = 'socal-onboard';
@@ -60,7 +63,16 @@ export default function Wizard({ onComplete }) {
           })}
         </div>
 
-        {step === 1 && (
+        {step === 1 && USE_CHAT && (
+          <ChatWizard
+            onCreated={(t) => {
+              setTenant(t);
+              setStep(2);
+            }}
+          />
+        )}
+
+        {step === 1 && !USE_CHAT && (
           <StepBusiness
             onCreated={(t) => {
               setTenant(t);
