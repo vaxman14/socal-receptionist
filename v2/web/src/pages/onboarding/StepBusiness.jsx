@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { api } from '../../lib/api';
+import BusinessHoursPicker from '../../components/BusinessHoursPicker';
 
 const TIMEZONES = [
   'America/Los_Angeles',
@@ -95,16 +96,13 @@ export default function StepBusiness({ onCreated }) {
           />
         </label>
 
-        <label className="field">
+        <div className="field">
           <span className="label">Business hours</span>
-          <input
-            type="text"
-            autoComplete="off"
+          <BusinessHoursPicker
             value={form.business_hours}
-            onChange={set('business_hours')}
-            placeholder="Mon–Fri 8am–5pm, Sat 9am–1pm"
+            onChange={(val) => setForm((f) => ({ ...f, business_hours: val }))}
           />
-        </label>
+        </div>
 
         <label className="field">
           <span className="label">Services offered</span>
