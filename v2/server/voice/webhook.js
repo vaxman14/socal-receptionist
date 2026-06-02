@@ -206,18 +206,21 @@ router.post('/voice/converse', async (req, res) => {
       vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
       return sendTwiml(res, vr);
     }
+    const spoke = req.query.spoke === '1';
+    const spokeParam = spoke ? '&spoke=1' : '';
     const gather = vr.gather({
       input: 'speech',
-      action: `/voice/converse?empty=${emptyTurns + 1}`,
+      action: `/voice/converse?empty=${emptyTurns + 1}${spokeParam}`,
       method: 'POST',
       speechTimeout: '1',
     });
-    // First entry from menu (emptyTurns=0): greet, don't apologize.
-    const prompt = emptyTurns === 0
-      ? 'How can I help you today?'
-      : 'Sorry, I did not catch that. Could you say that again?';
+    const prompt = spoke
+      ? 'Is there anything else I can help you with today?'
+      : emptyTurns === 0
+        ? 'How can I help you today?'
+        : 'Sorry, I did not catch that. Could you say that again?';
     gather.say(voice(tenant), prompt);
-    vr.redirect({ method: 'POST' }, `/voice/converse?empty=${emptyTurns + 1}`);
+    vr.redirect({ method: 'POST' }, `/voice/converse?empty=${emptyTurns + 1}${spokeParam}`);
     return sendTwiml(res, vr);
   }
 
@@ -251,14 +254,14 @@ router.post('/voice/converse', async (req, res) => {
   }
 
   // Speak the reply, then listen for the caller's next turn.
+  // spoke=1 tells the empty-turn handler the AI has already exchanged with the caller.
   const gather = vr.gather({
     input: 'speech',
-    action: '/voice/converse',
+    action: '/voice/converse?spoke=1',
     method: 'POST',
     speechTimeout: '1',
   });
   gather.say(voice(tenant), reply);
-  // If they go quiet after a reply, say goodbye gracefully.
   vr.say(voice(tenant), 'Thank you for calling. Goodbye.');
   vr.hangup();
   sendTwiml(res, vr);
