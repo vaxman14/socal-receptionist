@@ -199,7 +199,7 @@ router.post('/voice/converse', async (req, res) => {
 
   const vr = new VoiceResponse();
 
-  // Caller said nothing. Re-prompt twice, then take a message.
+  // Caller said nothing.
   if (!speech) {
     if (emptyTurns >= 2) {
       vr.say(voice(tenant), 'I am having trouble hearing you. Let me take a message instead.');
@@ -212,7 +212,11 @@ router.post('/voice/converse', async (req, res) => {
       method: 'POST',
       speechTimeout: 'auto',
     });
-    gather.say(voice(tenant), 'Sorry, I did not catch that. Could you say that again?');
+    // First entry from menu (emptyTurns=0): greet, don't apologize.
+    const prompt = emptyTurns === 0
+      ? 'How can I help you today?'
+      : 'Sorry, I did not catch that. Could you say that again?';
+    gather.say(voice(tenant), prompt);
     vr.redirect({ method: 'POST' }, `/voice/converse?empty=${emptyTurns + 1}`);
     return sendTwiml(res, vr);
   }
