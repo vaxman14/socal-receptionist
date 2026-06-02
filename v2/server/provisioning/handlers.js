@@ -54,37 +54,68 @@ async function provisionTenant(job) {
   await enqueue(job.tenant_id, 'setup_messaging', {});
 }
 
-// Step 2 — Twilio side: create/attach a Messaging Service + sender number and
-// register the A2P brand + campaign.
-//
-// STUB pending ISV registration. The A2P spike (A2P_SPIKE_FINDINGS.md) found no
-// Trust Hub ISV Primary Profile yet; that registration is outward-facing, paid,
-// and needs Roman's legal business info, so it cannot be automated. Once the
-// ISV profile exists this handler will:
-//   1. create or reuse the tenant's Twilio Messaging Service,
-//   2. purchase or attach a sender number -> insert into `phone_numbers`,
-//   3. submit the A2P brand + campaign (Sole Proprietor path for small biz),
-//   4. enqueue `finalize_onboarding`.
+// Step 2 — purchase a local voice number and wire webhooks.
+// SMS/A2P is deferred; this step provisions voice-only and is idempotent.
 async function setupMessaging(job) {
-  // Voice-first launch gate. While SMS is dark platform-wide (SMS_ENABLED
-  // false — the default), there is no Twilio messaging to set up: skip this
-  // step cleanly and hand straight to finalize_onboarding so the onboarding
-  // pipeline still completes (the tenant goes live voice-only).
-  if (process.env.SMS_ENABLED !== 'true') {
+  // If the tenant already has a number, skip straight to finalize.
+  const { data: existing } = await supabase
+    .from('phone_numbers')
+    .select('id')
+    .eq('tenant_id', job.tenant_id)
+    .limit(1);
+  if (existing && existing.length > 0) {
     await enqueue(job.tenant_id, 'finalize_onboarding', {});
     return;
   }
 
-  throw new ManualReviewRequired(
-    'Twilio A2P / Messaging setup is not yet automatable — pending ISV Trust Hub ' +
-      'registration (see A2P_SPIKE_FINDINGS.md). Provision this tenant manually, ' +
-      'then enqueue a finalize_onboarding job.'
-  );
+  const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
+
+  // Search for a local number — try 951 (Murrieta/Temecula) first, then any CA, then any US.
+  let phoneNumber = null;
+  const searches = [
+    { areaCode: '951', limit: 5 },
+    { inRegion: 'CA', limit: 5 },
+    { limit: 5 },
+  ];
+  for (const params of searches) {
+    try {
+      const results = await twilioClient.availablePhoneNumbers('US').local.list({ ...params, voiceEnabled: true });
+      if (results.length > 0) { phoneNumber = results[0].phoneNumber; break; }
+    } catch { /* try next */ }
+  }
+
+  if (!phoneNumber) {
+    throw new ManualReviewRequired(`Could not find an available Twilio number for tenant ${job.tenant_id}`);
+  }
+
+  // Buy it.
+  const purchased = await twilioClient.incomingPhoneNumbers.create({
+    phoneNumber,
+    voiceUrl: `${baseUrl}/voice`,
+    voiceMethod: 'POST',
+    voiceFallbackUrl: `${baseUrl}/voice`,
+    voiceFallbackMethod: 'POST',
+    friendlyName: `SoCal Receptionist — ${job.tenant_id}`,
+  });
+
+  // Save to DB.
+  const { error: dbErr } = await supabase.from('phone_numbers').insert({
+    tenant_id: job.tenant_id,
+    phone_e164: purchased.phoneNumber,
+    twilio_sid: purchased.sid,
+    status: 'active',
+    number_type: 'local',
+  });
+  if (dbErr) {
+    await twilioClient.incomingPhoneNumbers(purchased.sid).remove().catch(() => {});
+    throw dbErr;
+  }
+
+  console.log(`[worker] provisioned ${purchased.phoneNumber} for tenant ${job.tenant_id}`);
+  await enqueue(job.tenant_id, 'finalize_onboarding', {});
 }
 
-// Step 3 — flip the tenant live. Outbound US SMS stays compliance-gated until
-// the A2P campaign clears carrier review (~10-15 days), so onboarding completes
-// into `sms_pending_compliance` unless an active number already exists.
+// Step 3 — flip the tenant live and auto-start the 7-day no-card trial.
 async function finalizeOnboarding(job) {
   const { data: numbers, error } = await supabase
     .from('phone_numbers')
@@ -99,6 +130,28 @@ async function finalizeOnboarding(job) {
     reason: 'onboarding pipeline complete',
     metadata: { job_id: job.id },
   });
+
+  // Auto-start 7-day no-card trial if no subscription exists yet.
+  const { data: existingSub } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('tenant_id', job.tenant_id)
+    .limit(1);
+
+  if (!existingSub || existingSub.length === 0) {
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 7);
+    const trialEndIso = trialEnd.toISOString();
+
+    await supabase.from('subscriptions').insert({
+      tenant_id: job.tenant_id,
+      status: 'trialing',
+      trial_ends_at: trialEndIso,
+      current_period_end: trialEndIso,
+      cancel_at_period_end: false,
+    });
+    console.log(`[worker] started 7-day trial for tenant ${job.tenant_id}, ends ${trialEndIso}`);
+  }
 }
 
 // Release a tenant's phone number — marks the row released and (in production)
