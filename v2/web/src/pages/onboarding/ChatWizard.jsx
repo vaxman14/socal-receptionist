@@ -5,28 +5,39 @@
 import { useState, useRef, useEffect } from 'react';
 import { api } from '../../lib/api';
 
+const CHAT_KEY = 'socal_chat_wizard';
+
+function loadChat() {
+  try { const s = sessionStorage.getItem(CHAT_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
+}
+
 const TIMEZONES = [
   'America/Los_Angeles', 'America/Denver', 'America/Chicago',
   'America/New_York', 'America/Phoenix', 'America/Anchorage', 'Pacific/Honolulu',
 ];
 
 export default function ChatWizard({ onCreated }) {
-  const [messages, setMessages] = useState([]);
+  const saved = loadChat();
+  const [messages, setMessages] = useState(saved?.messages || []);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(saved?.profile || null);
   const [confirming, setConfirming] = useState(false);
-  const [confirmForm, setConfirmForm] = useState(null);
+  const [confirmForm, setConfirmForm] = useState(saved?.profile || null);
   const [submitError, setSubmitError] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Kick off the conversation on mount.
-  useEffect(() => { sendToAI([]); }, []);
+  // Kick off the conversation only if there's no saved history.
+  useEffect(() => { if (!saved?.messages?.length) sendToAI([]); }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, thinking]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem(CHAT_KEY, JSON.stringify({ messages, profile })); } catch {}
+  }, [messages, profile]);
 
   async function sendToAI(history) {
     setThinking(true);
@@ -80,6 +91,7 @@ export default function ChatWizard({ onCreated }) {
         if (v !== null && v !== undefined && String(v).trim()) body[k] = String(v).trim();
       }
       const data = await api.post('/onboarding/business', body);
+      try { sessionStorage.removeItem(CHAT_KEY); } catch {}
       onCreated(data.tenant);
     } catch (err) {
       setSubmitError(err.message || 'Could not create your business.');
@@ -133,7 +145,7 @@ export default function ChatWizard({ onCreated }) {
             <button className="btn btn-primary" disabled={confirming} type="submit">
               {confirming ? 'Setting up…' : 'Looks good — continue →'}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => { setProfile(null); setConfirmForm(null); }}>
+            <button type="button" className="btn btn-secondary" onClick={() => { setProfile(null); setConfirmForm(null); setMessages([]); try { sessionStorage.removeItem(CHAT_KEY); } catch {} sendToAI([]); }}>
               Start over
             </button>
           </div>
