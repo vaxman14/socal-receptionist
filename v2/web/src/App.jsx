@@ -16,6 +16,7 @@ import { Loading, ErrorState } from './components/States';
 import { getMfaStatus, isDeviceTrusted } from './lib/mfa';
 import Login from './pages/Login';
 import MfaChallenge from './pages/MfaChallenge';
+import MfaEnroll from './pages/MfaEnroll';
 import OwnerApp from './pages/owner/OwnerApp';
 import ClientApp from './pages/client/ClientApp';
 import Wizard from './pages/onboarding/Wizard';
@@ -86,13 +87,21 @@ function MfaGate() {
 // Split out so useRole only runs once we know there is a session.
 function RoleRouter() {
   const { role, loading, error, reload } = useRole();
+  const [mfaReady, setMfaReady] = useState(false);
 
   if (loading) return <Loading label="Loading your account…" />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
 
+  // Wizard users skip MFA enforcement — they haven't finished setup yet.
+  if (role === 'onboarding') return <Wizard onComplete={reload} />;
+
+  // Clients and owners must have MFA enrolled before accessing the app.
+  if ((role === 'owner' || role === 'client') && !mfaReady) {
+    return <MfaEnroll onDone={() => setMfaReady(true)} />;
+  }
+
   if (role === 'owner') return <OwnerApp />;
   if (role === 'client') return <ClientApp />;
-  if (role === 'onboarding') return <Wizard onComplete={reload} />;
 
   // Should not happen — role is always set once loading/error are clear.
   return <ErrorState message="Could not determine your account type." onRetry={reload} />;
