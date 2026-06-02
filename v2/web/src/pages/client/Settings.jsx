@@ -139,10 +139,14 @@ export default function Settings() {
       <form onSubmit={submit} className="stack">
         <div className="card card-pad">
           <div className="section-title">Business profile</div>
+          <p className="muted" style={{ fontSize: '0.86rem', marginBottom: 12 }}>
+            This is what your AI receptionist knows about your business. The more detail you add, the better it answers callers.
+          </p>
 
           <label className="field">
             <span className="label">Business name *</span>
-            <input type="text" value={form.business_name} onChange={set('business_name')} />
+            <input type="text" value={form.business_name} onChange={set('business_name')} placeholder="e.g. Temecula Valley Plumbing" />
+            <span className="hint">The AI uses this name when greeting callers and introducing itself.</span>
           </label>
           <div className="field">
             <span className="label">Business hours</span>
@@ -150,22 +154,27 @@ export default function Settings() {
               value={form.business_hours}
               onChange={(val) => setForm((f) => ({ ...f, business_hours: val }))}
             />
+            <span className="hint">The AI tells callers your hours and knows not to promise same-day service if you're closed.</span>
           </div>
           <label className="field">
             <span className="label">Services offered</span>
-            <textarea value={form.business_services} onChange={set('business_services')} />
+            <textarea
+              value={form.business_services}
+              onChange={set('business_services')}
+              placeholder="e.g. Drain cleaning, water heater repair, leak detection, repiping, emergency plumbing"
+            />
+            <span className="hint">List your services so the AI can answer "do you do X?" questions accurately.</span>
           </label>
           <label className="field">
             <span className="label">Calendly / booking link</span>
-            <input type="url" value={form.calendly_link} onChange={set('calendly_link')} />
+            <input type="url" value={form.calendly_link} onChange={set('calendly_link')} placeholder="https://calendly.com/your-business" />
+            <span className="hint">When a caller wants to book, the AI offers to send them this link via text.</span>
           </label>
           <label className="field" style={{ marginBottom: 0 }}>
             <span className="label">Timezone</span>
             <select value={form.timezone || 'America/Los_Angeles'} onChange={set('timezone')}>
               {TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>
-                  {tz}
-                </option>
+                <option key={tz} value={tz}>{tz}</option>
               ))}
             </select>
           </label>
@@ -174,14 +183,14 @@ export default function Settings() {
         <div className="card card-pad">
           <div className="section-title">Voice Receptionist</div>
           <p className="muted" style={{ fontSize: '0.86rem', marginBottom: 8 }}>
-            Controls how inbound phone calls are answered.
+            Controls how inbound phone calls are handled.
           </p>
 
           <div className="toggle-row">
             <div>
               <div style={{ fontWeight: 600 }}>Answer phone calls</div>
               <div className="muted" style={{ fontSize: '0.82rem' }}>
-                Let the AI receptionist pick up calls to your number.
+                When enabled, the AI picks up every inbound call to your number automatically.
               </div>
             </div>
             <label className="checkbox">
@@ -198,33 +207,33 @@ export default function Settings() {
             <span className="label">
               Staff transfer number {form.voice_enabled ? '*' : ''}
             </span>
-            <input type="tel" value={form.staff_phone} onChange={set('staff_phone')} />
+            <input type="tel" value={form.staff_phone} onChange={set('staff_phone')} placeholder="+1 951 555 0142" />
             <span className="hint">
-              Where callers are transferred when they press 2 or ask for a person.
-              Must <strong>not</strong> be your main published number.
+              When a caller asks to speak to a person, the AI transfers them here. Use your personal cell or office line — <strong>not</strong> the receptionist number itself.
             </span>
           </label>
           <label className="field">
-            <span className="label">Voice greeting</span>
-            <textarea value={form.voice_greeting} onChange={set('voice_greeting')} />
-            <span className="hint">Leave blank for a generated default greeting.</span>
+            <span className="label">Opening greeting</span>
+            <textarea
+              value={form.voice_greeting}
+              onChange={set('voice_greeting')}
+              placeholder={`e.g. "Thank you for calling ${form.business_name || 'us'}, how can I help you today?"`}
+            />
+            <span className="hint">
+              The first thing callers hear. Leave blank and the AI will say <em>"Thank you for calling {form.business_name || 'your business'}, how can I help you today?"</em>
+            </span>
           </label>
           <label className="field">
             <span className="label">Voicemail notification email</span>
-            <input type="email" value={form.voicemail_email} onChange={set('voicemail_email')} />
+            <input type="email" value={form.voicemail_email} onChange={set('voicemail_email')} placeholder="owner@yourbusiness.com" />
             <span className="hint">
-              Where missed-call and voicemail alerts are sent. Blank uses your
-              account email.
+              You'll get an email alert here whenever a caller leaves a voicemail or the AI captures a lead. Defaults to your account email if left blank.
             </span>
           </label>
           <div className="field" style={{ marginBottom: 0 }}>
             <span className="label">Receptionist voice</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select
-                value={form.voice_id}
-                onChange={set('voice_id')}
-                style={{ flex: 1 }}
-              >
+              <select value={form.voice_id} onChange={set('voice_id')} style={{ flex: 1 }}>
                 {VOICE_OPTIONS.map((v) => (
                   <option key={v.value} value={v.value}>{v.label}</option>
                 ))}
@@ -238,24 +247,23 @@ export default function Settings() {
                 ▶ Preview
               </button>
             </div>
-            <span className="hint">The voice your AI receptionist uses when answering calls.</span>
+            <span className="hint">Click Preview to hear a sample before saving.</span>
           </div>
         </div>
 
         <div className="card card-pad">
-          <div className="section-title">AI</div>
+          <div className="section-title">Advanced</div>
           <label className="field" style={{ marginBottom: 0 }}>
-            <span className="label">System prompt override</span>
+            <span className="label">Custom AI instructions</span>
             <textarea
               className="code"
               rows={8}
               value={form.ai_system_prompt}
               onChange={set('ai_system_prompt')}
-              placeholder="Leave blank to use the default SoCal Receptionist prompt."
+              placeholder="Leave blank to use the default SoCal Receptionist behavior. Only change this if you need custom tone, specific scripts, or special instructions for your industry."
             />
             <span className="hint">
-              Advanced: customize the receptionist's tone and instructions. Blank
-              uses the platform default.
+              Override how the AI behaves entirely. For most businesses, leave this blank.
             </span>
           </label>
         </div>
