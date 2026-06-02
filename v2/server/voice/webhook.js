@@ -56,7 +56,7 @@ function menuGather(vr, tenant) {
     numDigits: 1,
     action: '/voice/menu',
     method: 'POST',
-    timeout: 3,
+    timeout: 2,
   });
   const greeting =
     tenant.voice_greeting ||
@@ -144,7 +144,7 @@ router.post('/voice/menu', async (req, res) => {
       input: 'speech',
       action: '/voice/converse',
       method: 'POST',
-      speechTimeout: 'auto',
+      speechTimeout: '1',
     });
     gather.say(voice(tenant), 'Great. How can I help you today?');
     // No speech captured -> retry the AI turn rather than dropping the call.
@@ -210,7 +210,7 @@ router.post('/voice/converse', async (req, res) => {
       input: 'speech',
       action: `/voice/converse?empty=${emptyTurns + 1}`,
       method: 'POST',
-      speechTimeout: 'auto',
+      speechTimeout: '1',
     });
     // First entry from menu (emptyTurns=0): greet, don't apologize.
     const prompt = emptyTurns === 0
@@ -241,7 +241,7 @@ router.post('/voice/converse', async (req, res) => {
   try {
     const conversation = await getOrCreateConversation(tenant.id, from);
     if (callSid) await updateCall(callSid, { conversation_id: conversation.id, outcome: 'ai_handled' });
-    reply = await handleMessage(tenant, conversation, from, speech);
+    reply = await handleMessage(tenant, conversation, from, speech, { model: 'gpt-4o-mini' });
   } catch (err) {
     logger.error('voice.ai_failed', { tenant_id: tenant.id, error: err.message });
     reply = 'I am sorry, I ran into a problem. Let me take a message so someone can call you back.';
@@ -255,7 +255,7 @@ router.post('/voice/converse', async (req, res) => {
     input: 'speech',
     action: '/voice/converse',
     method: 'POST',
-    speechTimeout: 'auto',
+    speechTimeout: '1',
   });
   gather.say(voice(tenant), reply);
   // If they go quiet after a reply, say goodbye gracefully.

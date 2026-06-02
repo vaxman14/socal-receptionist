@@ -138,7 +138,7 @@ function completion(model, messages) {
 
 // Handle one inbound SMS for a tenant. Persists the inbound + outbound turns to
 // the transcript and returns the reply text to send back to the customer.
-async function handleMessage(tenant, conversation, customerPhone, userText) {
+async function handleMessage(tenant, conversation, customerPhone, userText, opts = {}) {
   const history = await loadTranscript(conversation.id);
   const messages = [
     { role: 'system', content: buildSystemPrompt(tenant) },
@@ -146,7 +146,7 @@ async function handleMessage(tenant, conversation, customerPhone, userText) {
     { role: 'user', content: userText },
   ];
 
-  const model = tenant.ai_model || 'gpt-4o';
+  const model = opts.model || tenant.ai_model || 'gpt-4o';
   let promptTokens = 0;
   let completionTokens = 0;
   const tally = (r) => {
