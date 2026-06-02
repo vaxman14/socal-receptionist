@@ -145,7 +145,7 @@ router.post('/voice/menu', async (req, res) => {
       input: 'speech',
       action: '/voice/converse',
       method: 'POST',
-      speechTimeout: '1',
+      speechTimeout: '3',
     });
     gather.say(voice(tenant), 'Great. How can I help you today?');
     // No speech captured -> retry the AI turn rather than dropping the call.
@@ -213,7 +213,7 @@ router.post('/voice/converse', async (req, res) => {
       input: 'speech',
       action: `/voice/converse?empty=${emptyTurns + 1}${spokeParam}`,
       method: 'POST',
-      speechTimeout: '1',
+      speechTimeout: '3',
     });
     const prompt = spoke
       ? 'Is there anything else I can help you with today?'
@@ -260,7 +260,7 @@ router.post('/voice/converse', async (req, res) => {
     input: 'speech',
     action: '/voice/converse?spoke=1',
     method: 'POST',
-    speechTimeout: '1',
+    speechTimeout: '3',
   });
   gather.say(voice(tenant), reply);
   vr.say(voice(tenant), 'Thank you for calling. Goodbye.');
