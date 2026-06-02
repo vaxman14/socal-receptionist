@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { useFetch } from '../../lib/useFetch';
 import { Loading, ErrorState } from '../../components/States';
 import MfaSettings from '../../components/MfaSettings';
+import BusinessHoursPicker from '../../components/BusinessHoursPicker';
 
 const TIMEZONES = [
   'America/Los_Angeles',
@@ -143,10 +144,13 @@ export default function Settings() {
             <span className="label">Business name *</span>
             <input type="text" value={form.business_name} onChange={set('business_name')} />
           </label>
-          <label className="field">
+          <div className="field">
             <span className="label">Business hours</span>
-            <input type="text" value={form.business_hours} onChange={set('business_hours')} />
-          </label>
+            <BusinessHoursPicker
+              value={form.business_hours}
+              onChange={(val) => setForm((f) => ({ ...f, business_hours: val }))}
+            />
+          </div>
           <label className="field">
             <span className="label">Services offered</span>
             <textarea value={form.business_services} onChange={set('business_services')} />
