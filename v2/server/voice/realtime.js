@@ -141,7 +141,6 @@ function handleMediaStream(twilioWs, req) {
       type: 'session.update',
       session: {
         type: 'realtime',
-        modalities: ['audio', 'text'],
         voice: realtimeVoice,
         input_audio_format: 'g711_ulaw',
         output_audio_format: 'g711_ulaw',
