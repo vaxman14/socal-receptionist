@@ -22,14 +22,22 @@ const router = express.Router();
 
 router.use(requireAuth, requirePlatformAdmin);
 
-// GET /admin/owner/tenants — every tenant with a subscription summary.
+// GET /admin/owner/tenants?page=1&limit=25 — every tenant with a subscription summary.
 router.get('/tenants', async (req, res) => {
-  const { data, error } = await supabase
-    .from('tenants')
-    .select('*, subscriptions(status, plan, current_period_end, trial_ends_at)')
-    .order('created_at', { ascending: false });
+  const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 100);
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const offset = (page - 1) * limit;
+
+  const [{ count }, { data, error }] = await Promise.all([
+    supabase.from('tenants').select('*', { count: 'exact', head: true }),
+    supabase
+      .from('tenants')
+      .select('*, subscriptions(status, plan, current_period_end, trial_ends_at)')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+  ]);
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ tenants: data });
+  res.json({ tenants: data, total: count ?? 0, page, limit });
 });
 
 // GET /admin/owner/tenants/:id — one tenant with billing + phone numbers.
@@ -94,16 +102,22 @@ router.get('/conversations/:id/messages', async (req, res) => {
   res.json({ messages: data });
 });
 
-// GET /admin/owner/audit-log — platform-wide audit trail.
+// GET /admin/owner/audit-log?page=1&limit=25 — platform-wide audit trail.
 router.get('/audit-log', async (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 100, 500);
-  const { data, error } = await supabase
-    .from('audit_log')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 100);
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const offset = (page - 1) * limit;
+
+  const [{ count }, { data, error }] = await Promise.all([
+    supabase.from('audit_log').select('*', { count: 'exact', head: true }),
+    supabase
+      .from('audit_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+  ]);
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ audit_log: data });
+  res.json({ audit_log: data, total: count ?? 0, page, limit });
 });
 
 // ===========================================================================

@@ -151,34 +151,54 @@ router.patch('/tenant', requireAal2, async (req, res) => {
   res.json({ tenant: data });
 });
 
-// GET /admin/leads — this tenant's leads, newest first.
+// GET /admin/leads?page=1&limit=25 — this tenant's leads, newest first.
 router.get('/leads', async (req, res) => {
-  const { data, error } = await supabase
-    .from('leads')
-    .select('*')
-    .eq('tenant_id', req.tenant.id)
-    .order('created_at', { ascending: false })
-    .limit(200);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 100);
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const offset = (page - 1) * limit;
+
+  const [{ count }, { data, error }] = await Promise.all([
+    supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', req.tenant.id),
+    supabase
+      .from('leads')
+      .select('*')
+      .eq('tenant_id', req.tenant.id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+  ]);
   if (error) {
     console.error('[admin] list leads failed:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
-  res.json({ leads: data });
+  res.json({ leads: data, total: count ?? 0, page, limit });
 });
 
-// GET /admin/calls — this tenant's inbound calls, newest first.
+// GET /admin/calls?page=1&limit=25 — this tenant's inbound calls, newest first.
 router.get('/calls', async (req, res) => {
-  const { data, error } = await supabase
-    .from('calls')
-    .select('*')
-    .eq('tenant_id', req.tenant.id)
-    .order('created_at', { ascending: false })
-    .limit(200);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 100);
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const offset = (page - 1) * limit;
+
+  const [{ count }, { data, error }] = await Promise.all([
+    supabase
+      .from('calls')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', req.tenant.id),
+    supabase
+      .from('calls')
+      .select('*')
+      .eq('tenant_id', req.tenant.id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+  ]);
   if (error) {
     console.error('[admin] list calls failed:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
-  res.json({ calls: data });
+  res.json({ calls: data, total: count ?? 0, page, limit });
 });
 
 // POST /admin/billing/checkout — start a subscription. Billed as a one-time
