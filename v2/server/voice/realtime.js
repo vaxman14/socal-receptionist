@@ -102,7 +102,7 @@ function handleMediaStream(twilioWs, req) {
       }
 
       // Forward AI audio deltas back to Twilio.
-      case 'response.output_audio.delta': {
+      case 'response.audio.delta': {
         if (streamSid && event.delta) {
           twilioWs.send(JSON.stringify({
             event: 'media',
