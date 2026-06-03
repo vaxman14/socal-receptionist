@@ -115,15 +115,17 @@ router.get('/voice/preview', async (req, res) => {
       }),
     });
     if (!response.ok) {
-      const err = await response.text();
-      return res.status(502).json({ error: 'TTS failed', detail: err });
+      // Do NOT forward the raw OpenAI error body — it may contain quota or key hints.
+      console.error('[admin/voice/preview] TTS upstream error:', response.status, await response.text());
+      return res.status(502).json({ error: 'TTS unavailable' });
     }
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Cache-Control', 'public, max-age=3600');
     const buf = await response.arrayBuffer();
     res.send(Buffer.from(buf));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[admin/voice/preview] unexpected error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

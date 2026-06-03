@@ -48,6 +48,10 @@ router.get('/numbers', async (req, res) => {
 router.post('/numbers/provision', express.json(), async (req, res) => {
   const { phoneNumber } = req.body;
   if (!phoneNumber) return res.status(400).json({ error: 'phoneNumber required' });
+  // Enforce E.164 format — prevents malformed/attacker-controlled strings reaching Twilio.
+  if (typeof phoneNumber !== 'string' || !/^\+1[2-9]\d{9}$/.test(phoneNumber)) {
+    return res.status(400).json({ error: 'phoneNumber must be a valid US E.164 number (e.g. +12125551234)' });
+  }
 
   // Only provision once.
   const { data: existing } = await supabase

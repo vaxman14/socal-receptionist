@@ -43,10 +43,33 @@ PROFILE_JSON:{"done":true,"message":"<your final friendly message confirming you
 - Until you have all required info, just respond conversationally — no JSON.
 - Start by greeting them and asking for their business name.`;
 
+// Limits that prevent cost-amplification attacks on the AI endpoint.
+const MAX_CHAT_MESSAGES = 40;        // conversation history depth cap
+const MAX_MESSAGE_CHARS  = 2000;     // per-message content length cap
+
 router.post('/chat', async (req, res) => {
   const { messages } = req.body;
   if (!Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
+  }
+  if (messages.length > MAX_CHAT_MESSAGES) {
+    return res.status(400).json({ error: `too many messages (max ${MAX_CHAT_MESSAGES})` });
+  }
+
+  // Validate and sanitize each message — only known roles, string content, length cap.
+  const ALLOWED_ROLES = new Set(['user', 'assistant']);
+  const sanitized = [];
+  for (const m of messages) {
+    if (!ALLOWED_ROLES.has(m.role)) {
+      return res.status(400).json({ error: `invalid message role: ${m.role}` });
+    }
+    if (typeof m.content !== 'string') {
+      return res.status(400).json({ error: 'message content must be a string' });
+    }
+    if (m.content.length > MAX_MESSAGE_CHARS) {
+      return res.status(400).json({ error: `message content exceeds ${MAX_MESSAGE_CHARS} characters` });
+    }
+    sanitized.push({ role: m.role, content: m.content });
   }
 
   try {
@@ -54,7 +77,7 @@ router.post('/chat', async (req, res) => {
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       system: SYSTEM,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: sanitized,
     });
 
     const text = response.content[0]?.text || '';

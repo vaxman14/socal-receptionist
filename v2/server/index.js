@@ -71,7 +71,12 @@ const POLLY_TO_OPENAI_PUBLIC = {
 const _voicePreviewCache = new Map();
 app.get('/voice/preview', async (req, res) => {
   const voiceId = req.query.voice || 'Polly.Joanna-Neural';
-  const oaiVoice = POLLY_TO_OPENAI_PUBLIC[voiceId] || 'nova';
+  // Reject voices not in the allowlist — unknown IDs map to the same cached value
+  // anyway, but rejecting them prevents probing and makes intent explicit.
+  if (!Object.prototype.hasOwnProperty.call(POLLY_TO_OPENAI_PUBLIC, voiceId)) {
+    return res.status(400).json({ error: 'unknown voice' });
+  }
+  const oaiVoice = POLLY_TO_OPENAI_PUBLIC[voiceId];
   if (_voicePreviewCache.has(oaiVoice)) {
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -91,8 +96,9 @@ app.get('/voice/preview', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600');
     res.send(buf);
   } catch (err) {
+    // Do not leak upstream error details (quota info, key validity, etc.)
     console.error('[voice/preview]', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'voice preview unavailable' });
   }
 });
 

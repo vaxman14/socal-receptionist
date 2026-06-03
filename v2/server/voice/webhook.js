@@ -274,7 +274,8 @@ router.post('/voice/whisper', (req, res) => {
     return res.status(403).send('Invalid Twilio signature');
   }
   const vr = new VoiceResponse();
-  vr.say(voice(tenant), 'Call forwarded from your virtual receptionist. Connecting now.');
+  // tenant is not available in this callback — use a fixed neutral voice.
+  vr.say({ voice: DEFAULT_VOICE_ID }, 'Call forwarded from your virtual receptionist. Connecting now.');
   sendTwiml(res, vr);
 });
 
@@ -296,19 +297,26 @@ router.post('/voice/dial-status', async (req, res) => {
   }
 
   // Staff did not pick up — take a message instead of dropping the caller.
-  vr.say(voice(tenant), 'Sorry, our staff are not available right now.');
+  // tenant is not available in this callback — use a fixed neutral voice.
+  vr.say({ voice: DEFAULT_VOICE_ID }, 'Sorry, our staff are not available right now.');
   vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
   sendTwiml(res, vr);
 });
 
 // --- Voicemail --------------------------------------------------------------
 
-router.post('/voice/voicemail-prompt', (req, res) => {
+router.post('/voice/voicemail-prompt', async (req, res) => {
   if (!isValidTwilioRequest(req)) {
     return res.status(403).send('Invalid Twilio signature');
   }
   const vr = new VoiceResponse();
-  vr.say(voice(tenant), 'Please leave your name, number, and a short message after the tone. Press any key when you are finished.');
+  // Resolve tenant so we can use their configured voice, falling back to default.
+  let voiceOpts = { voice: DEFAULT_VOICE_ID };
+  try {
+    const t = await resolveTenantByNumber(req.body.To);
+    if (t) voiceOpts = voice(t);
+  } catch (_) {}
+  vr.say(voiceOpts, 'Please leave your name, number, and a short message after the tone. Press any key when you are finished.');
   vr.record({
     action: '/voice/voicemail',
     method: 'POST',
@@ -319,7 +327,7 @@ router.post('/voice/voicemail-prompt', (req, res) => {
     transcribeCallback: '/voice/voicemail-transcription',
   });
   // Reached only if the caller leaves nothing.
-  vr.say(voice(tenant), 'We did not receive a message. Goodbye.');
+  vr.say(voiceOpts, 'We did not receive a message. Goodbye.');
   vr.hangup();
   sendTwiml(res, vr);
 });

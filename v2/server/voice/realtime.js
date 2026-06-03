@@ -205,8 +205,9 @@ function handleMediaStream(twilioWs, req) {
       const staffPhone = tenant?.staff_phone;
       if (staffPhone && callSid) {
         // Use Twilio REST to redirect the live call to staff.
+        const baseUrl = (process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
         twilioClient.calls(callSid).update({
-          twiml: `<Response><Say voice="${tenant.voice_id || 'Polly.Joanna-Neural'}">One moment while I connect you with our team.</Say><Dial timeout="20" action="https://socal-receptionist-v2-spbrw.ondigitalocean.app/voice/dial-status">${staffPhone}</Dial></Response>`,
+          twiml: `<Response><Say voice="${tenant.voice_id || 'Polly.Joanna-Neural'}">One moment while I connect you with our team.</Say><Dial timeout="20" action="${baseUrl}/voice/dial-status">${staffPhone}</Dial></Response>`,
         }).catch((err) => logger.error('voice.realtime.transfer_failed', { error: err.message }));
         result = 'Transfer initiated.';
       } else {
