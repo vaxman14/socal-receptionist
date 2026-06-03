@@ -31,7 +31,7 @@ const POLLY_TO_REALTIME = {
   'Polly.Brian-Neural':   'verse',
 };
 
-const REALTIME_MODEL = 'gpt-4o-realtime-preview';
+const REALTIME_MODEL = 'gpt-realtime-2';
 const OPENAI_WS_URL = `wss://api.openai.com/v1/realtime?model=${REALTIME_MODEL}`;
 
 // Tools available to the AI receptionist during a call.
