@@ -102,7 +102,7 @@ function handleMediaStream(twilioWs, req) {
       }
 
       // Forward AI audio deltas back to Twilio.
-      case 'response.audio.delta': {
+      case 'response.output_audio.delta': {
         if (streamSid && event.delta) {
           twilioWs.send(JSON.stringify({
             event: 'media',
@@ -141,15 +141,16 @@ function handleMediaStream(twilioWs, req) {
       type: 'session.update',
       session: {
         type: 'realtime',
-        voice: realtimeVoice,
-        input_audio_format: 'g711_ulaw',
-        output_audio_format: 'g711_ulaw',
-        turn_detection: {
-          type: 'server_vad',
-          threshold: 0.6,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 400,
-          create_response: true,
+        output_modalities: ['audio'],
+        audio: {
+          input: {
+            format: { type: 'audio/pcmu' },
+            turn_detection: { type: 'semantic_vad' },
+          },
+          output: {
+            format: { type: 'audio/pcmu' },
+            voice: realtimeVoice,
+          },
         },
         instructions,
         tools: buildTools(tenant),
