@@ -145,7 +145,7 @@ function handleMediaStream(twilioWs, req) {
         audio: {
           input: {
             format: { type: 'audio/pcmu' },
-            turn_detection: { type: 'semantic_vad' },
+            turn_detection: { type: 'semantic_vad', eagerness: 'low', create_response: false },
           },
           output: {
             format: { type: 'audio/pcmu' },
