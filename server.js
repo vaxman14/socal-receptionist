@@ -51,6 +51,20 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
 });
 
+// Internal: poll Gmail inboxes for new messages since ?since=<epochMs>
+app.get('/internal/gmail-check', async (req, res) => {
+  const secret = config.internalSecret;
+  if (!secret || req.query.token !== secret) return res.status(401).json({ error: 'unauthorized' });
+  const sinceMs = parseInt(req.query.since || '0', 10) || (Date.now() - 30 * 60 * 1000);
+  try {
+    const { getNewMessages } = require('./src/gmail-monitor');
+    const messages = await getNewMessages(sinceMs);
+    res.json({ ok: true, count: messages.length, messages });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Google OAuth callback — disabled in production (was used once for initial token capture).
 app.get('/auth/google-callback', (req, res) => {
   res.status(410).send('Gone');
