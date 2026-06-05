@@ -48,11 +48,19 @@ function MfaGate() {
   const { session } = useAuth();
   // 'checking' | 'challenge' | 'cleared'
   const [state, setState] = useState('checking');
+  // True when the user already has an enrolled factor — lets RoleRouter skip
+  // the MfaEnroll check and avoid the redundant "Loading…" flash every reload.
+  const [hasExistingFactor, setHasExistingFactor] = useState(false);
 
   const check = useCallback(async () => {
     setState('checking');
     try {
       const status = await getMfaStatus();
+      // nextLevel 'aal2' means there's a verified factor; currentLevel 'aal2'
+      // means the session already cleared it this run.
+      setHasExistingFactor(
+        status.currentLevel === 'aal2' || status.nextLevel === 'aal2'
+      );
       if (!status.needed) {
         // No verified factor, or already at aal2 — nothing to do.
         setState('cleared');
@@ -81,13 +89,16 @@ function MfaGate() {
     // fall through to the app.
     return <MfaChallenge onVerified={check} />;
   }
-  return <RoleRouter />;
+  return <RoleRouter mfaAlreadyEnrolled={hasExistingFactor} />;
 }
 
 // Split out so useRole only runs once we know there is a session.
-function RoleRouter() {
+function RoleRouter({ mfaAlreadyEnrolled }) {
   const { role, loading, error, reload } = useRole();
-  const [mfaReady, setMfaReady] = useState(false);
+  // If MfaGate confirmed a factor already exists, skip straight past enrollment.
+  // This prevents a redundant "Loading…" flash on every page reload for users
+  // who enrolled MFA during their initial setup.
+  const [mfaReady, setMfaReady] = useState(mfaAlreadyEnrolled);
 
   if (loading) return <Loading label="Loading your account…" />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
