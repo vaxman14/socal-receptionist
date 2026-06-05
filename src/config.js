@@ -72,6 +72,8 @@ const config = {
     gaId: optional('GA_ID', ''),
     fbPixelId: optional('FB_PIXEL_ID', ''),
   },
+
+  internalSecret: optional('INTERNAL_SECRET', ''),
 };
 
 if (!config.email.from) {
