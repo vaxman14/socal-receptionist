@@ -72,7 +72,7 @@ app.get('/internal/gmail-check', async (req, res) => {
   const secret = process.env.INTERNAL_SECRET;
   if (!secret || req.query.token !== secret) return res.status(401).json({ error: 'unauthorized' });
 
-  const sinceMs = parseInt(req.query.since || '0', 10) || (Date.now() - 30 * 60 * 1000);
+  const sinceMs = parseInt(req.query.since || '0', 10) || (Date.now() - 6 * 60 * 1000);
   const afterSec = Math.floor(sinceMs / 1000);
 
   const ACCOUNTS = [
@@ -98,7 +98,7 @@ app.get('/internal/gmail-check', async (req, res) => {
       if (!access_token) continue;
 
       const listRes = await fetch(
-        `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:inbox+after:${afterSec}&maxResults=20`,
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=-in:trash+after:${afterSec}&maxResults=20`,
         { headers: { Authorization: `Bearer ${access_token}` } }
       );
       const listData = await listRes.json();
