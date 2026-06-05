@@ -23,6 +23,26 @@ import Wizard from './pages/onboarding/Wizard';
 import Register from './pages/Register';
 import Welcome from './pages/Welcome';
 
+// SessionStorage cache for MFA gate — avoids 2 network round-trips on every
+// reload when the user has already cleared MFA in this browser session.
+const MFA_CACHE_TTL = 10 * 60 * 1000; // 10 min
+
+function readMfaCache(userId) {
+  try {
+    const raw = sessionStorage.getItem(`scr.mfa.${userId}`);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    if (Date.now() - v.ts < MFA_CACHE_TTL) return v;
+  } catch {}
+  return null;
+}
+
+function writeMfaCache(userId, hasExistingFactor) {
+  try {
+    sessionStorage.setItem(`scr.mfa.${userId}`, JSON.stringify({ hasExistingFactor, ts: Date.now() }));
+  } catch {}
+}
+
 export default function App() {
   const { session, loading } = useAuth();
   const location = useLocation();
@@ -44,40 +64,43 @@ export default function App() {
 // Decides whether the signed-in session must clear an MFA challenge before the
 // app is shown. A verified factor + aal1 session means challenge — unless this
 // browser holds a still-valid device-trust token, in which case MFA is skipped.
+//
+// Results are cached in sessionStorage to skip the network round-trips on
+// subsequent page reloads within the same browser session.
 function MfaGate() {
   const { session } = useAuth();
-  // 'checking' | 'challenge' | 'cleared'
-  const [state, setState] = useState('checking');
-  // True when the user already has an enrolled factor — lets RoleRouter skip
-  // the MfaEnroll check and avoid the redundant "Loading…" flash every reload.
-  const [hasExistingFactor, setHasExistingFactor] = useState(false);
+  const userId = session?.user?.id;
+
+  // Seed from cache so the app appears immediately on reload without a spinner.
+  const cached = userId ? readMfaCache(userId) : null;
+  const [state, setState] = useState(cached ? 'cleared' : 'checking');
+  const [hasExistingFactor, setHasExistingFactor] = useState(cached?.hasExistingFactor ?? false);
 
   const check = useCallback(async () => {
-    setState('checking');
+    // Only show the spinner when there's no cached result to fall back on.
+    if (!readMfaCache(userId)) setState('checking');
     try {
       const status = await getMfaStatus();
-      // nextLevel 'aal2' means there's a verified factor; currentLevel 'aal2'
-      // means the session already cleared it this run.
-      setHasExistingFactor(
-        status.currentLevel === 'aal2' || status.nextLevel === 'aal2'
-      );
+      const hasFactor = status.currentLevel === 'aal2' || status.nextLevel === 'aal2';
+      setHasExistingFactor(hasFactor);
       if (!status.needed) {
-        // No verified factor, or already at aal2 — nothing to do.
         setState('cleared');
+        if (userId) writeMfaCache(userId, hasFactor);
         return;
       }
-      // The account has a verified factor and the session is aal1. Skip the
-      // challenge only if this device is still trusted.
+      // Has a factor, session is aal1 — skip challenge only if device is trusted.
       const trusted = await isDeviceTrusted();
-      setState(trusted ? 'cleared' : 'challenge');
+      if (trusted) {
+        setState('cleared');
+        if (userId) writeMfaCache(userId, hasFactor);
+      } else {
+        setState('challenge');
+      }
     } catch {
-      // If the assurance-level lookup fails, fail open to the app rather than
-      // hard-locking the user out — AAL2-gated routes (if any) still enforce
-      // server-side. The far more common case is "no factor enrolled".
+      // Fail open — don't hard-lock users on a transient error.
       setState('cleared');
     }
-    // Re-run whenever the underlying session changes (sign-in, factor verify).
-  }, [session?.access_token]);
+  }, [session?.access_token, userId]);
 
   useEffect(() => {
     check();
@@ -85,8 +108,6 @@ function MfaGate() {
 
   if (state === 'checking') return <Loading label="Checking security…" />;
   if (state === 'challenge') {
-    // onVerified: the factor was cleared (session is now aal2) — re-check and
-    // fall through to the app.
     return <MfaChallenge onVerified={check} />;
   }
   return <RoleRouter mfaAlreadyEnrolled={hasExistingFactor} />;
