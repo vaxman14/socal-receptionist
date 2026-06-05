@@ -66,6 +66,67 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'socal-receptionist-v2', ts: new Date().toISOString() });
 });
 
+// Internal: poll Gmail inboxes for new messages since ?since=<epochMs>
+// Used by Josi's gmail-monitor cron to alert Roman of new emails.
+app.get('/internal/gmail-check', async (req, res) => {
+  const secret = process.env.INTERNAL_SECRET;
+  if (!secret || req.query.token !== secret) return res.status(401).json({ error: 'unauthorized' });
+
+  const sinceMs = parseInt(req.query.since || '0', 10) || (Date.now() - 30 * 60 * 1000);
+  const afterSec = Math.floor(sinceMs / 1000);
+
+  const ACCOUNTS = [
+    { name: 'info',    refreshToken: process.env.GOOGLE_REFRESH_TOKEN_INFO },
+    { name: 'support', refreshToken: process.env.GOOGLE_REFRESH_TOKEN_SUPPORT },
+  ];
+
+  const messages = [];
+  for (const account of ACCOUNTS) {
+    if (!account.refreshToken) continue;
+    try {
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: process.env.GOOGLE_CLIENT_ID,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET,
+          refresh_token: account.refreshToken,
+          grant_type: 'refresh_token',
+        }),
+      });
+      const { access_token } = await tokenRes.json();
+      if (!access_token) continue;
+
+      const listRes = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:inbox+after:${afterSec}&maxResults=20`,
+        { headers: { Authorization: `Bearer ${access_token}` } }
+      );
+      const listData = await listRes.json();
+      for (const { id } of (listData.messages || [])) {
+        const msgRes = await fetch(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
+          { headers: { Authorization: `Bearer ${access_token}` } }
+        );
+        const msg = await msgRes.json();
+        const headers = {};
+        for (const h of (msg.payload?.headers || [])) headers[h.name] = h.value;
+        messages.push({
+          id: msg.id,
+          account: account.name,
+          from: headers['From'] || '',
+          subject: headers['Subject'] || '(no subject)',
+          date: headers['Date'] || '',
+          internalDate: parseInt(msg.internalDate || '0'),
+        });
+      }
+    } catch (err) {
+      console.error(`[gmail-monitor] error reading ${account.name}: ${err.message}`);
+    }
+  }
+
+  messages.sort((a, b) => a.internalDate - b.internalDate);
+  res.json({ ok: true, count: messages.length, messages });
+});
 app.use('/', smsRouter);
 app.use('/', voiceRouter);
 
