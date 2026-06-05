@@ -94,8 +94,12 @@ app.get('/internal/gmail-check', async (req, res) => {
           grant_type: 'refresh_token',
         }),
       });
-      const { access_token } = await tokenRes.json();
-      if (!access_token) continue;
+      const tokenData = await tokenRes.json();
+      if (!tokenData.access_token) {
+        console.error(`[gmail-monitor] token exchange failed for ${account.name}: ${JSON.stringify(tokenData)}`);
+        continue;
+      }
+      const access_token = tokenData.access_token;
 
       const listRes = await fetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=-in:trash+after:${afterSec}&maxResults=20`,
@@ -125,7 +129,7 @@ app.get('/internal/gmail-check', async (req, res) => {
   }
 
   messages.sort((a, b) => a.internalDate - b.internalDate);
-  res.json({ ok: true, count: messages.length, messages });
+  res.json({ ok: true, count: messages.length, messages, sinceMs, afterSec });
 });
 app.use('/', smsRouter);
 app.use('/', voiceRouter);
