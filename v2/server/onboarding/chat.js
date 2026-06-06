@@ -17,7 +17,10 @@ const logger = require('../lib/logger');
 const router = express.Router();
 router.use(requireAuth);
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const client = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY,
+  baseURL: process.env.GROQ_API_KEY ? 'https://api.groq.com/openai/v1' : undefined,
+});
 
 const SYSTEM = `You are a friendly AI assistant helping a new business owner set up their AI receptionist on SoCal Receptionist.
 
@@ -74,7 +77,7 @@ router.post('/chat', async (req, res) => {
 
   try {
     const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: process.env.GROQ_MODEL || 'gpt-4o-mini',
       max_tokens: 1024,
       messages: [{ role: 'system', content: SYSTEM }, ...sanitized],
     });
