@@ -25,6 +25,7 @@ const clientAdminRouter = require('./admin/client');
 const ownerAdminRouter = require('./admin/owner');
 const onboardingAgreementRouter = require('./onboarding/agreement');
 const onboardingRegisterRouter = require('./onboarding/register');
+const onboardingChatRouter = require('./onboarding/chat');
 const mfaRouter = require('./auth/mfa');
 const integrationsRouter = require('./integrations/router');
 
@@ -114,6 +115,7 @@ app.use('/', voiceRouter);
 // (which gates provisioning). Register is mounted first; both share /onboarding.
 app.use('/onboarding', strictLimiter, onboardingRegisterRouter);
 app.use('/onboarding', onboardingAgreementRouter);
+app.use('/onboarding', onboardingChatRouter);
 
 // MFA API — trusted-device ("trust this device for 30 days") issue / verify /
 // revoke. The TOTP + passkey factors themselves are handled by Supabase Auth
