@@ -14,10 +14,18 @@ import { api } from '../lib/api';
 import { ph } from '../analytics';
 
 const STORAGE_KEY = 'socal-register';
+const STEP1_KEY = 'socal-register-step1';
 
 function loadSaved() {
   try {
     const s = localStorage.getItem(STORAGE_KEY);
+    return s ? JSON.parse(s) : null;
+  } catch { return null; }
+}
+
+function loadStep1() {
+  try {
+    const s = localStorage.getItem(STEP1_KEY);
     return s ? JSON.parse(s) : null;
   } catch { return null; }
 }
@@ -60,17 +68,25 @@ function StepIndicator({ current }) {
 
 function StepInfo({ onNext }) {
   const { signIn, signUp } = useAuth();
+  const _saved1 = loadStep1();
   const [form, setForm] = useState({
-    full_name: '',
-    email: '',
+    full_name: _saved1?.full_name || '',
+    email: _saved1?.email || '',
     password: '',
     confirm: '',
-    phone: '',
+    phone: _saved1?.phone || '',
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k) => (e) => {
+    const val = e.target.value;
+    setForm((f) => {
+      const next = { ...f, [k]: val };
+      try { localStorage.setItem(STEP1_KEY, JSON.stringify({ full_name: next.full_name, email: next.email, phone: next.phone })); } catch {}
+      return next;
+    });
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -107,6 +123,7 @@ function StepInfo({ onNext }) {
         }
       }
 
+      try { localStorage.removeItem(STEP1_KEY); } catch {}
       ph.identify(session?.user?.id, { email: form.email.trim(), name: form.full_name.trim() });
       ph.capture('registration_account_created');
       // Pass collected info forward so Step 2 can pre-populate owner email, etc.
