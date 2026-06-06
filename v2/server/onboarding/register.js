@@ -17,7 +17,6 @@ const { sendEmail } = require('../lib/email');
 const { onboardingConfirmation } = require('../lib/email-templates');
 
 const router = express.Router();
-router.use(requireAuth);
 
 // Fields the registrant supplies. Lifecycle/billing/spend fields are NOT here —
 // those are owned by the backend.
@@ -43,7 +42,7 @@ function slugify(name) {
 }
 
 // GET /onboarding/business — does the caller already have a tenant?
-router.get('/business', async (req, res) => {
+router.get('/business', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('tenants')
     .select('*')
@@ -59,7 +58,7 @@ router.get('/business', async (req, res) => {
 });
 
 // POST /onboarding/business — create the caller's tenant.
-router.post('/business', async (req, res) => {
+router.post('/business', requireAuth, async (req, res) => {
   // One tenant per account.
   const { data: existing } = await supabase
     .from('tenants')

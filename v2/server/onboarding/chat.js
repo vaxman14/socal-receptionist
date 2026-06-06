@@ -15,8 +15,7 @@ const { requireAuth } = require('../lib/auth');
 const logger = require('../lib/logger');
 
 const router = express.Router();
-// Auth temporarily disabled for debugging — re-enable after confirming Groq works
-// router.use(requireAuth);
+router.use(requireAuth);
 
 const client = new OpenAI({
   apiKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY,
@@ -101,22 +100,6 @@ router.post('/chat', async (req, res) => {
   } catch (err) {
     logger.error('chat.openai_error', { error: err.message });
     res.status(500).json({ error: 'Could not reach AI. Please try again.' });
-  }
-});
-
-// Temporary diagnostic — remove after debugging
-router.get('/chat-ping', async (req, res) => {
-  const hasGroq = !!process.env.GROQ_API_KEY;
-  const model = process.env.GROQ_MODEL || 'gpt-4o-mini';
-  try {
-    const r = await client.chat.completions.create({
-      model,
-      max_tokens: 5,
-      messages: [{ role: 'user', content: 'hi' }],
-    });
-    res.json({ ok: true, hasGroq, model, reply: r.choices[0]?.message?.content });
-  } catch (err) {
-    res.json({ ok: false, hasGroq, model, error: err.message });
   }
 });
 
