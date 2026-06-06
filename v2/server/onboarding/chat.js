@@ -10,14 +10,14 @@
 //     -> { message: string, done: true, profile }  — ready to confirm
 
 const express = require('express');
-const Anthropic = require('@anthropic-ai/sdk');
+const OpenAI = require('openai');
 const { requireAuth } = require('../lib/auth');
 const logger = require('../lib/logger');
 
 const router = express.Router();
 router.use(requireAuth);
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const SYSTEM = `You are a friendly AI assistant helping a new business owner set up their AI receptionist on SoCal Receptionist.
 
@@ -73,16 +73,15 @@ router.post('/chat', async (req, res) => {
   }
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
       max_tokens: 1024,
-      system: SYSTEM,
-      messages: sanitized,
+      messages: [{ role: 'system', content: SYSTEM }, ...sanitized],
     });
 
-    const text = response.content[0]?.text || '';
+    const text = response.choices[0]?.message?.content || '';
 
-    // Check if Claude included the profile JSON marker.
+    // Check if the model included the profile JSON marker.
     const markerIdx = text.indexOf('PROFILE_JSON:');
     if (markerIdx !== -1) {
       try {
@@ -96,7 +95,7 @@ router.post('/chat', async (req, res) => {
 
     res.json({ message: text, done: false });
   } catch (err) {
-    logger.error('chat.claude_error', { error: err.message });
+    logger.error('chat.openai_error', { error: err.message });
     res.status(500).json({ error: 'Could not reach AI. Please try again.' });
   }
 });
