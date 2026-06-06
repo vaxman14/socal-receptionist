@@ -2,6 +2,7 @@ const OpenAI = require('openai');
 const config = require('./config');
 const store = require('./store');
 const { notifyLead, notifyFollowup } = require('./email');
+const { saveLead, fireWebhooks } = require('./api-store');
 
 const openai = new OpenAI({ apiKey: config.openai.apiKey });
 
@@ -77,6 +78,8 @@ async function runTool(call, fromNumber) {
   }
 
   if (call.function.name === 'capture_lead') {
+    const lead = saveLead({ name: args.name, contact: args.contact, phone: fromNumber, service: args.service, notes: args.notes || '' });
+    fireWebhooks('lead.created', lead).catch(() => {});
     try {
       await notifyLead({
         name: args.name,
