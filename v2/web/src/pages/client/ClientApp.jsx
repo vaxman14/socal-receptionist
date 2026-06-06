@@ -7,6 +7,7 @@ import Leads from './Leads';
 import Calls from './Calls';
 import Settings from './Settings';
 import Billing from './Billing';
+import Help from '../Help';
 
 const LINKS = [
   { to: '/', label: 'Overview', end: true },
@@ -14,6 +15,7 @@ const LINKS = [
   { to: '/calls', label: 'Calls' },
   { to: '/settings', label: 'Settings' },
   { to: '/billing', label: 'Billing' },
+  { to: '/help', label: 'Help & FAQ' },
 ];
 
 export default function ClientApp() {
@@ -25,6 +27,7 @@ export default function ClientApp() {
         <Route path="calls" element={<Calls />} />
         <Route path="settings" element={<Settings />} />
         <Route path="billing" element={<Billing />} />
+        <Route path="help" element={<Help />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>
