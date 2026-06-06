@@ -324,6 +324,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- Essentials -->
     <div class="price-card">
       <div class="price-name">Essentials</div>
+      <div style="min-height:22px;"><span class="js-strikethrough" style="display:inline;color:#999;text-decoration:line-through;font-size:1rem;">$500/mo</span></div>
       <div class="price-amount"><span>$</span><span class="js-price" data-monthly="500" data-annual="400">400</span></div>
       <div class="price-period">per month<span class="js-billed-note" style="display:inline;color:var(--muted);font-size:0.8rem;margin-left:6px;">· billed $4,800/yr</span></div>
       <div class="price-setup" style="color:#2ecc71;font-weight:600;">No setup fee</div>
@@ -343,6 +344,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="price-card" style="border:2px solid var(--orange);position:relative;">
       <div class="price-badge">White Glove</div>
       <div class="price-name">Concierge</div>
+      <div style="min-height:22px;"><span class="js-strikethrough" style="display:inline;color:#999;text-decoration:line-through;font-size:1rem;">$500/mo</span></div>
       <div class="price-amount"><span>$</span><span class="js-price" data-monthly="500" data-annual="400">400</span></div>
       <div class="price-period">per month<span class="js-billed-note" style="display:inline;color:var(--muted);font-size:0.8rem;margin-left:6px;">· billed $4,800/yr</span></div>
       <div class="price-setup">+ $1,500 one-time setup <em>(non-refundable)</em></div>
@@ -379,6 +381,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       el.textContent = annual ? el.dataset.annual : el.dataset.monthly;
     });
     document.querySelectorAll('.js-billed-note').forEach(function(el) {
+      el.style.display = annual ? 'inline' : 'none';
+    });
+    document.querySelectorAll('.js-strikethrough').forEach(function(el) {
       el.style.display = annual ? 'inline' : 'none';
     });
   };
