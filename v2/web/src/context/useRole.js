@@ -82,12 +82,12 @@ export function useRole() {
   }, [userId]);
 
   useEffect(() => {
-    if (session) {
+    if (userId) {
       detect();
     } else {
       setState({ role: null, tenant: null, loading: false, error: null });
     }
-  }, [session, detect]);
+  }, [userId, detect]);
 
   return { ...state, reload: detect };
 }
