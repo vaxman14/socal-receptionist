@@ -103,4 +103,20 @@ router.post('/chat', async (req, res) => {
   }
 });
 
+// Temporary diagnostic — remove after debugging
+router.get('/chat-ping', async (req, res) => {
+  const hasGroq = !!process.env.GROQ_API_KEY;
+  const model = process.env.GROQ_MODEL || 'gpt-4o-mini';
+  try {
+    const r = await client.chat.completions.create({
+      model,
+      max_tokens: 5,
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    res.json({ ok: true, hasGroq, model, reply: r.choices[0]?.message?.content });
+  } catch (err) {
+    res.json({ ok: false, hasGroq, model, error: err.message });
+  }
+});
+
 module.exports = router;
