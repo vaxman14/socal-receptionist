@@ -438,11 +438,15 @@ function StepPlan({ onNext }) {
           Full-Service Plan
         </div>
 
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 2 }}>
+          <span style={{ fontSize: '1rem', color: '#999', textDecoration: 'line-through' }}>$500/mo</span>
+        </div>
         <div style={{ fontSize: '3rem', fontWeight: 800, color: 'var(--navy)', lineHeight: 1 }}>
           <span style={{ fontSize: '1.2rem', verticalAlign: 'super', fontWeight: 600, color: 'var(--muted)' }}>$</span>
-          500
+          400
         </div>
-        <div style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: 4 }}>per month</div>
+        <div style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: 2 }}>per month, billed as $4,800/yr</div>
+        <div style={{ color: 'var(--green)', fontSize: '0.82rem', fontWeight: 700, marginBottom: 4 }}>Save $1,200 vs monthly</div>
         <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: 24 }}>
           + $1,500 one-time setup fee (billed today)
         </div>
