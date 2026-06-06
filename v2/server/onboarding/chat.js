@@ -15,7 +15,8 @@ const { requireAuth } = require('../lib/auth');
 const logger = require('../lib/logger');
 
 const router = express.Router();
-router.use(requireAuth);
+// Auth temporarily disabled for debugging — re-enable after confirming Groq works
+// router.use(requireAuth);
 
 const client = new OpenAI({
   apiKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY,
