@@ -158,6 +158,9 @@ const PLAN_PRICE_IDS = {
 // setup fee (includes month one) plus the recurring monthly/annual price.
 router.post('/billing/checkout', async (req, res) => {
   try {
+    if (!req.user.email_confirmed_at) {
+      return res.status(403).json({ error: 'email_not_confirmed', message: 'Please confirm your email before starting a trial.' });
+    }
     // Resolve price from server-side plan map only — never trust client-supplied price IDs.
     const planPriceId = req.body.plan ? PLAN_PRICE_IDS[req.body.plan] : null;
     const priceId = planPriceId || process.env.STRIPE_PRICE_ID;
