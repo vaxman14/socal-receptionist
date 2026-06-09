@@ -218,7 +218,7 @@ app.post('/api/support/end', express.json(), (req, res) => res.json({ ok: true }
 const publicDir = path.join(__dirname, '../../public');
 const spaDir = path.join(__dirname, '../web/dist');
 
-app.use(express.static(publicDir));
+app.use(express.static(publicDir, { extensions: ['html'] }));
 app.use(express.static(spaDir));
 
 // SPA fallback for /login, /signup, /dashboard, /app/* etc.
