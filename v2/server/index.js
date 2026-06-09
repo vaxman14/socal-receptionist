@@ -221,6 +221,8 @@ const spaDir = path.join(__dirname, '../web/dist');
 app.use(express.static(publicDir, { extensions: ['html'] }));
 app.use(express.static(spaDir));
 
+app.get('/deck', (req, res) => res.sendFile(path.join(publicDir, 'deck.pdf')));
+
 // SPA fallback for /login, /signup, /dashboard, /app/* etc.
 const spaIndex = path.join(spaDir, 'index.html');
 const fs = require('fs');
