@@ -262,6 +262,24 @@ function handleMediaStream(twilioWs, req) {
           await recordCallStart({ tenantId, callSid, from: fromNumber, to: null }).catch(() => {});
         }
 
+        // Notify the tenant of every inbound call, regardless of outcome.
+        if (tenant) {
+          const notifyTo = tenant.voicemail_email || tenant.owner_email;
+          if (notifyTo) {
+            const ts = new Date().toLocaleString('en-US', {
+              timeZone: tenant.timezone || 'America/Los_Angeles',
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            });
+            sendEmail({
+              to: notifyTo,
+              subject: `📞 Incoming call — ${tenant.business_name}`,
+              html: `<p>Someone just called <strong>${tenant.business_name}</strong>.</p><p><strong>From:</strong> ${fromNumber || 'unknown'}<br/><strong>Time:</strong> ${ts}</p>`,
+              text: `Incoming call to ${tenant.business_name}\nFrom: ${fromNumber || 'unknown'}\nTime: ${ts}`,
+            }).catch(() => {});
+          }
+        }
+
         // If openaiWs is already open, configure now; otherwise the open handler will.
         if (openaiWs && openaiWs.readyState === WebSocket.OPEN) {
           configureSession();

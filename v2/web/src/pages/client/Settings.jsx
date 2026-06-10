@@ -7,6 +7,8 @@ import { useFetch } from '../../lib/useFetch';
 import { Loading, ErrorState } from '../../components/States';
 import MfaSettings from '../../components/MfaSettings';
 import BusinessHoursPicker from '../../components/BusinessHoursPicker';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 const TIMEZONES = [
   'America/Los_Angeles',
@@ -52,11 +54,30 @@ function previewVoice(voiceValue) {
 }
 
 export default function Settings() {
+  const { user } = useAuth();
   const { data, loading, error, reload } = useFetch('/admin/me');
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyMsg, setVerifyMsg] = useState(null);
+
+  const emailConfirmed = !!user?.email_confirmed_at;
+
+  const resendVerification = async () => {
+    setVerifyBusy(true);
+    setVerifyMsg(null);
+    try {
+      const { error: err } = await supabase.auth.resend({ type: 'signup', email: user.email });
+      if (err) throw err;
+      setVerifyMsg('Confirmation email sent. Check your inbox.');
+    } catch (err) {
+      setVerifyMsg(err.message || 'Could not send confirmation email.');
+    } finally {
+      setVerifyBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (data?.tenant) {
@@ -280,6 +301,23 @@ export default function Settings() {
           above (factors live in Supabase Auth, not the tenants table). */}
       <div className="stack" style={{ marginTop: 16 }}>
         <MfaSettings />
+
+        {!emailConfirmed && (
+          <div className="card card-pad">
+            <div className="section-title">Email Verification</div>
+            <p className="muted" style={{ fontSize: '0.86rem', marginBottom: 12 }}>
+              Your email address <strong>{user?.email}</strong> has not been verified yet. Verify it to unlock billing and subscription features.
+            </p>
+            {verifyMsg && (
+              <div className={`alert ${verifyMsg.startsWith('Confirmation') ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: 12 }}>
+                {verifyMsg}
+              </div>
+            )}
+            <button className="btn btn-secondary" onClick={resendVerification} disabled={verifyBusy}>
+              {verifyBusy ? 'Sending…' : 'Resend verification email'}
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
