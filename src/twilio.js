@@ -14,6 +14,16 @@ async function sendSms(to, body) {
   });
 }
 
+// Initiate an outbound call. `url` must be a publicly reachable TwiML endpoint
+// that Twilio will POST to when the call connects.
+async function makeOutboundCall(to, url) {
+  return client.calls.create({
+    to,
+    from: config.twilio.phoneNumber,
+    url,
+  });
+}
+
 // Verifies the request genuinely came from Twilio. The app runs behind the
 // DigitalOcean proxy, so `req.protocol` resolves to https only because
 // `trust proxy` is enabled in server.js.
@@ -24,4 +34,4 @@ function isValidTwilioRequest(req) {
   return twilio.validateRequest(config.twilio.authToken, signature, url, req.body);
 }
 
-module.exports = { sendSms, isValidTwilioRequest };
+module.exports = { sendSms, makeOutboundCall, isValidTwilioRequest };
