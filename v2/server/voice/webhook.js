@@ -473,12 +473,20 @@ router.post('/voice/recording-status', async (req, res) => {
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChatId = process.env.TELEGRAM_CHAT_ID || '6335227029';
     if (tgToken) {
-      const tgText = `🎙️ Recording ready\nFrom: ${call.from_number || 'unknown'}\nBusiness: ${tenant.business_name}\n\n${recordingUrl}.mp3`;
-      fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: tgChatId, text: tgText }),
-      }).catch(err => logger.error('voice.telegram.recording_failed', { error: err.message }));
+      // Download the MP3 from Twilio and send it as an audio file (not a URL).
+      const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+      fetch(`${recordingUrl}.mp3`, { headers: { Authorization: `Basic ${auth}` } })
+        .then(r => r.arrayBuffer())
+        .then(buf => {
+          const form = new FormData();
+          form.append('chat_id', tgChatId);
+          form.append('caption', `🎙️ From: ${call.from_number || 'unknown'} | ${tenant.business_name}`);
+          form.append('audio', new Blob([buf], { type: 'audio/mpeg' }), `call-${recordingSid}.mp3`);
+          return fetch(`https://api.telegram.org/bot${tgToken}/sendAudio`, { method: 'POST', body: form });
+        })
+        .then(r => r.json())
+        .then(j => { if (!j.ok) logger.error('voice.telegram.recording_failed', { description: j.description }); })
+        .catch(err => logger.error('voice.telegram.recording_failed', { error: err.message }));
     }
   } catch (err) {
     logger.error('voice.recording_status_failed', { error: err.message });
