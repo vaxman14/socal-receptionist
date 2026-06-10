@@ -111,7 +111,11 @@ router.post('/voice', async (req, res) => {
   const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
   const wsUrl = baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
 
+  const recordingTenants = new Set((process.env.RECORDING_TENANT_IDS || '').split(',').filter(Boolean));
   const vr = new VoiceResponse();
+  if (recordingTenants.has(tenant.id)) {
+    vr.say({ voice: DEFAULT_VOICE_ID }, 'This call may be recorded for quality and training purposes.');
+  }
   const connect = vr.connect();
   const stream = connect.stream({ url: wsUrl });
   stream.parameter({ name: 'tenant_id',    value: tenant.id });
@@ -405,6 +409,35 @@ router.post('/voice/status', async (req, res) => {
     if (Object.keys(patch).length) await updateCall(callSid, patch);
   } catch (err) {
     logger.error('voice.status_failed', { error: err.message });
+  }
+});
+
+// --- Recording status callback (fires when Twilio recording is ready) --------
+
+router.post('/voice/recording-status', async (req, res) => {
+  res.sendStatus(204);
+  const callSid = req.body.CallSid;
+  const recordingUrl = req.body.RecordingUrl;
+  const recordingSid = req.body.RecordingSid;
+  if (!callSid || !recordingUrl) return;
+
+  try {
+    await updateCall(callSid, { recording_url: recordingUrl + '.mp3', recording_sid: recordingSid });
+    const call = await getCallBySid(callSid);
+    if (!call) return;
+    const { data: tenant } = await require('../lib/supabase').supabase
+      .from('tenants').select('*').eq('id', call.tenant_id).maybeSingle();
+    if (!tenant) return;
+    const notifyTo = tenant.voicemail_email || tenant.owner_email;
+    if (!notifyTo) return;
+    await sendEmail({
+      to: notifyTo,
+      subject: `🎙️ Recording ready — ${tenant.business_name}`,
+      html: `<p>Recording from <strong>${call.from_number || 'unknown'}</strong> is ready.</p><p><a href="${recordingUrl}.mp3">Download recording (MP3)</a></p>`,
+      text: `Recording ready: ${recordingUrl}.mp3`,
+    });
+  } catch (err) {
+    logger.error('voice.recording_status_failed', { error: err.message });
   }
 });
 

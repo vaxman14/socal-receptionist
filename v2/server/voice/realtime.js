@@ -21,6 +21,10 @@ const twilioClient = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
+const RECORDING_TENANT_IDS = new Set(
+  (process.env.RECORDING_TENANT_IDS || '').split(',').filter(Boolean)
+);
+
 // Polly voice ID → OpenAI Realtime voice (best quality matches)
 const POLLY_TO_REALTIME = {
   'Polly.Joanna-Neural':  'marin',
@@ -79,6 +83,8 @@ function handleMediaStream(twilioWs, req) {
   let conversationId = null;
   let pendingFunctionCalls = new Map();
   let leadCaptured = false;
+  let recordingEnabled = false;
+  let transcript = []; // { role: 'caller'|'ai', text: string }
 
   logger.info('voice.realtime.stream_connected');
 
@@ -124,6 +130,18 @@ function handleMediaStream(twilioWs, req) {
         break;
       }
 
+      // Caller speech transcription (requires input_audio_transcription in session).
+      case 'conversation.item.input_audio_transcription.completed': {
+        if (event.transcript) transcript.push({ role: 'caller', text: event.transcript.trim() });
+        break;
+      }
+
+      // AI speech transcription.
+      case 'response.audio_transcript.done': {
+        if (event.transcript) transcript.push({ role: 'ai', text: event.transcript.trim() });
+        break;
+      }
+
       case 'error': {
         logger.error('voice.realtime.openai_error', { error: event.error });
         break;
@@ -156,6 +174,7 @@ function handleMediaStream(twilioWs, req) {
         instructions,
         tools: buildTools(tenant),
         tool_choice: 'auto',
+        ...(recordingEnabled && { input_audio_transcription: { model: 'whisper-1' } }),
       },
     }));
 
@@ -264,6 +283,18 @@ function handleMediaStream(twilioWs, req) {
           await recordCallStart({ tenantId, callSid, from: fromNumber, to: null }).catch(() => {});
         }
 
+        // Start recording for enabled tenants.
+        if (callSid && RECORDING_TENANT_IDS.has(tenantId)) {
+          recordingEnabled = true;
+          const baseUrl = (process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
+          twilioClient.calls(callSid).recordings.create({
+            recordingChannels: 'dual',
+            recordingStatusCallback: `${baseUrl}/voice/recording-status`,
+            recordingStatusCallbackMethod: 'POST',
+            recordingStatusCallbackEvent: ['completed'],
+          }).catch(err => logger.error('voice.recording.start_failed', { error: err.message }));
+        }
+
         // Notify the tenant of every inbound call, regardless of outcome.
         if (tenant) {
           const notifyTo = tenant.voicemail_email || tenant.owner_email;
@@ -317,10 +348,19 @@ function handleMediaStream(twilioWs, req) {
             const subject = leadCaptured
               ? `✅ Call completed — ${tenant.business_name}`
               : `⚠️ Call aborted — ${tenant.business_name}`;
+            const transcriptHtml = transcript.length
+              ? `<hr/><h3>Transcript</h3><pre style="font-family:monospace;font-size:13px;line-height:1.5">${transcript.map(l => `${l.role === 'ai' ? '🤖 AI' : '👤 Caller'}: ${l.text}`).join('\n')}</pre>`
+              : '';
             const html = leadCaptured
-              ? `<p>The caller from <strong>${fromNumber || 'unknown'}</strong> completed the conversation and their info was captured.</p><p><strong>Time:</strong> ${ts}</p>`
-              : `<p>The caller from <strong>${fromNumber || 'unknown'}</strong> hung up mid-conversation before leaving their info.</p><p><strong>Time:</strong> ${ts}</p>`;
+              ? `<p>The caller from <strong>${fromNumber || 'unknown'}</strong> completed the conversation and their info was captured.</p><p><strong>Time:</strong> ${ts}</p>${transcriptHtml}`
+              : `<p>The caller from <strong>${fromNumber || 'unknown'}</strong> hung up mid-conversation before leaving their info.</p><p><strong>Time:</strong> ${ts}</p>${transcriptHtml}`;
             sendEmail({ to: notifyTo, subject, html }).catch(() => {});
+
+            // Save transcript to DB.
+            if (callSid && transcript.length) {
+              const transcriptText = transcript.map(l => `${l.role === 'ai' ? 'AI' : 'Caller'}: ${l.text}`).join('\n');
+              updateCall(callSid, { transcript: transcriptText }).catch(() => {});
+            }
           }
         }
         break;
