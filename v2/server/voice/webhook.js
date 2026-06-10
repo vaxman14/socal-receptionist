@@ -470,6 +470,16 @@ router.post('/voice/recording-status', async (req, res) => {
       html: `<p>Recording from <strong>${call.from_number || 'unknown'}</strong> is ready.</p><p><a href="${recordingUrl}.mp3">Download recording (MP3)</a></p>`,
       text: `Recording ready: ${recordingUrl}.mp3`,
     });
+    const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+    const tgChatId = process.env.TELEGRAM_CHAT_ID || '6335227029';
+    if (tgToken) {
+      const tgText = `🎙️ Recording ready\nFrom: ${call.from_number || 'unknown'}\nBusiness: ${tenant.business_name}\n\n${recordingUrl}.mp3`;
+      fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: tgChatId, text: tgText }),
+      }).catch(err => logger.error('voice.telegram.recording_failed', { error: err.message }));
+    }
   } catch (err) {
     logger.error('voice.recording_status_failed', { error: err.message });
   }
