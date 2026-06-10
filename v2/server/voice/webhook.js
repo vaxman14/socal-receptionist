@@ -441,20 +441,46 @@ router.post('/voice/status', async (req, res) => {
 
   const callSid = req.body.CallSid;
   const callStatus = req.body.CallStatus; // completed | no-answer | busy | failed | canceled
+  const from = req.body.From || req.body.Called || 'unknown';
+  const to = req.body.To || req.body.Called || 'unknown';
+  const durationRaw = req.body.CallDuration ? Number(req.body.CallDuration) : null;
   if (!callSid) return;
 
+  let finalOutcome = null;
   try {
-    const duration = req.body.CallDuration ? Number(req.body.CallDuration) : null;
     const patch = {};
-    if (duration != null) patch.duration_seconds = duration;
+    if (durationRaw != null) patch.duration_seconds = durationRaw;
 
-    // If the call ended while still 'in_progress', the caller hung up before
-    // reaching any resolution — mark it abandoned.
     const call = await getCallBySid(callSid);
     if (call && call.outcome === 'in_progress') {
       patch.outcome = callStatus === 'completed' ? 'abandoned' : 'missed';
     }
     if (Object.keys(patch).length) await updateCall(callSid, patch);
+
+    finalOutcome = (call && call.outcome !== 'in_progress') ? call.outcome : patch.outcome || 'completed';
+
+    // Send outcome email to the tenant's voicemail address.
+    const tenant = await resolveTenantByNumber(to).catch(() => null);
+    if (tenant && tenant.voicemail_email) {
+      const dur = durationRaw != null ? `${durationRaw}s` : 'unknown';
+      const outcomeLabel = {
+        ai_handled: 'Handled by AI',
+        transferred: 'Transferred to staff',
+        voicemail: 'Left voicemail',
+        abandoned: 'Caller hung up early',
+        missed: 'Missed / no answer',
+        completed: 'Completed',
+      }[finalOutcome] || finalOutcome || callStatus;
+      sendEmail({
+        to: tenant.voicemail_email,
+        subject: `📋 Call complete — ${outcomeLabel} (${dur}) from ${from}`,
+        html: `<p><strong>Caller:</strong> ${from}<br/>
+<strong>Line:</strong> ${to}<br/>
+<strong>Duration:</strong> ${dur}<br/>
+<strong>Outcome:</strong> ${outcomeLabel}</p>
+<p><a href="https://app.socalreceptionist.com">View in dashboard →</a></p>`,
+      }).catch(() => {});
+    }
   } catch (err) {
     logger.error('voice.status_failed', { error: err.message });
   }
