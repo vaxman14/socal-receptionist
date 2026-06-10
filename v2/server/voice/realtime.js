@@ -179,12 +179,15 @@ function handleMediaStream(twilioWs, req) {
     }));
 
     // Trigger the AI to greet the caller.
+    const disclosurePrefix = recordingEnabled
+      ? 'First say: "This call may be recorded for quality and training purposes." Then, '
+      : '';
     openaiWs.send(JSON.stringify({
       type: 'response.create',
       response: {
         instructions: tenant.voice_greeting
-          ? `Say this greeting exactly: "${tenant.voice_greeting}"`
-          : `Greet the caller by saying "Thank you for calling ${tenant.business_name}," then ask how you can help. One sentence. Do not mention AI or virtual receptionist.`,
+          ? `${disclosurePrefix}Say this greeting exactly: "${tenant.voice_greeting}"`
+          : `${disclosurePrefix}greet the caller by saying "Thank you for calling ${tenant.business_name}," then ask how you can help. One sentence. Do not mention AI or virtual receptionist.`,
       },
     }));
   }

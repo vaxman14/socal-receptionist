@@ -111,12 +111,7 @@ router.post('/voice', async (req, res) => {
   const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
   const wsUrl = baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
 
-  const recordingTenants = new Set((process.env.RECORDING_TENANT_IDS || '').split(',').filter(Boolean));
   const vr = new VoiceResponse();
-  if (recordingTenants.has(tenant.id)) {
-    vr.say({ voice: DEFAULT_VOICE_ID }, 'This call may be recorded for quality and training purposes.');
-    vr.pause({ length: 1 });
-  }
   const connect = vr.connect();
   const stream = connect.stream({ url: wsUrl });
   stream.parameter({ name: 'tenant_id',    value: tenant.id });
