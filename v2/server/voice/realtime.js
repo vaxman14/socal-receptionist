@@ -174,7 +174,6 @@ function handleMediaStream(twilioWs, req) {
         instructions,
         tools: buildTools(tenant),
         tool_choice: 'auto',
-        ...(recordingEnabled && { input_audio_transcription: { model: 'whisper-1' } }),
       },
     }));
 
