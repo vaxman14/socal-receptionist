@@ -302,6 +302,24 @@ function handleMediaStream(twilioWs, req) {
         logger.info('voice.realtime.stream_stopped', { callSid });
         if (callSid) await updateCall(callSid, { outcome: 'ai_handled' }).catch(() => {});
         if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
+
+        // Notify tenant that the call ended.
+        if (tenant) {
+          const notifyTo = tenant.voicemail_email || tenant.owner_email;
+          if (notifyTo) {
+            const ts = new Date().toLocaleString('en-US', {
+              timeZone: tenant.timezone || 'America/Los_Angeles',
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            });
+            sendEmail({
+              to: notifyTo,
+              subject: `📵 Call ended — ${tenant.business_name}`,
+              html: `<p>The call from <strong>${fromNumber || 'unknown'}</strong> to <strong>${tenant.business_name}</strong> has ended.</p><p><strong>Time:</strong> ${ts}</p>`,
+              text: `Call ended — ${tenant.business_name}\nFrom: ${fromNumber || 'unknown'}\nTime: ${ts}`,
+            }).catch(() => {});
+          }
+        }
         break;
       }
     }
