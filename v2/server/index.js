@@ -272,7 +272,7 @@ app.get('/privacy', (req, res) => {
     <li>To improve service quality</li>
     <li>To comply with legal obligations</li>
   </ul>
-  <p>We do <strong>not</strong> sell, rent, or share your personal information or phone number with third parties for marketing purposes. Your phone number will not be shared with any third party for their own marketing use.</p>
+  <p>We do <strong>not</strong> sell, rent, or share your personal information or phone number with third parties for marketing purposes. <strong>Mobile information and messaging opt-in data and consent are not shared with any third parties or affiliates for marketing or promotional purposes.</strong> Your phone number will not be shared with any third party for their own marketing use.</p>
 
   <h2>Data Retention</h2>
   <p>Opt-in and opt-out consent records are retained for compliance purposes as required by law. Conversation content is processed in real time and is not stored permanently after the session concludes.</p>
