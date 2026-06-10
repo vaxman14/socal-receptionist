@@ -21,6 +21,7 @@ const { resolveTenantByNumber } = require('../lib/tenants');
 const { getOrCreateConversation } = require('../lib/conversations');
 const { handleMessage } = require('../lib/ai');
 const { recordCallStart, updateCall, getCallBySid } = require('../lib/calls');
+const { sendEmail } = require('../lib/email');
 const logger = require('../lib/logger');
 
 const router = express.Router();
@@ -155,6 +156,19 @@ router.post('/voice', async (req, res) => {
     await recordCallStart({ tenantId: tenant.id, callSid, from, to });
   } catch (err) {
     logger.error('voice.record_call_failed', { error: err.message });
+  }
+
+  // Fire-and-forget call notification to the tenant's voicemail email.
+  if (tenant.voicemail_email) {
+    sendEmail({
+      to: tenant.voicemail_email,
+      subject: `📞 Incoming call to ${tenant.business_name} from ${from}`,
+      html: `<p>Someone just called <strong>${tenant.business_name}</strong>.</p>
+<p><strong>From:</strong> ${from}<br/>
+<strong>To:</strong> ${to}<br/>
+<strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: tenant.timezone || 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' })}</p>
+<p>Log in to your dashboard to see the full call log.</p>`,
+    }).catch(() => {});
   }
 
   const vr = new VoiceResponse();
