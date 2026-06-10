@@ -375,6 +375,7 @@ function handleMediaStream(twilioWs, req) {
           // Telegram notification
           const tgToken = process.env.TELEGRAM_BOT_TOKEN;
           const tgChatId = process.env.TELEGRAM_CHAT_ID || '6335227029';
+          logger.info('voice.telegram.attempt', { hasToken: !!tgToken, chatId: tgChatId });
           if (tgToken) {
             const header = leadCaptured ? '✅ Lead captured' : '⚠️ Call ended — no lead';
             const callType = isCallback ? ' (callback)' : '';
@@ -388,6 +389,9 @@ function handleMediaStream(twilioWs, req) {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ chat_id: tgChatId, text: tgText }),
+            }).then(r => r.json()).then(j => {
+              if (!j.ok) logger.error('voice.telegram.api_error', { code: j.error_code, description: j.description });
+              else logger.info('voice.telegram.sent', { messageId: j.result?.message_id });
             }).catch(err => logger.error('voice.telegram.failed', { error: err.message }));
           }
 
