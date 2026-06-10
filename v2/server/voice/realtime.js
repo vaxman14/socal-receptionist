@@ -378,16 +378,16 @@ function handleMediaStream(twilioWs, req) {
           if (tgToken) {
             const header = leadCaptured ? '✅ Lead captured' : '⚠️ Call ended — no lead';
             const callType = isCallback ? ' (callback)' : '';
-            const lines = [`📞 *${header}${callType}*`, `*From:* ${fromNumber || 'unknown'}`, `*Business:* ${tenant.business_name}`];
+            const lines = [`📞 ${header}${callType}`, `From: ${fromNumber || 'unknown'}`, `Business: ${tenant.business_name}`];
             if (transcript.length) {
-              lines.push('', '*Transcript:*');
+              lines.push('', 'Transcript:');
               lines.push(...transcript.map(l => `${l.role === 'ai' ? '🤖' : '👤'} ${l.text}`));
             }
             const tgText = lines.join('\n').slice(0, 4000);
             fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chat_id: tgChatId, text: tgText, parse_mode: 'Markdown' }),
+              body: JSON.stringify({ chat_id: tgChatId, text: tgText }),
             }).catch(err => logger.error('voice.telegram.failed', { error: err.message }));
           }
 
