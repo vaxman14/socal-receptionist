@@ -8,6 +8,7 @@ import { useFetch } from '../../lib/useFetch';
 import { SMS_ENABLED } from '../../lib/config';
 import { Loading, ErrorState } from '../../components/States';
 import MfaSettings from '../../components/MfaSettings';
+import { useAuth } from '../../context/AuthContext';
 
 const VOICE_OPTIONS = [
   { id: 'Polly.Joanna-Neural',  label: 'Joanna',  desc: 'US English · Female · Warm & professional' },
@@ -45,6 +46,7 @@ const FIELDS = [
 ];
 
 export default function Settings() {
+  const { user } = useAuth();
   const { data, loading, error, reload } = useFetch('/admin/me');
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -52,6 +54,23 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [previewState, setPreviewState] = useState('idle'); // idle | loading | playing
   const audioRef = useRef(null);
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyMsg, setVerifyMsg] = useState(null);
+  const emailConfirmed = !!user?.email_confirmed_at;
+
+  const resendVerification = async () => {
+    setVerifyBusy(true);
+    setVerifyMsg(null);
+    try {
+      const { error: err } = await supabase.auth.resend({ type: 'signup', email: user.email });
+      if (err) throw err;
+      setVerifyMsg('Confirmation email sent. Check your inbox.');
+    } catch (err) {
+      setVerifyMsg(err.message || 'Could not send confirmation email.');
+    } finally {
+      setVerifyBusy(false);
+    }
+  };
 
   const playPreview = async () => {
     if (previewState === 'loading') return;
@@ -273,6 +292,36 @@ export default function Settings() {
           {saved && <span className="muted" style={{ fontSize: '0.86rem' }}>All changes saved.</span>}
         </div>
       </form>
+
+      {/* Email verification */}
+      <div className="stack" style={{ marginTop: 16 }}>
+        <div className="card card-pad">
+          <div className="section-title">Email verification</div>
+          <p className="muted" style={{ fontSize: '0.86rem', marginBottom: 12 }}>
+            {emailConfirmed
+              ? `Your email (${user?.email}) is verified.`
+              : `Your email (${user?.email}) is not yet verified.`}
+          </p>
+          {!emailConfirmed && (
+            <>
+              {verifyMsg && (
+                <div className="alert alert-success" style={{ marginBottom: 10 }}>{verifyMsg}</div>
+              )}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={verifyBusy}
+                onClick={resendVerification}
+              >
+                {verifyBusy ? 'Sending…' : 'Send verification email'}
+              </button>
+            </>
+          )}
+          {emailConfirmed && (
+            <span style={{ color: 'var(--green-dark)', fontWeight: 600, fontSize: '0.9rem' }}>✓ Verified</span>
+          )}
+        </div>
+      </div>
 
       {/* Security / MFA — its own card; not part of the tenant config form
           above (factors live in Supabase Auth, not the tenants table). */}

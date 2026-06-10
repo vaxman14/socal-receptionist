@@ -3,13 +3,10 @@
 import { useState } from 'react';
 import { api } from '../../lib/api';
 import { Badge } from '../../components/Badge';
-import { useAuth } from '../../context/AuthContext';
 
 export default function StepDone({ tenant, signResult, selectedPlan, onContinue }) {
-  const { user } = useAuth();
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutError, setCheckoutError] = useState(null);
-  const emailConfirmed = !!user?.email_confirmed_at;
 
   const openSignedAgreement = async () => {
     try {
@@ -83,12 +80,6 @@ export default function StepDone({ tenant, signResult, selectedPlan, onContinue 
         </div>
       </div>
 
-      {!emailConfirmed && (
-        <div className="alert alert-warning" style={{ marginBottom: 16 }}>
-          <strong>Confirm your email to start your trial.</strong> We sent a confirmation link to {user?.email}. Click it, then come back here to activate.
-        </div>
-      )}
-
       {checkoutError && (
         <div className="alert alert-error" style={{ marginBottom: 16 }}>
           {checkoutError}
@@ -104,7 +95,7 @@ export default function StepDone({ tenant, signResult, selectedPlan, onContinue 
       <div className="row-gap">
         <button
           className="btn btn-primary"
-          disabled={checkoutBusy || !emailConfirmed}
+          disabled={checkoutBusy}
           onClick={startBilling}
         >
           {checkoutBusy ? 'Redirecting to checkout…' : 'Activate my subscription →'}
