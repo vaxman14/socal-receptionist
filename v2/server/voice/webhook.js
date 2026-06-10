@@ -115,6 +115,7 @@ router.post('/voice', async (req, res) => {
   const vr = new VoiceResponse();
   if (recordingTenants.has(tenant.id)) {
     vr.say({ voice: DEFAULT_VOICE_ID }, 'This call may be recorded for quality and training purposes.');
+    vr.pause({ length: 1 });
   }
   const connect = vr.connect();
   const stream = connect.stream({ url: wsUrl });
