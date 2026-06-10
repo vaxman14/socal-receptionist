@@ -114,8 +114,46 @@ router.post('/voice', async (req, res) => {
   const vr = new VoiceResponse();
   const connect = vr.connect();
   const stream = connect.stream({ url: wsUrl });
-  stream.parameter({ name: 'tenant_id',    value: tenant.id });
-  stream.parameter({ name: 'from_number',  value: from });
+  stream.parameter({ name: 'tenant_id',   value: tenant.id });
+  stream.parameter({ name: 'from_number', value: from });
+  stream.parameter({ name: 'to_number',   value: to });
+  sendTwiml(res, vr);
+});
+
+// --- Outbound callback: AI calls the customer back --------------------------
+
+router.post('/voice/callback', async (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    return res.status(403).send('Invalid Twilio signature');
+  }
+
+  // For outbound calls: From = our SoCal number, To = the customer being called back.
+  const ourNum = req.body.From;
+  const customerNum = req.body.To;
+
+  let tenant;
+  try {
+    tenant = await resolveTenantByNumber(ourNum);
+  } catch (err) {
+    logger.error('voice.callback.tenant_lookup_failed', { error: err.message });
+    return sayAndHangup(res, 'We are sorry, we cannot connect your call right now.', null);
+  }
+
+  if (!tenant) {
+    logger.warn('voice.callback.unknown_number', { from: ourNum });
+    return sayAndHangup(res, 'This call could not be connected. Goodbye.', null);
+  }
+
+  const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
+  const wsUrl = baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
+
+  const vr = new VoiceResponse();
+  const connect = vr.connect();
+  const stream = connect.stream({ url: wsUrl });
+  stream.parameter({ name: 'tenant_id',   value: tenant.id });
+  stream.parameter({ name: 'from_number', value: customerNum });
+  stream.parameter({ name: 'to_number',   value: ourNum });
+  stream.parameter({ name: 'is_callback', value: 'true' });
   sendTwiml(res, vr);
 });
 

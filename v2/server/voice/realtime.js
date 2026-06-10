@@ -84,6 +84,8 @@ function handleMediaStream(twilioWs, req) {
   let pendingFunctionCalls = new Map();
   let leadCaptured = false;
   let recordingEnabled = false;
+  let isCallback = false;
+  let ourNumber = null;
   let transcript = []; // { role: 'caller'|'ai', text: string }
 
   logger.info('voice.realtime.stream_connected');
@@ -181,12 +183,15 @@ function handleMediaStream(twilioWs, req) {
     const disclosurePrefix = recordingEnabled
       ? 'First say: "This call may be recorded for quality and training purposes." Then, '
       : '';
+    const callbackGreeting = `Hi, I'm calling back from ${tenant.business_name} — looks like your call got disconnected. I just wanted to make sure I can help you. How can I assist you today?`;
     openaiWs.send(JSON.stringify({
       type: 'response.create',
       response: {
-        instructions: tenant.voice_greeting
-          ? `${disclosurePrefix}Say this greeting exactly: "${tenant.voice_greeting}"`
-          : `${disclosurePrefix}greet the caller by saying "Thank you for calling ${tenant.business_name}," then ask how you can help. One sentence. Do not mention AI or virtual receptionist.`,
+        instructions: isCallback
+          ? `${disclosurePrefix}Say this greeting exactly: "${callbackGreeting}"`
+          : tenant.voice_greeting
+            ? `${disclosurePrefix}Say this greeting exactly: "${tenant.voice_greeting}"`
+            : `${disclosurePrefix}greet the caller by saying "Thank you for calling ${tenant.business_name}," then ask how you can help. One sentence. Do not mention AI or virtual receptionist.`,
       },
     }));
   }
@@ -265,6 +270,8 @@ function handleMediaStream(twilioWs, req) {
         const params = msg.start.customParameters || {};
         tenantId   = params.tenant_id;
         fromNumber = params.from_number;
+        isCallback = params.is_callback === 'true';
+        ourNumber  = params.to_number || '+19513958776';
 
         // Load the tenant and set up the call record.
         if (tenantId) {
@@ -363,6 +370,39 @@ function handleMediaStream(twilioWs, req) {
               const transcriptText = transcript.map(l => `${l.role === 'ai' ? 'AI' : 'Caller'}: ${l.text}`).join('\n');
               updateCall(callSid, { transcript: transcriptText }).catch(() => {});
             }
+          }
+
+          // Telegram notification
+          const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+          const tgChatId = process.env.TELEGRAM_CHAT_ID || '6335227029';
+          if (tgToken) {
+            const header = leadCaptured ? '✅ Lead captured' : '⚠️ Call ended — no lead';
+            const callType = isCallback ? ' (callback)' : '';
+            const lines = [`📞 *${header}${callType}*`, `*From:* ${fromNumber || 'unknown'}`, `*Business:* ${tenant.business_name}`];
+            if (transcript.length) {
+              lines.push('', '*Transcript:*');
+              lines.push(...transcript.map(l => `${l.role === 'ai' ? '🤖' : '👤'} ${l.text}`));
+            }
+            const tgText = lines.join('\n').slice(0, 4000);
+            fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: tgChatId, text: tgText, parse_mode: 'Markdown' }),
+            }).catch(err => logger.error('voice.telegram.failed', { error: err.message }));
+          }
+
+          // Schedule callback if no lead was captured and this was not already a callback.
+          if (!leadCaptured && !isCallback && fromNumber && fromNumber !== 'anonymous') {
+            const baseUrl = (process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
+            const callbackFrom = ourNumber || '+19513958776';
+            setTimeout(() => {
+              twilioClient.calls.create({
+                to: fromNumber,
+                from: callbackFrom,
+                url: `${baseUrl}/voice/callback`,
+              }).catch(err => logger.error('voice.callback.create_failed', { error: err.message }));
+            }, 30000);
+            logger.info('voice.callback.scheduled', { to: fromNumber, from: callbackFrom });
           }
         }
         break;
