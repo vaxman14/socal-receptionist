@@ -5,6 +5,7 @@ const { sendTelegram } = require('./telegram');
 const { verifyStreamToken } = require('./stream-auth');
 const { getAvailableTimes, getSchedulingUrl } = require('./calendly');
 const { createDemoEvent } = require('./gcal');
+const { makeOutboundCall } = require('./twilio');
 
 const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-realtime-2';
 
@@ -36,6 +37,22 @@ Voice rules (THIS IS A PHONE CALL, NOT TEXT):
 - If asked who built you, say: "I was built by Roman in Murrieta. He's the founder."
 
 Stay focused: this is a 2-3 minute discovery call, not a chat session.`;
+
+const CALLBACK_SYSTEM_PROMPT = `You are Josi, AI sales agent for SoCal Receptionist. You are calling someone back because their call to our demo line dropped before they finished.
+
+Open with exactly: "Hi, this is Josi calling back from SoCal Receptionist — looks like your call got disconnected a moment ago. I just wanted to make sure you got everything you needed. Do you have a couple minutes?"
+
+If yes: qualify them — ONE question at a time: name, business name and what they do, biggest pain point (missed calls, after-hours inquiries, etc.), best email or callback number. Once you have name + business + contact, call capture_lead.
+
+If they say wrong number, not interested, or confused: apologize warmly, offer to have Roman follow up by email at info@socalreceptionist.com, and say goodbye.
+
+Voice rules (THIS IS A PHONE CALL):
+- Conversational, warm, confident. 1-2 sentences max per turn.
+- No bullet points, no lists, no markdown.
+- Never quote prices. If asked: "$1,500 setup, $500/month — Roman will walk you through it."
+- If asked who built you: "I was built by Roman in Murrieta. He's the founder."
+
+Keep it under 3 minutes.`;
 
 const CAPTURE_LEAD_TOOL = {
   type: 'function',
@@ -87,9 +104,12 @@ function formatTelegramLead({ name, business, contact, pain_point, notes, fromNu
   ].join('\n');
 }
 
-function handleRealtimeCall(twilioWs) {
+function handleRealtimeCall(twilioWs, opts = {}) {
+  const callbackBaseUrl = opts.callbackBaseUrl || '';
+
   let callSid = 'unknown';
   let fromNumber = '';
+  let isCallback = false;
 
   let streamSid = null;
   let leadCaptured = false;
@@ -124,7 +144,7 @@ function handleRealtimeCall(twilioWs) {
               voice: 'marin',
             },
           },
-          instructions: SYSTEM_PROMPT,
+          instructions: isCallback ? CALLBACK_SYSTEM_PROMPT : SYSTEM_PROMPT,
           tools: [CAPTURE_LEAD_TOOL, SCHEDULE_MEETING_TOOL],
           tool_choice: 'auto',
         },
@@ -284,7 +304,8 @@ function handleRealtimeCall(twilioWs) {
         streamSid = (msg.start && msg.start.streamSid) || msg.streamSid;
         if (msg.start && msg.start.callSid) callSid = msg.start.callSid;
         if (params.from) fromNumber = params.from;
-        console.log(`[voice-realtime] stream started callSid=${callSid} from=${fromNumber} streamSid=${streamSid}`);
+        if (params.isCallback === 'true') isCallback = true;
+        console.log(`[voice-realtime] stream started callSid=${callSid} from=${fromNumber} streamSid=${streamSid} isCallback=${isCallback}`);
         getAvailableTimes(3).then(slots => {
           availableSlots = slots;
           console.log(`[voice-realtime] pre-fetched ${slots.length} Calendly slots callSid=${callSid}`);
@@ -349,6 +370,19 @@ function handleRealtimeCall(twilioWs) {
         transcriptText.slice(0, 1500),
         '```',
       ].join('\n')).catch(err => console.error('Partial lead Telegram failed:', err.message));
+
+      // Schedule a callback 30s later — but only for inbound calls with a real number
+      const isAnonymous = !fromNumber || fromNumber === 'unknown'
+        || fromNumber.toLowerCase().includes('blocked')
+        || fromNumber === '+266696687';
+
+      if (!isCallback && !isAnonymous && callbackBaseUrl && process.env.CALLBACK_ENABLED !== 'false') {
+        setTimeout(() => {
+          makeOutboundCall(fromNumber, callbackBaseUrl)
+            .then(call => console.log(`[voice-realtime] callback initiated sid=${call.sid} to=${fromNumber}`))
+            .catch(err => console.error('[voice-realtime] callback failed:', err.message));
+        }, 30_000);
+      }
     }
   }
 }

@@ -697,7 +697,29 @@ app.post('/voice/sales', rateLimit(5, 60_000), (req, res) => {
 
 // WebSocket endpoint — auth token arrives in the Twilio 'start' event (customParameters.auth),
 // not in the URL (DO strips WS query params). voice-realtime.js verifies it before connecting OpenAI.
-app.ws('/voice/sales/stream', (ws) => {
+app.ws('/voice/sales/stream', (ws, req) => {
+  handleRealtimeCall(ws, { callbackBaseUrl: `https://${req.headers.host}/voice/callback` });
+});
+
+// Outbound callback — Twilio POSTs here when the AI-initiated callback call connects.
+// req.body.To is the customer's number (we called them outbound).
+app.post('/voice/callback', rateLimit(5, 60_000), (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    console.warn('Rejected /voice/callback request: invalid Twilio signature');
+    return res.status(403).send('Invalid Twilio signature');
+  }
+  const host = req.headers.host;
+  const rawFrom = req.body.To || req.body.From || '';
+  const callSid = req.body.CallSid || '';
+  const token = makeStreamToken(callSid, rawFrom);
+  const safeFrom = rawFrom.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  res.type('text/xml');
+  res.send(
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${host}/voice/callback/stream"><Parameter name="from" value="${safeFrom}"/><Parameter name="auth" value="${token}"/><Parameter name="isCallback" value="true"/></Stream></Connect></Response>`
+  );
+});
+
+app.ws('/voice/callback/stream', (ws) => {
   handleRealtimeCall(ws);
 });
 
