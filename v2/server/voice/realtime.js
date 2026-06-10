@@ -78,6 +78,7 @@ function handleMediaStream(twilioWs, req) {
   let tenant = null;
   let conversationId = null;
   let pendingFunctionCalls = new Map();
+  let leadCaptured = false;
 
   logger.info('voice.realtime.stream_connected');
 
@@ -194,6 +195,7 @@ function handleMediaStream(twilioWs, req) {
             text: `New lead for ${tenant?.business_name}\nName: ${args.name || '—'}\nPhone: ${fromNumber || '—'}\nService: ${args.service || '—'}`,
           });
         }
+        leadCaptured = true;
         result = 'Lead captured. Thank the caller and confirm someone will follow up.';
       } catch (err) {
         logger.error('voice.realtime.capture_lead_failed', { error: err.message });
@@ -303,7 +305,7 @@ function handleMediaStream(twilioWs, req) {
         if (callSid) await updateCall(callSid, { outcome: 'ai_handled' }).catch(() => {});
         if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
 
-        // Notify tenant that the call ended.
+        // Notify tenant — distinguish completed (lead captured) vs aborted (hung up mid-call).
         if (tenant) {
           const notifyTo = tenant.voicemail_email || tenant.owner_email;
           if (notifyTo) {
@@ -312,12 +314,13 @@ function handleMediaStream(twilioWs, req) {
               dateStyle: 'medium',
               timeStyle: 'short',
             });
-            sendEmail({
-              to: notifyTo,
-              subject: `📵 Call ended — ${tenant.business_name}`,
-              html: `<p>The call from <strong>${fromNumber || 'unknown'}</strong> to <strong>${tenant.business_name}</strong> has ended.</p><p><strong>Time:</strong> ${ts}</p>`,
-              text: `Call ended — ${tenant.business_name}\nFrom: ${fromNumber || 'unknown'}\nTime: ${ts}`,
-            }).catch(() => {});
+            const subject = leadCaptured
+              ? `✅ Call completed — ${tenant.business_name}`
+              : `⚠️ Call aborted — ${tenant.business_name}`;
+            const html = leadCaptured
+              ? `<p>The caller from <strong>${fromNumber || 'unknown'}</strong> completed the conversation and their info was captured.</p><p><strong>Time:</strong> ${ts}</p>`
+              : `<p>The caller from <strong>${fromNumber || 'unknown'}</strong> hung up mid-conversation before leaving their info.</p><p><strong>Time:</strong> ${ts}</p>`;
+            sendEmail({ to: notifyTo, subject, html }).catch(() => {});
           }
         }
         break;
