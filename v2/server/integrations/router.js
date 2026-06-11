@@ -1,33 +1,76 @@
-// Practice management integration OAuth routes.
+// Practice management, CRM, calendar, and SIP integration OAuth routes.
 // Mounted at /integrations in the main server.
 //
-// Supported providers: clio, mycase
+// Supported providers: clio, mycase, microsoft_calendar, hubspot, salesforce,
+//                      ringcentral, vonage, telnyx
 // Flow: /connect → provider OAuth screen → /callback → tokens stored in DB
+// Telnyx exception: API key, not OAuth — POST /integrations/telnyx/connect
 
 const express = require('express');
 const crypto = require('crypto');
 const { requireAuth, requireTenant, requireAal2 } = require('../lib/auth');
 const { supabase } = require('../lib/supabase');
 const { encryptToken } = require('../lib/token-crypto');
-const clio = require('./clio');
-const mycase = require('./mycase');
+const clio              = require('./clio');
+const mycase            = require('./mycase');
+const microsoftCalendar = require('./microsoft-calendar');
+const hubspot           = require('./hubspot');
+const salesforce        = require('./salesforce');
+const ringcentral       = require('./ringcentral');
+const vonage            = require('./vonage');
+const telnyx            = require('./telnyx');
 
 const router = express.Router();
 
 const PROVIDERS = {
   clio: {
-    buildAuthUrl: clio.buildAuthUrl,
-    exchangeCode: clio.exchangeCode,
-    saveTokens: clio.saveTokens,
+    buildAuthUrl:   clio.buildAuthUrl,
+    exchangeCode:   clio.exchangeCode,
+    saveTokens:     clio.saveTokens,
     getAccountInfo: clio.getFirmInfo,
-    disconnect: clio.disconnect,
+    disconnect:     clio.disconnect,
   },
   mycase: {
-    buildAuthUrl: mycase.buildAuthUrl,
-    exchangeCode: mycase.exchangeCode,
-    saveTokens: mycase.saveTokens,
+    buildAuthUrl:   mycase.buildAuthUrl,
+    exchangeCode:   mycase.exchangeCode,
+    saveTokens:     mycase.saveTokens,
     getAccountInfo: mycase.getAccountInfo,
-    disconnect: mycase.disconnect,
+    disconnect:     mycase.disconnect,
+  },
+  microsoft_calendar: {
+    buildAuthUrl:   microsoftCalendar.buildAuthUrl,
+    exchangeCode:   microsoftCalendar.exchangeCode,
+    saveTokens:     microsoftCalendar.saveTokens,
+    getAccountInfo: microsoftCalendar.getAccountInfo,
+    disconnect:     microsoftCalendar.disconnect,
+  },
+  hubspot: {
+    buildAuthUrl:   hubspot.buildAuthUrl,
+    exchangeCode:   hubspot.exchangeCode,
+    saveTokens:     hubspot.saveTokens,
+    getAccountInfo: hubspot.getAccountInfo,
+    disconnect:     hubspot.disconnect,
+  },
+  salesforce: {
+    buildAuthUrl:   salesforce.buildAuthUrl,
+    exchangeCode:   salesforce.exchangeCode,
+    saveTokens:     salesforce.saveTokens,
+    getAccountInfo: (token) => salesforce.getAccountInfo(token, ''), // instance_url resolved later
+    disconnect:     salesforce.disconnect,
+  },
+  ringcentral: {
+    buildAuthUrl:   ringcentral.buildAuthUrl,
+    exchangeCode:   ringcentral.exchangeCode,
+    saveTokens:     ringcentral.saveTokens,
+    getAccountInfo: ringcentral.getAccountInfo,
+    disconnect:     ringcentral.disconnect,
+  },
+  vonage: {
+    buildAuthUrl:   vonage.buildAuthUrl,
+    exchangeCode:   vonage.exchangeCode,
+    saveTokens:     vonage.saveTokens,
+    getAccountInfo: vonage.getAccountInfo,
+    disconnect:     vonage.disconnect,
   },
 };
 
@@ -181,6 +224,104 @@ router.delete('/:provider', requireAuth, requireAal2, requireTenant, async (req,
     console.error(`[integrations/${req.params.provider}] disconnect error:`, err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// POST /integrations/telnyx/connect — save Telnyx API key (no OAuth redirect)
+router.post('/telnyx/connect', requireAuth, requireAal2, requireTenant, async (req, res) => {
+  const { api_key } = req.body;
+  if (!api_key) return res.status(400).json({ error: 'api_key required' });
+  try {
+    const info = await telnyx.getAccountInfo(api_key);
+    await telnyx.saveApiKey(req.tenant.id, api_key, info);
+    res.json({ ok: true, info });
+  } catch (err) {
+    console.error('[integrations/telnyx] connect error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /integrations/telnyx — disconnect Telnyx
+router.delete('/telnyx', requireAuth, requireAal2, requireTenant, async (req, res) => {
+  await telnyx.disconnect(req.tenant.id);
+  res.json({ ok: true });
+});
+
+// POST /integrations/ringcentral/configure-forwarding
+// Configure RingCentral to forward calls to our Twilio number.
+router.post('/ringcentral/configure-forwarding', requireAuth, requireAal2, requireTenant, async (req, res) => {
+  const { forward_to } = req.body;
+  if (!forward_to) return res.status(400).json({ error: 'forward_to required' });
+  try {
+    const result = await ringcentral.configureForwarding(req.tenant.id, forward_to);
+    res.json(result);
+  } catch (err) {
+    console.error('[integrations/ringcentral] configure-forwarding error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /integrations/vonage/configure-webhook
+router.post('/vonage/configure-webhook', requireAuth, requireAal2, requireTenant, async (req, res) => {
+  const apiBase = (process.env.API_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+  const webhookUrl = req.body.webhook_url || `${apiBase}/voice`;
+  try {
+    const result = await vonage.configureWebhook(req.tenant.id, webhookUrl);
+    res.json(result);
+  } catch (err) {
+    console.error('[integrations/vonage] configure-webhook error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /integrations/telnyx/configure-inbound-profile
+router.post('/telnyx/configure-inbound-profile', requireAuth, requireAal2, requireTenant, async (req, res) => {
+  const apiBase = (process.env.API_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+  const webhookUrl  = req.body.webhook_url  || `${apiBase}/voice`;
+  const profileId   = req.body.profile_id   || null;
+  try {
+    const result = await telnyx.configureInboundProfile(req.tenant.id, webhookUrl, profileId);
+    res.json(result);
+  } catch (err) {
+    console.error('[integrations/telnyx] configure-inbound-profile error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /integrations/tenant-contacts — list contacts for the current tenant
+router.get('/tenant-contacts', requireAuth, requireTenant, async (req, res) => {
+  const { data, error } = await supabase
+    .from('tenant_contacts')
+    .select('id, name, phone, email, company, source, created_at')
+    .eq('tenant_id', req.tenant.id)
+    .order('name');
+  if (error) return res.status(500).json({ error: 'Internal server error' });
+  res.json({ contacts: data });
+});
+
+// POST /integrations/tenant-contacts — add a manual contact
+router.post('/tenant-contacts', requireAuth, requireTenant, async (req, res) => {
+  const { name, phone, email, company } = req.body;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  const { data, error } = await supabase.from('tenant_contacts').insert({
+    tenant_id: req.tenant.id,
+    name,
+    phone: phone || null,
+    email: email || null,
+    company: company || null,
+    source: 'manual',
+  }).select().single();
+  if (error) return res.status(500).json({ error: 'Internal server error' });
+  res.status(201).json({ contact: data });
+});
+
+// DELETE /integrations/tenant-contacts/:id
+router.delete('/tenant-contacts/:id', requireAuth, requireTenant, async (req, res) => {
+  const { error } = await supabase.from('tenant_contacts')
+    .delete()
+    .eq('id', req.params.id)
+    .eq('tenant_id', req.tenant.id);
+  if (error) return res.status(500).json({ error: 'Internal server error' });
+  res.json({ ok: true });
 });
 
 // POST /integrations/:provider/push-ticket/:ticketId — manually push a time ticket (MFA required)

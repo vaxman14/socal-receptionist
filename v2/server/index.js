@@ -28,6 +28,8 @@ const onboardingRegisterRouter = require('./onboarding/register');
 const onboardingChatRouter = require('./onboarding/chat');
 const mfaRouter = require('./auth/mfa');
 const integrationsRouter = require('./integrations/router');
+const outboundAssistRouter = require('./voice/outbound-assist');
+const { router: reminderRouter, start: startReminderPoller } = require('./voice/reminder-poller');
 
 const app = express();
 app.set('trust proxy', 1); // one proxy layer: DigitalOcean LB / Cloudflare
@@ -128,6 +130,10 @@ app.use('/admin/owner', adminLimiter, ownerAdminRouter);
 app.use('/admin', adminLimiter, clientAdminRouter);
 app.use('/integrations', adminLimiter, integrationsRouter);
 
+// Outbound Call Assist + Proactive Reminder webhooks (Twilio, rate-limited).
+app.use(outboundAssistRouter);
+app.use(reminderRouter);
+
 // Serve the landing page (public/) and the React SPA (web/dist/).
 // API routes above take priority; everything else falls through to the SPA.
 const publicDir = path.join(__dirname, '../../public');
@@ -155,6 +161,8 @@ if (process.env.SENTRY_DSN) {
 const port = Number(process.env.PORT) || 8080;
 app.listen(port, () => {
   console.log(`[v2] SMS service listening on :${port}`);
+  // Start proactive reminder poller — runs every 60s, pings tenants before calendar events.
+  startReminderPoller();
 });
 
 if (process.env.RUN_WORKER === 'true') {
