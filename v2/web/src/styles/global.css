@@ -582,3 +582,82 @@ audio { width: 100%; margin-top: 8px; }
 .form-grid label.full { grid-column: 1 / -1; }
 .form-grid input, .form-grid select, .form-grid textarea { border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-size: 0.9rem; width: 100%; box-sizing: border-box; }
 .form-grid textarea { resize: vertical; }
+
+/* ---------- Integration cards ---------- */
+.integration-section {
+  margin-bottom: 32px;
+}
+.integration-section-header {
+  margin-bottom: 12px;
+}
+.integration-section-header h2 {
+  margin: 0 0 2px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.integrations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+.integration-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s;
+}
+.integration-card.connected {
+  border-color: var(--green, #22c55e);
+}
+.integration-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.integration-logo {
+  font-size: 1.5rem;
+  flex: none;
+  width: 36px;
+  text-align: center;
+}
+.integration-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.integration-title h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.integration-desc {
+  margin: 0;
+  font-size: 0.83rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.integration-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.integration-error {
+  color: var(--danger, #dc3545);
+  font-size: 0.8rem;
+}
+.integration-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
