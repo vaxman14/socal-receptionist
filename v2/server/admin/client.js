@@ -54,9 +54,13 @@ const EDITABLE_FIELDS = [
   'ai_system_prompt',
   // Voice receptionist config.
   'voice_enabled',
-  'staff_phone',      // "press 2 / speak to staff" transfer target
+  'staff_phone',              // "press 2 / speak to staff" transfer target
   'voice_greeting',
   'voicemail_email',
+  // Outbound Call Assist config.
+  'outbound_enabled',
+  'outbound_reminder_phone',  // number Josi calls to give proactive reminders
+  'outbound_caller_id',       // number the professional calls FROM to reach Josi
 ];
 
 router.use(requireAuth, requireTenant);

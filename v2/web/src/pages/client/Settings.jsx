@@ -29,6 +29,9 @@ const FIELDS = [
   'staff_phone',
   'voice_greeting',
   'voicemail_email',
+  'outbound_enabled',
+  'outbound_reminder_phone',
+  'outbound_caller_id',
 ];
 
 export default function Settings() {
@@ -42,8 +45,9 @@ export default function Settings() {
     if (data?.tenant) {
       const t = data.tenant;
       const next = {};
+      const boolFields = new Set(['voice_enabled', 'outbound_enabled']);
       for (const f of FIELDS) {
-        next[f] = f === 'voice_enabled' ? Boolean(t[f]) : t[f] ?? '';
+        next[f] = boolFields.has(f) ? Boolean(t[f]) : t[f] ?? '';
       }
       setForm(next);
     }
@@ -74,9 +78,10 @@ export default function Settings() {
     }
 
     // Send all editable fields; empty strings become null on the server side.
+    const boolFields = new Set(['voice_enabled', 'outbound_enabled']);
     const body = {};
     for (const f of FIELDS) {
-      body[f] = f === 'voice_enabled' ? form[f] : String(form[f]).trim() || null;
+      body[f] = boolFields.has(f) ? form[f] : String(form[f]).trim() || null;
     }
 
     setBusy(true);
@@ -177,6 +182,60 @@ export default function Settings() {
             <span className="hint">
               Where missed-call and voicemail alerts are sent. Blank uses your
               account email.
+            </span>
+          </label>
+        </div>
+
+        <div className="card card-pad">
+          <div className="section-title">Outbound Call Assist</div>
+          <p className="muted" style={{ fontSize: '0.86rem', marginBottom: 8 }}>
+            Dial any contact by voice — "Hey, get Robert on the phone" — and bridge the call instantly.
+            Also reminds you before calendar events.
+          </p>
+
+          <div className="toggle-row">
+            <div>
+              <div style={{ fontWeight: 600 }}>Enable Outbound Call Assist</div>
+              <div className="muted" style={{ fontSize: '0.82rem' }}>
+                Lets you ask the AI to dial contacts and receive proactive calendar reminders.
+              </div>
+            </div>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={form.outbound_enabled}
+                onChange={set('outbound_enabled')}
+              />
+              <span>Enabled</span>
+            </label>
+          </div>
+
+          <label className="field">
+            <span className="label">
+              Reminder phone number {form.outbound_enabled ? '*' : ''}
+            </span>
+            <input
+              type="tel"
+              value={form.outbound_reminder_phone}
+              onChange={set('outbound_reminder_phone')}
+              placeholder="+1 555 000 0000"
+            />
+            <span className="hint">
+              The AI will call this number 5 minutes before calendar events to remind you and offer to connect your contact.
+            </span>
+          </label>
+
+          <label className="field" style={{ marginBottom: 0 }}>
+            <span className="label">Outbound caller ID</span>
+            <input
+              type="tel"
+              value={form.outbound_caller_id}
+              onChange={set('outbound_caller_id')}
+              placeholder="+1 555 000 0000"
+            />
+            <span className="hint">
+              The number that appears when the AI dials on your behalf. Defaults to your main receptionist number.
+              Must be a Twilio-verified number.
             </span>
           </label>
         </div>
