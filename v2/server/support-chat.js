@@ -14,31 +14,28 @@ const SYSTEM_PROMPT = `You are a friendly, helpful support agent for SoCal Recep
 Your job is to help clients and prospective customers with questions. Be warm, concise, and professional. Don't be overly formal.
 
 About SoCal Receptionist:
-- We provide an AI-powered phone receptionist that answers calls and texts 24/7 for small businesses
+- We provide an AI-powered phone receptionist that answers calls 24/7 for small businesses
 - The AI greets callers, answers common questions, qualifies leads, and books appointments
 - We serve businesses in Southern California: dental offices, law firms, med spas, home services, and more
-- Powered by advanced AI (OpenAI voice + SMS)
 
 Pricing:
-- Essentials Plan: $500/month — AI phone answering, lead capture, FAQ handling, appointment scheduling
+- Essentials Plan: $500/month — AI phone answering, lead capture, FAQ handling, appointment scheduling. No setup fee.
 - Concierge Plan: $1,500 setup fee (one-time, non-refundable) + $500/month — everything in Essentials plus white-glove onboarding, custom call scripts, dedicated support
-- Annual option: $4,800/year (2 months free)
-- Additional calls beyond plan limit: $99 per 50 calls
+- Annual option: $4,800/year (save $1,200 — 2 months free)
+- Additional calls: +$99 per 50 calls/month
 
 How to get started:
 - Sign up at app.socalreceptionist.com — takes about 5 minutes
-- Pick your plan, enter your business info, and we handle the setup
 
-Common support topics you can help with:
-- Explaining how the AI receptionist works
-- Pricing and plan differences
-- How to set up and customize your receptionist
-- Billing and subscription questions
-- Technical issues → escalate to human: tell them you'll flag it to the team and ask them to email support@socalreceptionist.com
+CALLBACK REQUESTS — VERY IMPORTANT:
+When someone asks to be called back, speak to someone, or requests human contact:
+1. Ask for their name
+2. Ask for their phone number
+3. Once you have both, confirm: "Got it! I'll have Roman reach out to you shortly."
+4. End your reply with this exact tag on its own line: [CALLBACK_LEAD: name="<their name>" phone="<their phone>"]
+Do NOT tell them to email support. Collect the info yourself right here in chat.
 
-Contact: support@socalreceptionist.com | www.socalreceptionist.com
-
-If you can't answer something confidently, say so honestly and direct them to support@socalreceptionist.com. Never make up pricing, features, or timelines.
+If you can't answer something confidently, say so honestly and offer to have someone call them back (then collect name + phone as above). Never make up pricing, features, or timelines.
 
 Keep responses short and helpful — this is a chat widget, not an essay. 2-4 sentences max unless the user clearly wants more detail.`;
 
@@ -103,6 +100,23 @@ async function emailTranscript(sessionId, visitorInfo, messages) {
   }
 }
 
+async function emailCallbackLead(name, phone) {
+  if (!RESEND_API_KEY) return;
+  const body = `New callback request from website chat\n\nName: ${name}\nPhone: ${phone}\nTime: ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT`;
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: 'SoCal Receptionist <hello@noreply.socalreceptionist.com>',
+      to: ['roman@socalreceptionist.com'],
+      subject: `📞 Callback request — ${name}`,
+      text: body,
+    }),
+  });
+  if (!res.ok) console.error('[support-chat] callback email error:', await res.text());
+  else console.log(`[support-chat] callback lead emailed: ${name} ${phone}`);
+}
+
 // POST /api/support-chat/message
 // Body: { sessionId, message, history: [{role, content}] }
 router.post('/message', async (req, res) => {
@@ -119,10 +133,20 @@ router.post('/message', async (req, res) => {
 
   try {
     const reply = await getAIResponse(messages);
-    return res.json({ reply });
+
+    // Detect callback lead tag and fire email immediately
+    const callbackMatch = reply.match(/\[CALLBACK_LEAD:\s*name="([^"]+)"\s*phone="([^"]+)"\]/);
+    if (callbackMatch) {
+      const [, name, phone] = callbackMatch;
+      emailCallbackLead(name, phone).catch(e => console.error('[support-chat] callback email failed:', e.message));
+    }
+
+    // Strip the tag from the reply shown to the user
+    const cleanReply = reply.replace(/\[CALLBACK_LEAD:[^\]]+\]/g, '').trim();
+    return res.json({ reply: cleanReply });
   } catch (e) {
     console.error('[support-chat] Error:', e.message);
-    return res.json({ reply: "Sorry, I'm having trouble right now. Please email support@socalreceptionist.com and we'll help you out!" });
+    return res.json({ reply: "Sorry, I'm having trouble right now. Try again in a moment!" });
   }
 });
 
