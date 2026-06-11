@@ -7,12 +7,13 @@ import { useAuth } from '../context/AuthContext';
 import { ph } from '../analytics';
 
 export default function Login() {
-  const { signIn, signUp, signInWithOAuth } = useAuth();
+  const { signIn, signUp, signInWithOAuth, sendPasswordReset } = useAuth();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
+  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -28,6 +29,20 @@ export default function Login() {
     }
     if (mode === 'signup' && password.length < 8) {
       setError('Choose a password of at least 8 characters.');
+      return;
+    }
+
+    if (mode === 'forgot') {
+      setBusy(true);
+      try {
+        await sendPasswordReset(email.trim());
+        setNotice('Check your email — we sent a password reset link.');
+        setMode('signin');
+      } catch (err) {
+        setError(err?.message || 'Could not send reset email. Please try again.');
+      } finally {
+        setBusy(false);
+      }
       return;
     }
 
@@ -72,18 +87,20 @@ export default function Login() {
         </div>
 
         <h1 style={{ fontSize: '1.3rem', marginBottom: 4 }}>
-          {mode === 'signin' ? 'Sign in' : 'Create your account'}
+          {mode === 'signin' ? 'Sign in' : mode === 'forgot' ? 'Reset password' : 'Create your account'}
         </h1>
         <p className="muted" style={{ fontSize: '0.88rem', marginBottom: 18 }}>
           {mode === 'signin'
             ? 'Access your business console.'
+            : mode === 'forgot'
+            ? 'Enter your email and we\'ll send a reset link.'
             : 'Set up your AI receptionist in a few minutes.'}
         </p>
 
         {error && <div className="alert alert-error">{error}</div>}
         {notice && <div className="alert alert-success">{notice}</div>}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+        {mode !== 'forgot' && <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
           <button
             type="button"
             onClick={() => signInWithOAuth('google').catch(err => setError(err?.message || 'Google sign-in failed.'))}
@@ -110,13 +127,13 @@ export default function Login() {
             <svg width="18" height="18" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
             Continue with Microsoft
           </button>
-        </div>
+        </div>}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, color: 'var(--muted)', fontSize: '0.8rem' }}>
+        {mode !== 'forgot' && <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, color: 'var(--muted)', fontSize: '0.8rem' }}>
           <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           or continue with email
           <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-        </div>
+        </div>}
 
         <form onSubmit={submit}>
           <label className="field">
@@ -129,22 +146,51 @@ export default function Login() {
               placeholder="you@business.com"
             />
           </label>
-          <label className="field">
-            <span className="label">Password</span>
-            <input
-              type="password"
-              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
-            />
-          </label>
+          {mode !== 'forgot' && (
+            <label className="field">
+              <span className="label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                Password
+                {mode === 'signin' && (
+                  <button
+                    type="button"
+                    onClick={() => { setMode('forgot'); setError(null); setNotice(null); }}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500 }}
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </span>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
+                  style={{ paddingRight: 40 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(p => !p)}
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 0, lineHeight: 1 }}
+                  aria-label={showPw ? 'Hide password' : 'Show password'}
+                >
+                  {showPw
+                    ? <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    : <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  }
+                </button>
+              </div>
+            </label>
+          )}
 
           <button className="btn btn-primary btn-block" disabled={busy} type="submit">
             {busy
               ? 'Please wait…'
               : mode === 'signin'
                 ? 'Sign in'
+                : mode === 'forgot'
+                ? 'Send reset link'
                 : 'Create account'}
           </button>
         </form>
@@ -153,29 +199,14 @@ export default function Login() {
           {mode === 'signin' ? (
             <>
               New here?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signup');
-                  setError(null);
-                  setNotice(null);
-                }}
-              >
+              <button type="button" onClick={() => { setMode('signup'); setError(null); setNotice(null); }}>
                 Create an account
               </button>
             </>
           ) : (
             <>
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signin');
-                  setError(null);
-                  setNotice(null);
-                }}
-              >
-                Sign in
+              <button type="button" onClick={() => { setMode('signin'); setError(null); setNotice(null); }}>
+                Back to sign in
               </button>
             </>
           )}
