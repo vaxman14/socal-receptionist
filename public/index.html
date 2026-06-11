@@ -143,7 +143,11 @@
     /* PRICING */
     .pricing { padding: 72px 24px; text-align: center; background: var(--light); }
     .pricing h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
-    .pricing > p { color: var(--muted); margin-bottom: 48px; }
+    .pricing > p { color: var(--muted); margin-bottom: 32px; }
+    .billing-toggle { display: inline-flex; background: #e5e7eb; border-radius: 100px; padding: 4px; margin-bottom: 40px; gap: 2px; }
+    .billing-toggle button { border: none; background: transparent; padding: 8px 22px; border-radius: 100px; font-size: 0.9rem; font-weight: 600; cursor: pointer; color: var(--muted); transition: all 0.2s; }
+    .billing-toggle button.active { background: var(--white); color: var(--navy); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .annual-badge { display: inline-block; background: #dcfce7; color: #15803d; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 100px; margin-left: 6px; vertical-align: middle; }
     .price-card { background: var(--white); border-radius: 14px; padding: 40px; max-width: 440px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 2px solid var(--orange); position: relative; }
     .price-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--orange); color: var(--white); font-size: 0.78rem; font-weight: 700; padding: 6px 18px; border-radius: 100px; white-space: nowrap; }
     .price-name { font-size: 1.1rem; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
@@ -296,11 +300,15 @@
   <div class="section-label">Pricing</div>
   <h2>Simple, Transparent Pricing</h2>
   <p>Two ways to get started. No long-term contracts on either.</p>
+  <div class="billing-toggle">
+    <button class="active" id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
+    <button id="btn-annual" onclick="setBilling('annual')">Annual <span class="annual-badge">Save $1,200</span></button>
+  </div>
   <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;max-width:780px;margin:0 auto;">
   <div class="price-card" style="flex:1;min-width:280px;">
     <div class="price-name">Essentials</div>
-    <div class="price-amount"><span>$</span>500</div>
-    <div class="price-period">per month</div>
+    <div class="price-amount"><span>$</span><span id="ess-price">500</span></div>
+    <div class="price-period" id="ess-period">per month</div>
     <div class="price-setup" style="color:#22c55e;font-weight:600;">No setup fee</div>
     <ul class="price-features">
       <li>24/7 AI receptionist</li>
@@ -318,8 +326,8 @@
   <div class="price-card" style="flex:1;min-width:280px;position:relative;">
     <div class="price-badge">White-Glove Setup</div>
     <div class="price-name">Concierge</div>
-    <div class="price-amount"><span>$</span>500</div>
-    <div class="price-period">per month</div>
+    <div class="price-amount"><span>$</span><span id="con-price">500</span></div>
+    <div class="price-period" id="con-period">per month</div>
     <div class="price-setup">+ $1,500 one-time setup fee</div>
     <ul class="price-features">
       <li>24/7 AI receptionist</li>
@@ -336,6 +344,17 @@
   </div>
   </div>
 </section>
+<script>
+function setBilling(mode) {
+  var isAnnual = mode === 'annual';
+  document.getElementById('btn-monthly').classList.toggle('active', !isAnnual);
+  document.getElementById('btn-annual').classList.toggle('active', isAnnual);
+  document.getElementById('ess-price').textContent = isAnnual ? '400' : '500';
+  document.getElementById('con-price').textContent = isAnnual ? '400' : '500';
+  document.getElementById('ess-period').textContent = isAnnual ? 'per month, billed as $4,800/yr' : 'per month';
+  document.getElementById('con-period').textContent = isAnnual ? 'per month, billed as $4,800/yr' : 'per month';
+}
+</script>
 
 <!-- DEMO FORM -->
 <section class="demo" id="demo">
