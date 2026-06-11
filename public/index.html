@@ -301,17 +301,17 @@
   <h2>Simple, Transparent Pricing</h2>
   <p>Two ways to get started. No long-term contracts on either.</p>
   <div class="billing-toggle">
-    <button class="active" id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
-    <button id="btn-annual" onclick="setBilling('annual')">Annual <span class="annual-badge">Save $1,200</span></button>
+    <button id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
+    <button class="active" id="btn-annual" onclick="setBilling('annual')">Annual <span class="annual-badge">Save $1,200</span></button>
   </div>
   <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;max-width:780px;margin:0 auto;">
   <div class="price-card" style="flex:1;min-width:280px;">
     <div class="price-name">Essentials</div>
     <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0;">
-      <span id="ess-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:none;">$500/mo</span>
+      <span id="ess-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:inline;">$500/mo</span>
     </div>
-    <div class="price-amount"><span>$</span><span id="ess-price">500</span></div>
-    <div class="price-period" id="ess-period">per month</div>
+    <div class="price-amount"><span>$</span><span id="ess-price">400</span></div>
+    <div class="price-period" id="ess-period">per month, billed as $4,800/yr</div>
     <div class="price-setup" style="color:#22c55e;font-weight:600;">No setup fee</div>
     <ul class="price-features">
       <li>24/7 AI receptionist</li>
@@ -330,10 +330,10 @@
     <div class="price-badge">White-Glove Setup</div>
     <div class="price-name">Concierge</div>
     <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0;">
-      <span id="con-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:none;">$500/mo</span>
+      <span id="con-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:inline;">$500/mo</span>
     </div>
-    <div class="price-amount"><span>$</span><span id="con-price">500</span></div>
-    <div class="price-period" id="con-period">per month</div>
+    <div class="price-amount"><span>$</span><span id="con-price">400</span></div>
+    <div class="price-period" id="con-period">per month, billed as $4,800/yr</div>
     <div class="price-setup">+ $1,500 one-time setup fee</div>
     <ul class="price-features">
       <li>24/7 AI receptionist</li>
