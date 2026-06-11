@@ -15,6 +15,7 @@ const { supabase } = require('../lib/supabase');
 const { requireAuth } = require('../lib/auth');
 const { sendEmail } = require('../lib/email');
 const { onboardingConfirmation } = require('../lib/email-templates');
+const { verifyRecaptcha } = require('../lib/recaptcha');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -57,6 +58,12 @@ router.get('/business', async (req, res) => {
 
 // POST /onboarding/business — create the caller's tenant.
 router.post('/business', async (req, res) => {
+  // reCAPTCHA v3 — reject bots. Gracefully skipped when RECAPTCHA_SECRET_KEY is unset.
+  const captcha = await verifyRecaptcha(req.body.recaptcha_token);
+  if (!captcha.ok) {
+    return res.status(422).json({ error: 'reCAPTCHA verification failed. Please try again.' });
+  }
+
   // One tenant per account.
   const { data: existing } = await supabase
     .from('tenants')

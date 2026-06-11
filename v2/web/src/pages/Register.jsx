@@ -12,6 +12,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { ph } from '../analytics';
+import { getRecaptchaToken } from '../lib/recaptcha';
 
 const STORAGE_KEY = 'socal-register';
 const STEP1_KEY = 'socal-register-step1';
@@ -101,6 +102,8 @@ function StepInfo({ onNext }) {
 
     setBusy(true);
     try {
+      const recaptchaToken = await getRecaptchaToken('register').catch(() => null);
+
       // Try to sign up. If account exists, sign in instead (idempotent flow).
       let session = null;
       try {
@@ -131,6 +134,7 @@ function StepInfo({ onNext }) {
         full_name: form.full_name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
+        recaptchaToken,
       });
     } catch (err) {
       setError(err?.message || 'Could not create your account. Please try again.');
@@ -223,7 +227,7 @@ function StepInfo({ onNext }) {
 
 // ─── Step 2: Your Business ─────────────────────────────────────────────────────
 
-function StepBusiness({ userInfo, onNext }) {
+function StepBusiness({ userInfo, recaptchaToken, onNext }) {
   const [form, setForm] = useState({
     business_name: '',
     business_type: '',
@@ -273,6 +277,7 @@ function StepBusiness({ userInfo, onNext }) {
             form.business_address.trim();
         }
 
+        if (recaptchaToken) body.recaptcha_token = recaptchaToken;
         const result = await api.post('/onboarding/business', body);
         tenant = result.tenant;
       }
@@ -590,6 +595,7 @@ export default function Register() {
   const [step, setStep] = useState(saved?.step ?? 1);
   const [userInfo, setUserInfo] = useState(saved?.userInfo ?? null);
   const [tenant, setTenant] = useState(saved?.tenant ?? null);
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
 
   useEffect(() => {
     try {
@@ -616,7 +622,9 @@ export default function Register() {
         {step === 1 && (
           <StepInfo
             onNext={(info) => {
-              setUserInfo(info);
+              const { recaptchaToken: token, ...rest } = info;
+              setRecaptchaToken(token);
+              setUserInfo(rest);
               setStep(2);
             }}
           />
@@ -625,6 +633,7 @@ export default function Register() {
         {step === 2 && (
           <StepBusiness
             userInfo={userInfo}
+            recaptchaToken={recaptchaToken}
             onNext={({ tenant: t }) => {
               setTenant(t);
               setStep(3);
