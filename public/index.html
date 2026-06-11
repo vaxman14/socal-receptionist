@@ -307,6 +307,9 @@
   <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;max-width:780px;margin:0 auto;">
   <div class="price-card" style="flex:1;min-width:280px;">
     <div class="price-name">Essentials</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0;">
+      <span id="ess-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:none;">$500/mo</span>
+    </div>
     <div class="price-amount"><span>$</span><span id="ess-price">500</span></div>
     <div class="price-period" id="ess-period">per month</div>
     <div class="price-setup" style="color:#22c55e;font-weight:600;">No setup fee</div>
@@ -326,6 +329,9 @@
   <div class="price-card" style="flex:1;min-width:280px;position:relative;">
     <div class="price-badge">White-Glove Setup</div>
     <div class="price-name">Concierge</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0;">
+      <span id="con-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:none;">$500/mo</span>
+    </div>
     <div class="price-amount"><span>$</span><span id="con-price">500</span></div>
     <div class="price-period" id="con-period">per month</div>
     <div class="price-setup">+ $1,500 one-time setup fee</div>
@@ -353,6 +359,8 @@ function setBilling(mode) {
   document.getElementById('con-price').textContent = isAnnual ? '400' : '500';
   document.getElementById('ess-period').textContent = isAnnual ? 'per month, billed as $4,800/yr' : 'per month';
   document.getElementById('con-period').textContent = isAnnual ? 'per month, billed as $4,800/yr' : 'per month';
+  document.getElementById('ess-strike').style.display = isAnnual ? 'inline' : 'none';
+  document.getElementById('con-strike').style.display = isAnnual ? 'inline' : 'none';
 }
 </script>
 
