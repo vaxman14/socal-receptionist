@@ -440,7 +440,7 @@ app.get('/data-deletion', (req, res) => {
 const publicDir = path.join(__dirname, '../../public');
 const spaDir = path.join(__dirname, '../web/dist');
 
-app.use(express.static(publicDir));
+app.use(express.static(publicDir, { extensions: ['html'] }));
 app.use(express.static(spaDir));
 
 // SPA fallback for /login, /signup, /dashboard, /app/*, /register, /welcome etc.
