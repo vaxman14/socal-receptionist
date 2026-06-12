@@ -81,9 +81,23 @@ async function request(method, path, body) {
   return payload;
 }
 
+// Authenticated binary fetch (audio, files). Returns an object URL the caller
+// must revoke with URL.revokeObjectURL when done.
+async function getBlobUrl(path) {
+  if (!API_BASE) throw new ApiError('VITE_API_BASE is not configured.', 0);
+  const res = await fetch(`${API_BASE}${path}`, { headers: await authHeader() });
+  if (res.status === 401) {
+    if (onUnauthorized) onUnauthorized();
+    throw new ApiError('Your session has expired. Please sign in again.', 401);
+  }
+  if (!res.ok) throw new ApiError(`Request failed (${res.status}).`, res.status);
+  return URL.createObjectURL(await res.blob());
+}
+
 export const api = {
   base: API_BASE,
   get: (path) => request('GET', path),
+  getBlobUrl,
   post: (path, body) => request('POST', path, body ?? {}),
   put: (path, body) => request('PUT', path, body ?? {}),
   patch: (path, body) => request('PATCH', path, body ?? {}),

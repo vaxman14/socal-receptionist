@@ -270,7 +270,47 @@ router.get('/calls', async (req, res) => {
     console.error('[admin] list calls failed:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
-  res.json({ calls: data, total: count ?? 0, page, limit });
+  // Never expose raw Twilio media URLs to the browser — they are accessible
+  // to anyone holding the link. The SPA streams audio via the proxy below.
+  const calls = (data || []).map(({ recording_url, recording_sid, ...rest }) => ({
+    ...rest,
+    has_recording: Boolean(recording_url),
+  }));
+  res.json({ calls, total: count ?? 0, page, limit });
+});
+
+// GET /admin/calls/:id/recording — stream the Twilio recording through the
+// backend so playback is tenant-scoped and authenticated, and keeps working
+// if "Enforce HTTP Auth on media URLs" is enabled on the Twilio account.
+router.get('/calls/:id/recording', async (req, res) => {
+  try {
+    const { data: call, error } = await supabase
+      .from('calls')
+      .select('id, recording_url')
+      .eq('tenant_id', req.tenant.id)
+      .eq('id', req.params.id)
+      .single();
+    if (error || !call?.recording_url) {
+      return res.status(404).json({ error: 'Recording not found.' });
+    }
+    const mediaUrl = call.recording_url.endsWith('.mp3')
+      ? call.recording_url
+      : `${call.recording_url}.mp3`;
+    const basic = Buffer.from(
+      `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
+    ).toString('base64');
+    const upstream = await fetch(mediaUrl, { headers: { Authorization: `Basic ${basic}` } });
+    if (!upstream.ok) {
+      console.error('[admin] recording fetch failed:', upstream.status, call.id);
+      return res.status(502).json({ error: 'Could not fetch the recording.' });
+    }
+    res.set('Content-Type', 'audio/mpeg');
+    res.set('Cache-Control', 'private, max-age=300');
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+  } catch (err) {
+    console.error('[admin] recording proxy failed:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // POST /admin/billing/checkout — start a subscription. Billed as a one-time

@@ -1,12 +1,45 @@
 // Client Calls — table of inbound calls with outcome badges, audio + transcript.
 
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useFetch } from '../../lib/useFetch';
+import { api } from '../../lib/api';
 import { Loading, ErrorState, EmptyState, Pagination } from '../../components/States';
 import { Badge } from '../../components/Badge';
 import { formatDate, formatDuration } from '../../lib/format';
 
 const LIMIT = 25;
+
+// Streams the recording through the backend proxy (authenticated) — the raw
+// Twilio media URL is never sent to the browser.
+function RecordingPlayer({ callId }) {
+  const [src, setSrc] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let url = null;
+    let cancelled = false;
+    api
+      .getBlobUrl(`/admin/calls/${callId}/recording`)
+      .then((u) => {
+        url = u;
+        if (cancelled) URL.revokeObjectURL(u);
+        else setSrc(u);
+      })
+      .catch((err) => !cancelled && setError(err.message || 'Could not load the recording.'));
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [callId]);
+
+  if (error) return <div className="muted">{error}</div>;
+  if (!src) return <div className="muted">Loading recording…</div>;
+  return (
+    <audio controls src={src}>
+      Your browser does not support audio playback.
+    </audio>
+  );
+}
 
 export default function Calls() {
   const [page, setPage] = useState(1);
@@ -48,7 +81,7 @@ export default function Calls() {
                 </thead>
                 <tbody>
                   {calls.map((c) => {
-                    const hasDetail = c.recording_url || c.transcript;
+                    const hasDetail = c.has_recording || c.transcript;
                     const isOpen = expanded === c.id;
                     return (
                       <Fragment key={c.id}>
@@ -70,12 +103,10 @@ export default function Calls() {
                         {isOpen && hasDetail && (
                           <tr>
                             <td colSpan={6} style={{ background: 'var(--light)' }}>
-                              {c.recording_url && (
+                              {c.has_recording && (
                                 <div style={{ marginBottom: c.transcript ? 12 : 0 }}>
                                   <div className="section-title">Recording</div>
-                                  <audio controls src={c.recording_url}>
-                                    Your browser does not support audio playback.
-                                  </audio>
+                                  <RecordingPlayer callId={c.id} />
                                 </div>
                               )}
                               {c.transcript && (
