@@ -174,8 +174,11 @@ export default function MfaSettings() {
   // (or the supabase-js build) cannot do WebAuthn, show a "coming soon" state
   // instead. The Supabase project must also have the WebAuthn factor enabled;
   // if it is not, registerPasskey() surfaces that as an error in the UI.
-  // TODO: once WebAuthn factors are confirmed enabled on the Supabase project,
-  // also offer "Use a passkey" as a primary sign-in method on the Login screen.
+  // BLOCKED UPSTREAM (checked 2026-06-12): Supabase Management API rejects
+  // enabling WebAuthn MFA on hosted projects ("Enabling of MFA with WebAuthn
+  // not currently supported"). Re-check periodically; once Supabase allows it,
+  // enable the factor on the project and offer "Use a passkey" as a primary
+  // sign-in method on the Login screen.
   const passkeysSupported = browserSupportsPasskeys();
 
   return (
