@@ -121,14 +121,8 @@ export default function TenantDetail() {
           <dl className="kv">
             <dt>Period start</dt>
             <dd>{formatDateShort(t.usage_period_start)}</dd>
-            <dt>SMS sent</dt>
-            <dd>{t.monthly_sms_count ?? 0}</dd>
-            <dt>SMS spend</dt>
-            <dd>{usd(t.monthly_sms_spend_cents)}</dd>
             <dt>OpenAI spend</dt>
             <dd>{usd(t.monthly_openai_spend_cents)}</dd>
-            <dt>SMS cap</dt>
-            <dd>{t.sms_spend_cap_cents == null ? 'Uncapped' : usd(t.sms_spend_cap_cents)}</dd>
             <dt>OpenAI cap</dt>
             <dd>{t.openai_spend_cap_cents == null ? 'Uncapped' : usd(t.openai_spend_cap_cents)}</dd>
           </dl>

@@ -554,6 +554,46 @@ audio { width: 100%; margin-top: 8px; }
   .mobile-nav { display: flex; }
 }
 
+/* Business Hours Picker */
+.hours-picker { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.hours-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.hours-row:last-child { border-bottom: none; }
+.hours-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; min-width: 60px; }
+.hours-toggle input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; }
+.hours-day { font-size: 0.85rem; font-weight: 600; color: var(--text); width: 30px; }
+.hours-times { display: flex; align-items: center; gap: 8px; flex: 1; }
+.hours-times select { flex: 1; padding: 5px 8px; font-size: 0.82rem; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; color: var(--text); min-width: 0; }
+.hours-sep { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+.hours-closed { font-size: 0.82rem; color: var(--muted); font-style: italic; }
+@media (max-width: 480px) {
+  .hours-times { flex-wrap: wrap; }
+  .hours-times select { min-width: 120px; }
+}
+.hours-open-block { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.hours-lunch-toggle { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--muted); white-space: nowrap; cursor: pointer; margin-left: 4px; }
+.hours-lunch-toggle input { accent-color: var(--green); }
+.hours-lunch-row { padding-left: 2px; }
+
+/* Pagination */
+.pagination { display: flex; align-items: center; gap: 12px; padding: 14px 0 4px; }
+.pagination-info { font-size: 0.83rem; color: var(--muted); }
+
+/* Chat Wizard */
+.chat-wizard { display: flex; flex-direction: column; max-width: 640px; }
+.chat-messages { display: flex; flex-direction: column; gap: 10px; min-height: 320px; max-height: 480px; overflow-y: auto; padding: 4px 0 8px; margin-bottom: 14px; }
+.chat-bubble { padding: 10px 14px; border-radius: 12px; font-size: 0.93rem; line-height: 1.55; max-width: 85%; white-space: pre-wrap; }
+.chat-bubble-user { background: var(--green); color: #fff; align-self: flex-end; border-bottom-right-radius: 3px; }
+.chat-bubble-assistant { background: var(--navy-2); color: #fff; align-self: flex-start; border-bottom-left-radius: 3px; }
+.chat-thinking { display: flex; align-items: center; gap: 5px; padding: 12px 16px; }
+.chat-thinking span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: chatDot 1.2s infinite; }
+.chat-thinking span:nth-child(2) { animation-delay: 0.2s; }
+.chat-thinking span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes chatDot { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.85); } 40% { opacity: 1; transform: scale(1); } }
+.chat-input-row { display: flex; gap: 8px; align-items: flex-end; }
+.chat-input { flex: 1; resize: none; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.93rem; line-height: 1.5; }
+.chat-input:focus { outline: none; border-color: var(--green); }
+.chat-send { height: 52px; padding: 0 20px; white-space: nowrap; }
+
 /* ---------- Time Tickets — filter tabs, row actions, modal ---------- */
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
 .page-head-actions { display: flex; gap: 8px; flex-shrink: 0; }

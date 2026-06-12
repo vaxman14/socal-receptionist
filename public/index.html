@@ -59,6 +59,7 @@
   <!-- Google Analytics GA4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-EDTQ463YEQ"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-EDTQ463YEQ');</script>
+  <script>if(location.hostname==="www.socalreceptionist.com"){!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init("phc_pixxDTMUmkokq6ujRTfhYH7xKhVKGvnQDMZbW5rXZf8u",{api_host:"https://us.i.posthog.com",defaults:"2026-01-30"});}</script>
 
   <!-- Facebook Pixel — set FB_PIXEL_ID env var to activate -->
   <script id="fb-pixel-snippet"></script>
@@ -78,7 +79,7 @@
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text); background: var(--white); }
 
     /* NAV */
-    nav { background: var(--navy); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    nav { background: #031637; padding: 8px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .nav-logo { color: var(--white); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.3px; }
     .nav-logo span { color: var(--orange); }
     .btn-nav { background: var(--orange); color: var(--white); border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; text-decoration: none; }
@@ -142,7 +143,11 @@
     /* PRICING */
     .pricing { padding: 72px 24px; text-align: center; background: var(--light); }
     .pricing h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
-    .pricing > p { color: var(--muted); margin-bottom: 48px; }
+    .pricing > p { color: var(--muted); margin-bottom: 32px; }
+    .billing-toggle { display: inline-flex; background: #e5e7eb; border-radius: 100px; padding: 4px; margin-bottom: 40px; gap: 2px; }
+    .billing-toggle button { border: none; background: transparent; padding: 8px 22px; border-radius: 100px; font-size: 0.9rem; font-weight: 600; cursor: pointer; color: var(--muted); transition: all 0.2s; }
+    .billing-toggle button.active { background: var(--white); color: var(--navy); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .annual-badge { display: inline-block; background: #dcfce7; color: #15803d; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 100px; margin-left: 6px; vertical-align: middle; }
     .price-card { background: var(--white); border-radius: 14px; padding: 40px; max-width: 440px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 2px solid var(--orange); position: relative; }
     .price-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--orange); color: var(--white); font-size: 0.78rem; font-weight: 700; padding: 6px 18px; border-radius: 100px; white-space: nowrap; }
     .price-name { font-size: 1.1rem; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
@@ -179,7 +184,7 @@
 <noscript id="gtm-body-snippet"></noscript>
 
 <nav>
-  <div class="nav-logo"><img src="/images/logo-nav.png" alt="SoCal Receptionist" style="height:44px;vertical-align:middle;"></div>
+  <div class="nav-logo"><img src="/images/logo-nav.png" alt="SoCal Receptionist" style="height:125px;vertical-align:middle;"></div>
   <div style="display:flex;gap:10px;align-items:center;">
     <a href="/login" class="btn-nav" style="background:transparent;border:2px solid rgba(255,255,255,0.35);color:#fff;">Login</a>
     <a href="tel:+19513958776" class="btn-nav">📞 (951) 395-8776</a>
@@ -219,6 +224,10 @@
       <h3>You're the bottleneck</h3>
       <p>When every message requires your personal attention, you can't scale. Your phone becomes your second job.</p>
     </div>
+    <div class="pain-card">
+      <h3>They called, then hung up</h3>
+      <p>Someone called your number, got spooked, and hung up. Without a callback, that customer is gone for good.</p>
+    </div>
   </div>
 </section>
 
@@ -229,8 +238,8 @@
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
-      <h3>Customer Texts In</h3>
-      <p>Your customer texts your business number — any time, day or night.</p>
+      <h3>Customer Calls or Texts</h3>
+      <p>Your customer reaches your business number any time, day or night — by call or text.</p>
     </div>
     <div class="step">
       <div class="step-num">2</div>
@@ -239,8 +248,13 @@
     </div>
     <div class="step">
       <div class="step-num">3</div>
+      <h3>Auto-Callback if They Hang Up</h3>
+      <p>If a caller hangs up before leaving their info, our AI calls them back within 30 seconds — automatically.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
       <h3>You Get a Qualified Lead</h3>
-      <p>You receive an email with the lead's details and a booking link in their hands. You just show up.</p>
+      <p>You receive an alert with the lead's details. You just show up.</p>
     </div>
   </div>
 </section>
@@ -285,26 +299,70 @@
 <section class="pricing" id="pricing">
   <div class="section-label">Pricing</div>
   <h2>Simple, Transparent Pricing</h2>
-  <p>One plan. Everything included. No hidden fees.</p>
-  <div class="price-card">
-    <div class="price-badge">Most Popular in Temecula Valley</div>
-    <div class="price-name">Monthly Plan</div>
-    <div class="price-amount"><span>$</span>500</div>
-    <div class="price-period">per month</div>
-    <div class="price-setup">+ $1,500 one-time setup fee</div>
+  <p>Two ways to get started. No long-term contracts on either.</p>
+  <div class="billing-toggle">
+    <button id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
+    <button class="active" id="btn-annual" onclick="setBilling('annual')">Annual <span class="annual-badge">Save $1,200</span></button>
+  </div>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;max-width:780px;margin:0 auto;">
+  <div class="price-card" style="flex:1;min-width:280px;">
+    <div class="price-name">Essentials</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0;">
+      <span id="ess-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:inline;">$500/mo</span>
+    </div>
+    <div class="price-amount"><span>$</span><span id="ess-price">400</span></div>
+    <div class="price-period" id="ess-period">per month, billed as $4,800/yr</div>
+    <div class="price-setup" style="color:#22c55e;font-weight:600;">No setup fee</div>
     <ul class="price-features">
       <li>24/7 AI receptionist</li>
-      <li>Unlimited inbound messages</li>
       <li>Instant lead qualification & capture</li>
       <li>Email alerts for every new lead</li>
       <li>Appointment booking integration</li>
+      <li>Auto-callback for missed calls</li>
       <li>Custom AI trained on your business</li>
       <li>TCPA-compliant opt-in flow</li>
+      <li>Self-guided setup</li>
       <li>No contracts — cancel anytime</li>
     </ul>
-    <a href="#demo" class="btn-primary price-cta">Get Started Today →</a>
+    <a href="https://app.socalreceptionist.com/register" class="btn-primary price-cta">Get Started →</a>
+  </div>
+  <div class="price-card" style="flex:1;min-width:280px;position:relative;">
+    <div class="price-badge">White-Glove Setup</div>
+    <div class="price-name">Concierge</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0;">
+      <span id="con-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:inline;">$500/mo</span>
+    </div>
+    <div class="price-amount"><span>$</span><span id="con-price">400</span></div>
+    <div class="price-period" id="con-period">per month, billed as $4,800/yr</div>
+    <div class="price-setup">+ $1,500 one-time setup fee</div>
+    <ul class="price-features">
+      <li>24/7 AI receptionist</li>
+      <li>Instant lead qualification & capture</li>
+      <li>Email alerts for every new lead</li>
+      <li>Appointment booking integration</li>
+      <li>Auto-callback for missed calls</li>
+      <li>Custom AI trained on your business</li>
+      <li>TCPA-compliant opt-in flow</li>
+      <li>Full setup & configuration done for you</li>
+      <li>No contracts — cancel anytime</li>
+    </ul>
+    <a href="#demo" class="btn-primary price-cta">Contact Us →</a>
+  </div>
   </div>
 </section>
+<script>
+function setBilling(mode) {
+  var isAnnual = mode === 'annual';
+  document.getElementById('btn-monthly').classList.toggle('active', !isAnnual);
+  document.getElementById('btn-annual').classList.toggle('active', isAnnual);
+  document.getElementById('ess-price').textContent = isAnnual ? '400' : '500';
+  document.getElementById('con-price').textContent = isAnnual ? '400' : '500';
+  document.getElementById('ess-period').textContent = isAnnual ? 'per month, billed as $4,800/yr' : 'per month';
+  document.getElementById('con-period').textContent = isAnnual ? 'per month, billed as $4,800/yr' : 'per month';
+  document.getElementById('ess-strike').style.display = isAnnual ? 'inline' : 'none';
+  document.getElementById('con-strike').style.display = isAnnual ? 'inline' : 'none';
+}
+</script>
 
 <!-- DEMO FORM -->
 <section class="demo" id="demo">
@@ -350,6 +408,12 @@
   <p>© 2026 SoCal Receptionist, LLC · Murrieta, CA</p>
   <p style="margin-top:8px"><a href="/faq">FAQ</a> · <a href="/support">Support</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Use</a> · <a href="/sms-terms">SMS Terms</a> · <a href="/cookies">Cookie Policy</a> · <a href="/accessibility">Accessibility</a></p>
   <p style="margin-top:8px;font-size:0.75rem">By texting our number you consent to receive automated messages. Reply STOP to unsubscribe. Msg &amp; data rates may apply.</p>
+  <p style="margin-top:12px">
+    <a href="https://ctfdesigns.com" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;text-decoration:none;color:rgba(255,255,255,0.4);font-size:0.78rem;transition:color 0.2s" onmouseover="this.style.color='rgba(255,255,255,0.8)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">
+      <img src="https://ctfdesigns.com/images/logo.png" alt="CTF Designs" style="width:15px;height:15px;border-radius:50%;object-fit:cover;vertical-align:middle">
+      Built by CTF Designs
+    </a>
+  </p>
 </footer>
 
 <script>
@@ -577,6 +641,133 @@
 
     load();
   })();
+</script>
+
+<!-- Support Chat Widget -->
+<style>
+  #sc-btn{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#f47c20,#e040a0);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.35);z-index:9998;transition:transform .15s}
+  #sc-btn:hover{transform:scale(1.08)}
+  #sc-btn svg{width:26px;height:26px;fill:#fff}
+  #sc-panel{position:fixed;bottom:90px;right:24px;width:340px;max-height:520px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.25);z-index:9999;display:none;flex-direction:column;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  #sc-panel.open{display:flex}
+  #sc-head{background:linear-gradient(135deg,#f47c20,#e040a0);padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+  #sc-head .sc-title{color:#fff;font-weight:700;font-size:.95rem}
+  #sc-head .sc-sub{color:rgba(255,255,255,.8);font-size:.75rem;margin-top:1px}
+  #sc-close{background:none;border:none;cursor:pointer;color:#fff;opacity:.85;font-size:1.3rem;line-height:1;padding:0}
+  #sc-close:hover{opacity:1}
+  #sc-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f9f9fc;min-height:0}
+  .sc-msg{max-width:82%;padding:9px 13px;border-radius:12px;font-size:.875rem;line-height:1.5;word-break:break-word}
+  .sc-msg.bot{background:#fff;color:#1a1a2e;align-self:flex-start;box-shadow:0 1px 4px rgba(0,0,0,.08);border-bottom-left-radius:4px}
+  .sc-msg.user{background:linear-gradient(135deg,#f47c20,#e040a0);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+  .sc-msg.typing{color:#9ca3af;font-style:italic}
+  #sc-foot{padding:10px 12px;border-top:1px solid #f0f0f5;background:#fff;display:flex;gap:8px}
+  #sc-input{flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-size:.875rem;font-family:inherit;resize:none;outline:none;transition:border-color .15s;max-height:90px}
+  #sc-input:focus{border-color:#e040a0}
+  #sc-send{background:linear-gradient(135deg,#f47c20,#e040a0);border:none;border-radius:8px;width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:flex-end;transition:opacity .15s}
+  #sc-send:disabled{opacity:.45;cursor:default}
+  #sc-send svg{width:18px;height:18px;fill:#fff}
+  @media(max-width:400px){#sc-panel{width:calc(100vw - 32px);right:16px}}
+</style>
+
+<button id="sc-btn" title="Chat with support" aria-label="Open support chat">
+  <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+</button>
+
+<div id="sc-panel" role="dialog" aria-label="Support chat">
+  <div id="sc-head">
+    <div><div class="sc-title">Support Chat</div><div class="sc-sub">Typically replies instantly</div></div>
+    <button id="sc-close" aria-label="Close chat">&times;</button>
+  </div>
+  <div id="sc-msgs"></div>
+  <div id="sc-foot">
+    <textarea id="sc-input" placeholder="Ask a question..." rows="1"></textarea>
+    <button id="sc-send" aria-label="Send">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var btn=document.getElementById('sc-btn'),panel=document.getElementById('sc-panel'),closeBtn=document.getElementById('sc-close'),msgs=document.getElementById('sc-msgs'),input=document.getElementById('sc-input'),send=document.getElementById('sc-send');
+  var history=[],opened=false,sending=false;
+
+  function addMsg(role,text){
+    var el=document.createElement('div');
+    el.className='sc-msg '+role;
+    el.textContent=text;
+    msgs.appendChild(el);
+    msgs.scrollTop=msgs.scrollHeight;
+    return el;
+  }
+
+  function showTyping(){return addMsg('bot typing','...');}
+
+  function openChat(){
+    panel.classList.add('open');
+    opened=true;
+    btn.style.display='none';
+    if(!history.length) addMsg('bot','Hi! 👋 I\'m the SoCal Receptionist support bot. How can I help you today?');
+    setTimeout(function(){input.focus();},100);
+  }
+
+  function closeChat(){
+    panel.classList.remove('open');
+    btn.style.display='flex';
+    if(history.length) sendTranscript();
+  }
+
+  function sendTranscript(){
+    if(!history.length) return;
+    var data=JSON.stringify({history:history});
+    if(navigator.sendBeacon){
+      var blob=new Blob([data],{type:'application/json'});
+      navigator.sendBeacon('/api/support-chat/end',blob);
+    } else {
+      fetch('/api/support-chat/end',{method:'POST',headers:{'Content-Type':'application/json'},body:data,keepalive:true}).catch(function(){});
+    }
+  }
+
+  function doSend(){
+    var text=input.value.trim();
+    if(!text||sending) return;
+    sending=true;
+    send.disabled=true;
+    addMsg('user',text);
+    history.push({role:'user',content:text});
+    input.value='';
+    input.style.height='';
+    var typing=showTyping();
+    fetch('/api/support-chat/message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:history.slice(0,-1)})})
+      .then(function(r){return r.json();})
+      .then(function(j){
+        msgs.removeChild(typing);
+        var reply=j.reply||j.error||'Something went wrong. Please try again.';
+        addMsg('bot',reply);
+        history.push({role:'assistant',content:reply});
+      })
+      .catch(function(){
+        msgs.removeChild(typing);
+        addMsg('bot','Connection error. Please try again or email support@socalreceptionist.com.');
+      })
+      .finally(function(){sending=false;send.disabled=false;input.focus();});
+  }
+
+  btn.addEventListener('click',openChat);
+  closeBtn.addEventListener('click',closeChat);
+  send.addEventListener('click',doSend);
+  input.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend();}
+  });
+  input.addEventListener('input',function(){
+    this.style.height='auto';
+    this.style.height=Math.min(this.scrollHeight,90)+'px';
+  });
+  window.addEventListener('beforeunload',function(){if(history.length) sendTranscript();});
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='hidden'&&history.length) sendTranscript();
+  });
+})();
 </script>
 </body>
 </html>

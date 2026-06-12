@@ -10,8 +10,14 @@
 //
 //   provision_tenant -> setup_messaging -> finalize_onboarding
 
+const twilio = require('twilio');
 const { supabase } = require('../lib/supabase');
 const { enqueue, ManualReviewRequired } = require('../lib/jobs');
+
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
 const { transitionTenant } = require('../lib/state-machine');
 const { hasSignedCurrent } = require('../lib/agreements');
 
@@ -28,7 +34,7 @@ async function provisionTenant(job) {
   // Already past onboarding — pipeline ran before. Idempotent no-op.
   if (tenant.status !== 'onboarding') return;
 
-  const missing = ['business_name', 'business_hours', 'business_services', 'owner_email']
+  const missing = ['business_name', 'owner_email']
     .filter((field) => !tenant[field]);
   if (missing.length) {
     throw new ManualReviewRequired(
@@ -48,37 +54,68 @@ async function provisionTenant(job) {
   await enqueue(job.tenant_id, 'setup_messaging', {});
 }
 
-// Step 2 — Twilio side: create/attach a Messaging Service + sender number and
-// register the A2P brand + campaign.
-//
-// STUB pending ISV registration. The A2P spike (A2P_SPIKE_FINDINGS.md) found no
-// Trust Hub ISV Primary Profile yet; that registration is outward-facing, paid,
-// and needs Roman's legal business info, so it cannot be automated. Once the
-// ISV profile exists this handler will:
-//   1. create or reuse the tenant's Twilio Messaging Service,
-//   2. purchase or attach a sender number -> insert into `phone_numbers`,
-//   3. submit the A2P brand + campaign (Sole Proprietor path for small biz),
-//   4. enqueue `finalize_onboarding`.
+// Step 2 — purchase a local voice number and wire webhooks.
+// SMS/A2P is deferred; this step provisions voice-only and is idempotent.
 async function setupMessaging(job) {
-  // Voice-first launch gate. While SMS is dark platform-wide (SMS_ENABLED
-  // false — the default), there is no Twilio messaging to set up: skip this
-  // step cleanly and hand straight to finalize_onboarding so the onboarding
-  // pipeline still completes (the tenant goes live voice-only).
-  if (process.env.SMS_ENABLED !== 'true') {
+  // If the tenant already has a number, skip straight to finalize.
+  const { data: existing } = await supabase
+    .from('phone_numbers')
+    .select('id')
+    .eq('tenant_id', job.tenant_id)
+    .limit(1);
+  if (existing && existing.length > 0) {
     await enqueue(job.tenant_id, 'finalize_onboarding', {});
     return;
   }
 
-  throw new ManualReviewRequired(
-    'Twilio A2P / Messaging setup is not yet automatable — pending ISV Trust Hub ' +
-      'registration (see A2P_SPIKE_FINDINGS.md). Provision this tenant manually, ' +
-      'then enqueue a finalize_onboarding job.'
-  );
+  const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
+
+  // Search for a local number — try 951 (Murrieta/Temecula) first, then any CA, then any US.
+  let phoneNumber = null;
+  const searches = [
+    { areaCode: '951', limit: 5 },
+    { inRegion: 'CA', limit: 5 },
+    { limit: 5 },
+  ];
+  for (const params of searches) {
+    try {
+      const results = await twilioClient.availablePhoneNumbers('US').local.list({ ...params, voiceEnabled: true });
+      if (results.length > 0) { phoneNumber = results[0].phoneNumber; break; }
+    } catch { /* try next */ }
+  }
+
+  if (!phoneNumber) {
+    throw new ManualReviewRequired(`Could not find an available Twilio number for tenant ${job.tenant_id}`);
+  }
+
+  // Buy it.
+  const purchased = await twilioClient.incomingPhoneNumbers.create({
+    phoneNumber,
+    voiceUrl: `${baseUrl}/voice`,
+    voiceMethod: 'POST',
+    voiceFallbackUrl: `${baseUrl}/voice`,
+    voiceFallbackMethod: 'POST',
+    friendlyName: `SoCal Receptionist — ${job.tenant_id}`,
+  });
+
+  // Save to DB.
+  const { error: dbErr } = await supabase.from('phone_numbers').insert({
+    tenant_id: job.tenant_id,
+    phone_e164: purchased.phoneNumber,
+    twilio_sid: purchased.sid,
+    status: 'active',
+    number_type: 'local_10dlc',
+  });
+  if (dbErr) {
+    await twilioClient.incomingPhoneNumbers(purchased.sid).remove().catch(() => {});
+    throw dbErr;
+  }
+
+  console.log(`[worker] provisioned ${purchased.phoneNumber} for tenant ${job.tenant_id}`);
+  await enqueue(job.tenant_id, 'finalize_onboarding', {});
 }
 
-// Step 3 — flip the tenant live. Outbound US SMS stays compliance-gated until
-// the A2P campaign clears carrier review (~10-15 days), so onboarding completes
-// into `sms_pending_compliance` unless an active number already exists.
+// Step 3 — flip the tenant live and auto-start the 7-day no-card trial.
 async function finalizeOnboarding(job) {
   const { data: numbers, error } = await supabase
     .from('phone_numbers')
@@ -87,12 +124,34 @@ async function finalizeOnboarding(job) {
   if (error) throw error;
 
   const hasActiveNumber = (numbers || []).some((n) => n.status === 'active');
-  const next = hasActiveNumber ? 'active' : 'sms_pending_compliance';
+  const next = hasActiveNumber ? 'active' : 'active'; // voice-only, no SMS compliance gate
 
   await transitionTenant(job.tenant_id, next, {
     reason: 'onboarding pipeline complete',
     metadata: { job_id: job.id },
   });
+
+  // Auto-start 7-day no-card trial if no subscription exists yet.
+  const { data: existingSub } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('tenant_id', job.tenant_id)
+    .limit(1);
+
+  if (!existingSub || existingSub.length === 0) {
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 7);
+    const trialEndIso = trialEnd.toISOString();
+
+    await supabase.from('subscriptions').insert({
+      tenant_id: job.tenant_id,
+      status: 'trialing',
+      trial_ends_at: trialEndIso,
+      current_period_end: trialEndIso,
+      cancel_at_period_end: false,
+    });
+    console.log(`[worker] started 7-day trial for tenant ${job.tenant_id}, ends ${trialEndIso}`);
+  }
 }
 
 // Release a tenant's phone number — marks the row released and (in production)
@@ -103,13 +162,35 @@ async function releaseNumber(job) {
   if (!numberId) {
     throw new ManualReviewRequired('release_number job missing payload.phone_number_id');
   }
+
+  // Fetch the number record for the Twilio SID and BYO flag.
+  const { data: numRow, error: fetchErr } = await supabase
+    .from('phone_numbers')
+    .select('id, twilio_sid, is_byo, status')
+    .eq('id', numberId)
+    .eq('tenant_id', job.tenant_id)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (!numRow) return; // already gone
+
+  // Release from Twilio unless it's a bring-your-own number.
+  if (!numRow.is_byo && numRow.twilio_sid) {
+    try {
+      await twilioClient.incomingPhoneNumbers(numRow.twilio_sid).remove();
+      console.log(`[worker] released Twilio number ${numRow.twilio_sid} for tenant ${job.tenant_id}`);
+    } catch (err) {
+      // If Twilio says the number doesn't exist, treat as already released.
+      if (err.code !== 20404) throw err;
+      console.warn(`[worker] Twilio number ${numRow.twilio_sid} already absent (20404), marking released`);
+    }
+  }
+
   const { error } = await supabase
     .from('phone_numbers')
     .update({ status: 'released', released_at: new Date().toISOString() })
     .eq('id', numberId)
-    .eq('tenant_id', job.tenant_id); // scope guard
+    .eq('tenant_id', job.tenant_id);
   if (error) throw error;
-  // TODO: twilioClient.incomingPhoneNumbers(sid).remove() once Twilio is wired.
 }
 
 // Purge transcript messages past a tenant's retention window.

@@ -25,6 +25,7 @@ const MIGRATIONS = [
   '005_billing_refund.sql',
   '006_mfa.sql',
   '007_time_tickets.sql',
+  '007_voice_id.sql', // numbering collision with time_tickets — both are real, order matters not
   '009_outbound_leads_integrations.sql',
   '010_rls_complete.sql',
   '011_outbound_assist.sql',

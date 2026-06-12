@@ -11,6 +11,17 @@ const { supabase } = require('../lib/supabase');
 const { syncSubscription, recordSetupPayment, maybeRefundSetupFee } = require('../lib/billing');
 const { enqueue } = require('../lib/jobs');
 
+async function enqueueNumberRelease(tenantId) {
+  const { data: numbers } = await supabase
+    .from('phone_numbers')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active');
+  for (const n of numbers || []) {
+    await enqueue(tenantId, 'release_number', { phone_number_id: n.id });
+  }
+}
+
 const router = express.Router();
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -78,7 +89,10 @@ async function handleEvent(event) {
         event.type === 'customer.subscription.deleted' ||
         sub.cancel_at_period_end === true ||
         sub.status === 'canceled';
-      if (canceling) await maybeRefundSetupFee(tenantId);
+      if (canceling) {
+        await maybeRefundSetupFee(tenantId);
+        await enqueueNumberRelease(tenantId);
+      }
       break;
     }
 

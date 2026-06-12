@@ -58,6 +58,21 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
 });
 
+// Internal: poll Gmail inboxes for new messages since ?since=<epochMs>
+app.get('/internal/gmail-check', async (req, res) => {
+  const secret = config.internalSecret;
+  if (!secret || req.query.token !== secret) return res.status(401).json({ error: 'unauthorized' });
+  const sinceMs = parseInt(req.query.since || '0', 10) || (Date.now() - 30 * 60 * 1000);
+  try {
+    const { getNewMessages } = require('./src/gmail-monitor');
+    const messages = await getNewMessages(sinceMs);
+    res.json({ ok: true, count: messages.length, messages });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+
 // Temporary Google OAuth callback — only usable in development (not production).
 // Tokens are stored in env/config, not logged. Remove this route when no longer needed.
 if (process.env.NODE_ENV !== 'production') {
@@ -180,6 +195,8 @@ if (process.env.COMING_SOON === 'true') {
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/roadmap', (req, res) => res.sendFile(path.join(__dirname, 'public', 'roadmap.html')));
 
 // Inject analytics tags into the landing page HTML at request time so
 // GTM_ID / GA_ID / FB_PIXEL_ID env vars take effect without a redeploy.
@@ -361,50 +378,73 @@ load()})();
 app.get('/privacy', (req, res) => {
   res.type('text/html').send(legalPage('Privacy Policy', `
   <h1>Privacy Policy</h1>
-  <p>Last updated: May 2026</p>
-  <p><strong>SoCal Receptionist</strong> ("we," "us," or "our") provides an AI-powered virtual receptionist service via SMS to small businesses in Southern California. This Privacy Policy explains how we collect, use, and protect information when you interact with our service.</p>
+  <p>Last updated: June 2026</p>
+  <p><strong>SoCal Receptionist</strong> ("we," "us," or "our") operates an AI-powered virtual receptionist service delivered via SMS text messaging to small businesses in Southern California. This Privacy Policy describes how we collect, use, disclose, and protect information when you interact with our SMS service or visit our website at <a href="https://www.socalreceptionist.com">www.socalreceptionist.com</a>.</p>
+
+  <h2>SMS Text Messaging Program</h2>
+  <p>SoCal Receptionist operates an SMS text messaging program that allows customers to communicate with participating businesses via automated AI-generated text messages. By texting a participating business's dedicated phone number, you agree to receive automated text messages in response.</p>
+
+  <h3>How You Opt In</h3>
+  <p>You opt in to our SMS program by texting a participating business's SoCal Receptionist number. Your first inbound text message to that number constitutes your explicit opt-in consent to receive AI-generated SMS replies. No unsolicited outbound messages are ever sent — this is a 100% inbound, consumer-initiated service.</p>
+
+  <h3>Message Frequency</h3>
+  <p>Message frequency varies based on your inquiries. Typically 1–5 messages per conversation session. Recurring messages may apply while your inquiry is active.</p>
+
+  <h3>Message &amp; Data Rates</h3>
+  <p><strong>Msg &amp; Data Rates May Apply.</strong> Standard message and data rates may apply depending on your mobile carrier and plan. Contact your carrier for details.</p>
+
+  <h3>How to Opt Out (STOP)</h3>
+  <p>You may opt out of receiving SMS messages from us at any time by replying <strong>STOP</strong>, <strong>CANCEL</strong>, <strong>END</strong>, <strong>QUIT</strong>, or <strong>UNSUBSCRIBE</strong> to any message. You will receive a single confirmation message and no further messages will be sent to your number.</p>
+
+  <h3>How to Get Help (HELP)</h3>
+  <p>Reply <strong>HELP</strong> to any message to receive support information. You may also contact us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a> or visit <a href="https://www.socalreceptionist.com/sms-terms">www.socalreceptionist.com/sms-terms</a> for full SMS Terms &amp; Conditions.</p>
+
+  <h3>Supported Carriers</h3>
+  <p>Supported carriers include AT&amp;T, T-Mobile, Verizon, and most major U.S. carriers. Carrier support for text programs is not guaranteed.</p>
 
   <h2>Information We Collect</h2>
   <ul>
     <li><strong>Phone number</strong> — collected when you initiate a text conversation with a business using our service.</li>
-    <li><strong>Message content</strong> — the text messages you send are processed to generate a response. We do not retain message transcripts beyond what is necessary to maintain conversation context during an active session.</li>
-    <li><strong>Consent status</strong> — we record whether you have opted in or opted out of automated messaging.</li>
+    <li><strong>Message content</strong> — the text messages you send are processed to generate a response. Message content is not stored permanently after the session ends.</li>
+    <li><strong>Consent status</strong> — we record your opt-in and opt-out status to maintain compliance with applicable regulations.</li>
+    <li><strong>Website usage data</strong> — if you visit our website, we may collect standard web log data such as IP address and browser type.</li>
   </ul>
-
-  <h2>SMS Opt-In Consent</h2>
-  <p>Before you receive any automated messages, you will be prompted to reply <strong>YES</strong>. No marketing or AI messages are sent until you explicitly consent. You may opt out at any time by replying <strong>STOP</strong>.</p>
-
-  <h2>Message Frequency</h2>
-  <p>Message frequency varies based on your inquiries. Typically 1–5 messages per conversation.</p>
-
-  <h2>How to Opt Out</h2>
-  <p>Reply <strong>STOP</strong> at any time to stop all messages. You will receive one confirmation and no further messages will be sent. Reply <strong>HELP</strong> for assistance.</p>
 
   <h2>How We Use Your Information</h2>
   <ul>
-    <li>To respond to your inquiries and connect you with the business</li>
-    <li>To maintain opt-in/opt-out compliance</li>
-    <li>To improve service quality</li>
+    <li>To respond to your SMS inquiries and connect you with the participating business</li>
+    <li>To maintain opt-in and opt-out compliance records</li>
+    <li>To improve service quality and train our AI systems</li>
+    <li>To comply with legal obligations</li>
   </ul>
-  <p>We do <strong>not</strong> sell, rent, or share your personal information with third parties for marketing purposes.</p>
+  <p>We do <strong>not</strong> sell, rent, or share your personal information or phone number with third parties for marketing purposes. Your phone number will not be shared with any third party for their own marketing use.</p>
 
   <h2>Data Retention</h2>
-  <p>Consent status is retained for compliance purposes. Conversation content is held only for the duration of an active session and is not stored permanently.</p>
-
-  <h2>Message &amp; Data Rates</h2>
-  <p>Standard message and data rates may apply depending on your mobile carrier plan.</p>
+  <p>Opt-in and opt-out consent records are retained for compliance purposes as required by law. Conversation content is processed in real time and is not stored permanently after the session concludes.</p>
 
   <h2>Third-Party Services</h2>
-  <p>We use Twilio for SMS delivery and OpenAI for AI-generated responses. Both services process message content under their own privacy policies. Twilio: <a href="https://www.twilio.com/legal/privacy" target="_blank" rel="noopener">twilio.com/legal/privacy</a>. OpenAI: <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">openai.com/policies/privacy-policy</a>.</p>
+  <p>We use Twilio for SMS delivery and OpenAI for AI-generated responses. Both services process message content under their own privacy policies:</p>
+  <ul>
+    <li>Twilio: <a href="https://www.twilio.com/legal/privacy" target="_blank" rel="noopener">twilio.com/legal/privacy</a></li>
+    <li>OpenAI: <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">openai.com/policies/privacy-policy</a></li>
+  </ul>
 
   <h2>Children's Privacy</h2>
-  <p>Our service is not directed to children under 13. We do not knowingly collect information from children.</p>
+  <p>Our service is not directed to children under 13. We do not knowingly collect personal information from children under 13.</p>
+
+  <h2>California Privacy Rights (CCPA)</h2>
+  <p>California residents have the right to request disclosure of personal information we collect, request deletion of their data, and opt out of the sale of personal information. We do not sell personal information. To exercise your rights, contact us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a> or visit <a href="https://www.socalreceptionist.com/data-deletion">www.socalreceptionist.com/data-deletion</a>.</p>
 
   <h2>Changes to This Policy</h2>
-  <p>We may update this policy periodically. Continued use of the service after changes constitutes acceptance of the updated policy.</p>
+  <p>We may update this policy periodically. The "Last updated" date above reflects the most recent revision. Continued use of the service after changes constitutes acceptance of the updated policy.</p>
 
   <h2>Contact</h2>
-  <p>Questions? Email us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>.</p>
+  <p>Questions about this Privacy Policy or our SMS program? Contact us:</p>
+  <p>
+    <strong>SoCal Receptionist (SOCAL RECEPTIONIST LLC)</strong><br>
+    Email: <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a><br>
+    Website: <a href="https://www.socalreceptionist.com">www.socalreceptionist.com</a>
+  </p>
   `));
 });
 
@@ -700,7 +740,29 @@ app.post('/voice/sales', rateLimit(5, 60_000), (req, res) => {
 
 // WebSocket endpoint — auth token arrives in the Twilio 'start' event (customParameters.auth),
 // not in the URL (DO strips WS query params). voice-realtime.js verifies it before connecting OpenAI.
-app.ws('/voice/sales/stream', (ws) => {
+app.ws('/voice/sales/stream', (ws, req) => {
+  handleRealtimeCall(ws, { callbackBaseUrl: `https://${req.headers.host}/voice/callback` });
+});
+
+// Outbound callback — Twilio POSTs here when the AI-initiated callback call connects.
+// req.body.To is the customer's number (we called them outbound).
+app.post('/voice/callback', rateLimit(5, 60_000), (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    console.warn('Rejected /voice/callback request: invalid Twilio signature');
+    return res.status(403).send('Invalid Twilio signature');
+  }
+  const host = req.headers.host;
+  const rawFrom = req.body.To || req.body.From || '';
+  const callSid = req.body.CallSid || '';
+  const token = makeStreamToken(callSid, rawFrom);
+  const safeFrom = rawFrom.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  res.type('text/xml');
+  res.send(
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="wss://${host}/voice/callback/stream"><Parameter name="from" value="${safeFrom}"/><Parameter name="auth" value="${token}"/><Parameter name="isCallback" value="true"/></Stream></Connect></Response>`
+  );
+});
+
+app.ws('/voice/callback/stream', (ws) => {
   handleRealtimeCall(ws);
 });
 

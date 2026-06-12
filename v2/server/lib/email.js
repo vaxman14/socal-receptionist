@@ -11,7 +11,7 @@
 const { Resend } = require('resend');
 const logger = require('./logger');
 
-const FROM = process.env.EMAIL_FROM || 'SoCal Receptionist <noreply@socalreceptionist.com>';
+const FROM = process.env.EMAIL_FROM || 'SoCal Receptionist <hello@noreply.socalreceptionist.com>';
 
 // Lazily constructed, like the OpenAI client in lib/ai.js: build it on first
 // use so routes that never send mail boot fine without the key.

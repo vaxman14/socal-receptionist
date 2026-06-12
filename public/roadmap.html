@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Roadmap — SoCal Receptionist</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #0f1f3d;
+      --blue: #1a3a6e;
+      --orange: #f47c20;
+      --orange-dark: #d96a10;
+      --light: #f5f7fa;
+      --text: #1a1a2e;
+      --muted: #6b7280;
+      --white: #ffffff;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --purple: #7c3aed;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text); background: var(--white); }
+
+    /* NAV */
+    nav { background: var(--navy); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+    nav a.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    nav img { height: 36px; }
+    nav .logo-text { color: var(--white); font-size: 1.1rem; font-weight: 700; }
+    nav .back { color: rgba(255,255,255,0.7); font-size: 0.875rem; text-decoration: none; }
+    nav .back:hover { color: var(--white); }
+
+    /* HERO */
+    .hero { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%); color: var(--white); padding: 64px 24px 48px; text-align: center; }
+    .hero .badge { display: inline-block; background: rgba(244,124,32,0.2); color: var(--orange); border: 1px solid rgba(244,124,32,0.4); border-radius: 20px; padding: 4px 14px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 16px; }
+    .hero h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; margin-bottom: 16px; }
+    .hero p { font-size: 1.1rem; color: rgba(255,255,255,0.8); max-width: 600px; margin: 0 auto; }
+
+    /* MAIN */
+    main { max-width: 860px; margin: 0 auto; padding: 56px 24px 80px; }
+
+    /* PHASE LEGEND */
+    .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 48px; justify-content: center; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; color: var(--muted); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-done { background: var(--green); }
+    .dot-active { background: var(--orange); }
+    .dot-next { background: var(--yellow); }
+    .dot-future { background: #d1d5db; }
+
+    /* TIMELINE */
+    .timeline { position: relative; }
+    .timeline::before { content: ''; position: absolute; left: 20px; top: 0; bottom: 0; width: 2px; background: #e5e7eb; }
+
+    .phase { margin-bottom: 48px; }
+    .phase-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; position: relative; }
+    .phase-dot { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1rem; z-index: 1; }
+    .phase-dot-done { background: var(--green); color: white; }
+    .phase-dot-active { background: var(--orange); color: white; }
+    .phase-dot-next { background: var(--yellow); color: white; }
+    .phase-dot-future { background: #e5e7eb; color: var(--muted); }
+    .phase-label { }
+    .phase-label h2 { font-size: 1.25rem; font-weight: 700; color: var(--navy); }
+    .phase-label span { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+
+    /* CARDS */
+    .cards { margin-left: 56px; display: grid; gap: 12px; }
+    .card { background: var(--white); border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 20px; display: flex; align-items: flex-start; gap: 14px; transition: box-shadow 0.2s; }
+    .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .card-icon { font-size: 1.25rem; flex-shrink: 0; margin-top: 2px; }
+    .card-body h3 { font-size: 0.95rem; font-weight: 600; color: var(--navy); margin-bottom: 4px; }
+    .card-body p { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+    .card-status { margin-left: auto; flex-shrink: 0; }
+    .tag { display: inline-block; border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600; }
+    .tag-done { background: #d1fae5; color: #065f46; }
+    .tag-active { background: #fff7ed; color: #c2410c; }
+    .tag-next { background: #fef3c7; color: #92400e; }
+    .tag-soon { background: #ede9fe; color: #5b21b6; }
+
+    /* CTA */
+    .cta-box { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%); border-radius: 16px; padding: 40px 32px; text-align: center; color: var(--white); margin-top: 64px; }
+    .cta-box h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 12px; }
+    .cta-box p { color: rgba(255,255,255,0.75); margin-bottom: 24px; font-size: 0.95rem; }
+    .btn-orange { display: inline-block; background: var(--orange); color: var(--white); font-weight: 700; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-size: 0.95rem; transition: background 0.2s; }
+    .btn-orange:hover { background: var(--orange-dark); }
+
+    /* FOOTER */
+    footer { background: var(--navy); color: rgba(255,255,255,0.5); text-align: center; padding: 20px; font-size: 0.8rem; }
+
+    @media (max-width: 600px) {
+      .cards { margin-left: 0; margin-top: 8px; }
+      .timeline::before { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">
+    <img src="/images/logo-dark.png" alt="SoCal Receptionist">
+    <span class="logo-text">SoCal Receptionist</span>
+  </a>
+  <a href="/" class="back">← Back to site</a>
+</nav>
+
+<div class="hero">
+  <div class="badge">Product Roadmap</div>
+  <h1>Where We're Headed</h1>
+  <p>A transparent look at what we've shipped, what's in progress, and what's coming next.</p>
+</div>
+
+<main>
+
+  <div class="legend">
+    <div class="legend-item"><span class="dot dot-done"></span> Shipped</div>
+    <div class="legend-item"><span class="dot dot-active"></span> In Progress</div>
+    <div class="legend-item"><span class="dot dot-next"></span> Up Next</div>
+    <div class="legend-item"><span class="dot dot-future"></span> Future</div>
+  </div>
+
+  <div class="timeline">
+
+    <!-- PHASE 1: SHIPPED -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-dot phase-dot-done">✓</div>
+        <div class="phase-label">
+          <h2>Phase 1 — Foundation</h2>
+          <span>Shipped · Q2 2026</span>
+        </div>
+      </div>
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">📞</div>
+          <div class="card-body">
+            <h3>AI Voice Receptionist</h3>
+            <p>Natural voice AI answers every call 24/7, handles FAQs, takes messages, and books appointments.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-done">Shipped</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🏢</div>
+          <div class="card-body">
+            <h3>Multi-Tenant Platform</h3>
+            <p>Each business gets their own isolated receptionist, phone number, and settings.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-done">Shipped</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">⚡</div>
+          <div class="card-body">
+            <h3>Self-Serve Onboarding</h3>
+            <p>Sign up, configure your business, and go live in under 5 minutes. No sales call needed.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-done">Shipped</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">💳</div>
+          <div class="card-body">
+            <h3>Stripe Billing + 7-Day Free Trial</h3>
+            <p>No credit card required to start. Monthly and annual plans with self-serve cancellation.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-done">Shipped</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📅</div>
+          <div class="card-body">
+            <h3>Google Calendar Booking</h3>
+            <p>AI books appointments directly onto your calendar during the call — no back-and-forth.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-done">Shipped</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📧</div>
+          <div class="card-body">
+            <h3>Lead Email Notifications</h3>
+            <p>Instant email summary after every call with caller info, intent, and next steps.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-done">Shipped</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 2: IN PROGRESS -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-dot phase-dot-active">→</div>
+        <div class="phase-label">
+          <h2>Phase 2 — Expand</h2>
+          <span>In Progress · Q2–Q3 2026</span>
+        </div>
+      </div>
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">💬</div>
+          <div class="card-body">
+            <h3>SMS Messaging</h3>
+            <p>Customers can text your business number and get instant AI replies — same intelligence as the voice receptionist.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-active">In Progress</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📱</div>
+          <div class="card-body">
+            <h3>Mobile App (iOS & Android)</h3>
+            <p>Manage your receptionist, review call summaries, and update settings from your phone.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-active">Beta</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🤖</div>
+          <div class="card-body">
+            <h3>AI Chat Onboarding</h3>
+            <p>Conversational setup flow — tell our AI about your business and it configures your receptionist automatically.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-active">In Progress</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📅</div>
+          <div class="card-body">
+            <h3>Microsoft Calendar Integration</h3>
+            <p>Book appointments directly into Outlook and Microsoft 365 calendars — for businesses that live in the Microsoft ecosystem.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-active">In Progress</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 3: UP NEXT -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-dot phase-dot-next">⏭</div>
+        <div class="phase-label">
+          <h2>Phase 3 — Intelligence</h2>
+          <span>Up Next · Q3 2026</span>
+        </div>
+      </div>
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">📊</div>
+          <div class="card-body">
+            <h3>Analytics Dashboard</h3>
+            <p>Call volume, lead conversion rates, peak hours, and top questions — all in one view.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-next">Up Next</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🎙️</div>
+          <div class="card-body">
+            <h3>Call Recordings & Transcripts</h3>
+            <p>Every conversation searchable and reviewable. Great for training, compliance, and QA.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-next">Up Next</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔗</div>
+          <div class="card-body">
+            <h3>Practice Management and CRM Integrations</h3>
+            <p>Sync calls, leads, and summaries with Clio, MyCase, HubSpot, and Salesforce. Attorneys, accountants, and medical offices stay in their existing software — no manual data entry.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-next">Up Next</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📞</div>
+          <div class="card-body">
+            <h3>SIP Trunk Integration</h3>
+            <p>Keep your existing business phone number and provider. Connect RingCentral, Vonage, or Telnyx directly to SoCal Receptionist — no number porting required.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-next">Up Next</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🤙</div>
+          <div class="card-body">
+            <h3>Outbound Call Assist and Proactive Reminders</h3>
+            <p>Dial your extension and say "Get Robert on the phone" — your AI receptionist finds the contact, dials out, and bridges the call. It also rings your desk 5 minutes before appointments so you never miss a meeting.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-next">Up Next</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 4: FUTURE -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-dot phase-dot-future">◦</div>
+        <div class="phase-label">
+          <h2>Phase 4 — Scale</h2>
+          <span>Future · Q4 2026 & Beyond</span>
+        </div>
+      </div>
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">🌐</div>
+          <div class="card-body">
+            <h3>Multi-Language Support</h3>
+            <p>Spanish and Hebrew support — serve every customer in their preferred language.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-soon">Planned</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔌</div>
+          <div class="card-body">
+            <h3>Public API</h3>
+            <p>Programmatic access for enterprises — trigger calls, pull transcripts, manage tenants via REST API.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-soon">Planned</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon">⭐</div>
+          <div class="card-body">
+            <h3>Review Requests</h3>
+            <p>Automatically ask happy callers to leave a Google or Yelp review at the end of the interaction.</p>
+          </div>
+          <div class="card-status"><span class="tag tag-soon">Planned</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="cta-box">
+    <h2>Have a feature request?</h2>
+    <p>We build what our customers need. Tell us what would make SoCal Receptionist perfect for your business.</p>
+    <a href="mailto:info@socalreceptionist.com" class="btn-orange">Send Us Feedback</a>
+  </div>
+
+</main>
+
+<footer>
+  <p>© 2026 SoCal Receptionist LLC · <a href="/privacy" style="color:inherit">Privacy</a> · <a href="/terms" style="color:inherit">Terms</a></p>
+</footer>
+
+</body>
+</html>

@@ -16,9 +16,6 @@ const TONE = {
   contacted: 'warn',
   won: 'green',
   lost: 'gray',
-  // conversation status
-  open: 'green',
-  closed: 'gray',
   // call outcome
   in_progress: 'info',
   ai_handled: 'green',

@@ -1,8 +1,8 @@
 // Wizard step 1 — business profile form. POST /onboarding/business.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
-import { SMS_ENABLED } from '../../lib/config';
+import BusinessHoursPicker from '../../components/BusinessHoursPicker';
 
 const TIMEZONES = [
   'America/Los_Angeles',
@@ -14,20 +14,32 @@ const TIMEZONES = [
   'Pacific/Honolulu',
 ];
 
+const FORM_KEY = 'socal_wizard_step1';
+
+const DEFAULTS = {
+  business_name: '',
+  business_hours: '',
+  business_services: '',
+  calendly_link: '',
+  timezone: 'America/Los_Angeles',
+  voice_enabled: true,
+  staff_phone: '',
+  voice_greeting: '',
+  voicemail_email: '',
+};
+
+function loadForm() {
+  try { const s = sessionStorage.getItem(FORM_KEY); return s ? { ...DEFAULTS, ...JSON.parse(s) } : DEFAULTS; } catch { return DEFAULTS; }
+}
+
 export default function StepBusiness({ onCreated }) {
-  const [form, setForm] = useState({
-    business_name: '',
-    business_hours: '',
-    business_services: '',
-    calendly_link: '',
-    timezone: 'America/Los_Angeles',
-    voice_enabled: true,
-    staff_phone: '',
-    voice_greeting: '',
-    voicemail_email: '',
-  });
+  const [form, setForm] = useState(loadForm);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    try { sessionStorage.setItem(FORM_KEY, JSON.stringify(form)); } catch {}
+  }, [form]);
 
   const set = (key) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -66,6 +78,7 @@ export default function StepBusiness({ onCreated }) {
     setBusy(true);
     try {
       const data = await api.post('/onboarding/business', body);
+      try { sessionStorage.removeItem(FORM_KEY); } catch {}
       onCreated(data.tenant);
     } catch (err) {
       setError(err.message || 'Could not create your business.');
@@ -78,9 +91,8 @@ export default function StepBusiness({ onCreated }) {
     <div className="card card-pad">
       <h1>Tell us about your business</h1>
       <p className="muted" style={{ marginBottom: 18, fontSize: '0.92rem' }}>
-        This configures how your AI receptionist answers{' '}
-        {SMS_ENABLED ? 'texts and calls' : 'calls'}. You can change everything
-        later in Settings.
+        This configures how your AI receptionist answers calls. You can change
+        everything later in Settings.
       </p>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -97,16 +109,13 @@ export default function StepBusiness({ onCreated }) {
           />
         </label>
 
-        <label className="field">
+        <div className="field">
           <span className="label">Business hours</span>
-          <input
-            type="text"
-            autoComplete="off"
+          <BusinessHoursPicker
             value={form.business_hours}
-            onChange={set('business_hours')}
-            placeholder="Mon–Fri 8am–5pm, Sat 9am–1pm"
+            onChange={(val) => setForm((f) => ({ ...f, business_hours: val }))}
           />
-        </label>
+        </div>
 
         <label className="field">
           <span className="label">Services offered</span>

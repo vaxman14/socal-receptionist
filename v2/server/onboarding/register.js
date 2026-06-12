@@ -15,6 +15,7 @@ const { supabase } = require('../lib/supabase');
 const { requireAuth } = require('../lib/auth');
 const { sendEmail } = require('../lib/email');
 const { onboardingConfirmation } = require('../lib/email-templates');
+const { verifyRecaptcha } = require('../lib/recaptcha');
 
 const router = express.Router();
 
@@ -59,6 +60,12 @@ router.get('/business', requireAuth, async (req, res) => {
 
 // POST /onboarding/business — create the caller's tenant.
 router.post('/business', requireAuth, async (req, res) => {
+  // reCAPTCHA v3 — reject bots. Gracefully skipped when RECAPTCHA_SECRET_KEY is unset.
+  const captcha = await verifyRecaptcha(req.body.recaptcha_token);
+  if (!captcha.ok) {
+    return res.status(422).json({ error: 'reCAPTCHA verification failed. Please try again.' });
+  }
+
   // One tenant per account.
   const { data: existing } = await supabase
     .from('tenants')
@@ -75,6 +82,22 @@ router.post('/business', requireAuth, async (req, res) => {
     }
   }
 
+  // Enforce length limits on all string fields to prevent oversized DB writes.
+  const STRING_MAX = {
+    business_name:     120,
+    business_hours:    500,
+    business_services: 1000,
+    calendly_link:     300,
+    timezone:          60,
+    staff_phone:       30,
+    voice_greeting:    400,
+    voicemail_email:   200,
+  };
+
+  if (String(req.body.business_name).trim().length > STRING_MAX.business_name) {
+    return res.status(400).json({ error: `business_name must be under ${STRING_MAX.business_name} characters` });
+  }
+
   const row = {
     owner_user_id: req.user.id,
     owner_email: req.user.email,
@@ -82,7 +105,23 @@ router.post('/business', requireAuth, async (req, res) => {
     status: 'onboarding',
   };
   for (const field of OPTIONAL) {
-    if (req.body[field] !== undefined) row[field] = req.body[field];
+    if (req.body[field] === undefined) continue;
+    const max = STRING_MAX[field];
+    if (field === 'voice_enabled') {
+      // boolean field — accept only true/false
+      if (typeof req.body[field] !== 'boolean') {
+        return res.status(400).json({ error: `${field} must be a boolean` });
+      }
+      row[field] = req.body[field];
+      continue;
+    }
+    if (typeof req.body[field] !== 'string') {
+      return res.status(400).json({ error: `${field} must be a string` });
+    }
+    if (max && req.body[field].length > max) {
+      return res.status(400).json({ error: `${field} must be under ${max} characters` });
+    }
+    row[field] = req.body[field];
   }
 
   // Insert with a unique slug; retry a few times on slug collision.

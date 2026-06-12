@@ -13,12 +13,14 @@
     "worker": "node server/provisioning/run-worker.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
     "@sentry/node": "^8.55.2",
     "@supabase/supabase-js": "^2.106.0",
     "cors": "^2.8.6",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^8.5.2",
+    "express-ws": "^5.0.2",
     "groq-sdk": "^0.7.0",
     "helmet": "^8.2.0",
     "node-fetch": "^2.7.0",
@@ -26,6 +28,7 @@
     "openai": "^4.56.0",
     "resend": "^6.12.3",
     "stripe": "^17.7.0",
-    "twilio": "^5.2.3"
+    "twilio": "^5.2.3",
+    "ws": "^8.21.0"
   }
 }

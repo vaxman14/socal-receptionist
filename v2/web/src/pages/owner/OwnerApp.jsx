@@ -7,12 +7,14 @@ import Tenants from './Tenants';
 import TenantDetail from './TenantDetail';
 import Documents from './Documents';
 import AuditLog from './AuditLog';
+import Help from '../Help';
 
 const LINKS = [
   { to: '/', label: 'Overview', end: true },
   { to: '/tenants', label: 'Tenants' },
   { to: '/documents', label: 'Documents' },
   { to: '/audit', label: 'Audit log' },
+  { to: '/help', label: 'Help & FAQ' },
 ];
 
 export default function OwnerApp() {
@@ -24,6 +26,7 @@ export default function OwnerApp() {
         <Route path="tenants/:id" element={<TenantDetail />} />
         <Route path="documents" element={<Documents />} />
         <Route path="audit" element={<AuditLog />} />
+        <Route path="help" element={<Help />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

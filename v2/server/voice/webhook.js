@@ -22,15 +22,20 @@ const { getOrCreateConversation } = require('../lib/conversations');
 const { handleMessage } = require('../lib/ai');
 const { recordCallStart, updateCall, getCallBySid } = require('../lib/calls');
 const { draftFromCall } = require('../lib/time-tickets');
+const { sendEmail } = require('../lib/email');
 const logger = require('../lib/logger');
 
 const router = express.Router();
 
 const VoiceResponse = twilio.twiml.VoiceResponse;
-// Amazon Polly neural voice — far less robotic than Twilio's default.
-const VOICE = { voice: 'Polly.Joanna-Neural' };
+// Amazon Polly neural voices available for tenant selection.
+const DEFAULT_VOICE_ID = 'Polly.Joanna-Neural';
 // How long to ring the staff line before giving up to voicemail.
 const STAFF_DIAL_TIMEOUT = 20;
+
+function voice(tenant) {
+  return { voice: (tenant && tenant.voice_id) || DEFAULT_VOICE_ID };
+}
 
 // Reply with TwiML. Centralised so the content type is never forgotten.
 function sendTwiml(res, vr) {
@@ -39,9 +44,9 @@ function sendTwiml(res, vr) {
 
 // A bare TwiML response that just says something and hangs up — used for
 // unknown numbers, disabled voice, and hard errors.
-function sayAndHangup(res, message) {
+function sayAndHangup(res, message, tenant) {
   const vr = new VoiceResponse();
-  vr.say(VOICE, message);
+  vr.say(voice(tenant), message);
   vr.hangup();
   return sendTwiml(res, vr);
 }
@@ -53,16 +58,22 @@ function menuGather(vr, tenant) {
     numDigits: 1,
     action: '/voice/menu',
     method: 'POST',
-    timeout: 6,
+    timeout: 2,
   });
   const greeting =
     tenant.voice_greeting ||
     `Thank you for calling ${tenant.business_name}.`;
-  gather.say(
-    VOICE,
-    `${greeting} To book or ask about an appointment, press 1. ` +
-      `To speak with our staff, press 2.`
-  );
+  // SSML: slight slow-down + natural pauses between sentences so it doesn't
+  // sound rushed. Polly Neural supports SSML natively via Twilio.
+  const ssml =
+    `<speak><prosody rate="95%">` +
+    `${greeting}` +
+    `<break time="700ms"/>` +
+    `To reach our staff directly, press 2.` +
+    `<break time="400ms"/>` +
+    `Otherwise, stay on the line and I'll be happy to help you.` +
+    `</prosody></speak>`;
+  gather.say(voice(tenant), ssml);
 }
 
 // --- Entry: a call arrives --------------------------------------------------
@@ -81,31 +92,69 @@ router.post('/voice', async (req, res) => {
     tenant = await resolveTenantByNumber(to);
   } catch (err) {
     logger.error('voice.tenant_lookup_failed', { error: err.message });
-    return sayAndHangup(res, 'We are unable to take your call right now. Please try again later.');
+    return sayAndHangup(res, 'We are unable to take your call right now. Please try again later.', null);
   }
 
   if (!tenant) {
     logger.warn('voice.unknown_number', { to });
-    return sayAndHangup(res, 'This number is not in service. Goodbye.');
+    return sayAndHangup(res, 'This number is not in service. Goodbye.', null);
   }
 
   if (tenant.voice_enabled === false) {
     return sayAndHangup(
       res,
-      `Thank you for calling ${tenant.business_name}. Please send us a text message and we will get right back to you.`
+      `Thank you for calling ${tenant.business_name}. Please send us a text message and we will get right back to you.`,
+      tenant
     );
   }
 
-  try {
-    await recordCallStart({ tenantId: tenant.id, callSid, from, to });
-  } catch (err) {
-    logger.error('voice.record_call_failed', { error: err.message });
-  }
+  // Use OpenAI Realtime API — stream audio directly, no TTS/STT round trips.
+  const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
+  const wsUrl = baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
 
   const vr = new VoiceResponse();
-  menuGather(vr, tenant);
-  // Fallback if the caller pressed nothing: one re-prompt, then voicemail.
-  vr.redirect({ method: 'POST' }, '/voice/menu?reprompt=1');
+  const connect = vr.connect();
+  const stream = connect.stream({ url: wsUrl });
+  stream.parameter({ name: 'tenant_id',   value: tenant.id });
+  stream.parameter({ name: 'from_number', value: from });
+  stream.parameter({ name: 'to_number',   value: to });
+  sendTwiml(res, vr);
+});
+
+// --- Outbound callback: AI calls the customer back --------------------------
+
+router.post('/voice/callback', async (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    return res.status(403).send('Invalid Twilio signature');
+  }
+
+  // For outbound calls: From = our SoCal number, To = the customer being called back.
+  const ourNum = req.body.From;
+  const customerNum = req.body.To;
+
+  let tenant;
+  try {
+    tenant = await resolveTenantByNumber(ourNum);
+  } catch (err) {
+    logger.error('voice.callback.tenant_lookup_failed', { error: err.message });
+    return sayAndHangup(res, 'We are sorry, we cannot connect your call right now.', null);
+  }
+
+  if (!tenant) {
+    logger.warn('voice.callback.unknown_number', { from: ourNum });
+    return sayAndHangup(res, 'This call could not be connected. Goodbye.', null);
+  }
+
+  const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
+  const wsUrl = baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
+
+  const vr = new VoiceResponse();
+  const connect = vr.connect();
+  const stream = connect.stream({ url: wsUrl });
+  stream.parameter({ name: 'tenant_id',   value: tenant.id });
+  stream.parameter({ name: 'from_number', value: customerNum });
+  stream.parameter({ name: 'to_number',   value: ourNum });
+  stream.parameter({ name: 'is_callback', value: 'true' });
   sendTwiml(res, vr);
 });
 
@@ -122,9 +171,9 @@ router.post('/voice/menu', async (req, res) => {
   try {
     tenant = await resolveTenantByNumber(to);
   } catch (err) {
-    return sayAndHangup(res, 'We are unable to take your call right now. Please try again later.');
+    return sayAndHangup(res, 'We are unable to take your call right now. Please try again later.', null);
   }
-  if (!tenant) return sayAndHangup(res, 'This number is not in service. Goodbye.');
+  if (!tenant) return sayAndHangup(res, 'This number is not in service. Goodbye.', null);
 
   const vr = new VoiceResponse();
 
@@ -134,9 +183,9 @@ router.post('/voice/menu', async (req, res) => {
       input: 'speech',
       action: '/voice/converse',
       method: 'POST',
-      speechTimeout: 'auto',
+      speechTimeout: '3',
     });
-    gather.say(VOICE, 'Great. How can I help you today?');
+    gather.say(voice(tenant), 'Great. How can I help you today?');
     // No speech captured -> retry the AI turn rather than dropping the call.
     vr.redirect({ method: 'POST' }, '/voice/converse');
     return sendTwiml(res, vr);
@@ -145,11 +194,11 @@ router.post('/voice/menu', async (req, res) => {
   // Press 2 — transfer to staff.
   if (digits === '2') {
     if (!tenant.staff_phone) {
-      vr.say(VOICE, 'I am sorry, no one is available to take your call right now. Please leave a message after the tone.');
+      vr.say(voice(tenant), 'I am sorry, no one is available to take your call right now. Please leave a message after the tone.');
       vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
       return sendTwiml(res, vr);
     }
-    vr.say(VOICE, 'One moment while I connect you with our staff.');
+    vr.say(voice(tenant), 'One moment while I connect you with our staff.');
     const dial = vr.dial({
       action: '/voice/dial-status',
       method: 'POST',
@@ -161,14 +210,8 @@ router.post('/voice/menu', async (req, res) => {
     return sendTwiml(res, vr);
   }
 
-  // No / invalid digit. Re-prompt once, then fall through to voicemail.
-  if (req.query.reprompt) {
-    vr.say(VOICE, 'I did not get that.');
-    vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
-    return sendTwiml(res, vr);
-  }
-  menuGather(vr, tenant);
-  vr.redirect({ method: 'POST' }, '/voice/menu?reprompt=1');
+  // No digit / timeout / invalid -> send to AI receptionist.
+  vr.redirect({ method: 'POST' }, '/voice/converse');
   sendTwiml(res, vr);
 });
 
@@ -189,27 +232,34 @@ router.post('/voice/converse', async (req, res) => {
   try {
     tenant = await resolveTenantByNumber(to);
   } catch (err) {
-    return sayAndHangup(res, 'We are having a brief technical issue. Please call back shortly.');
+    return sayAndHangup(res, 'We are having a brief technical issue. Please call back shortly.', null);
   }
-  if (!tenant) return sayAndHangup(res, 'This number is not in service. Goodbye.');
+  if (!tenant) return sayAndHangup(res, 'This number is not in service. Goodbye.', null);
 
   const vr = new VoiceResponse();
 
-  // Caller said nothing. Re-prompt twice, then take a message.
+  // Caller said nothing.
   if (!speech) {
     if (emptyTurns >= 2) {
-      vr.say(VOICE, 'I am having trouble hearing you. Let me take a message instead.');
+      vr.say(voice(tenant), 'I am having trouble hearing you. Let me take a message instead.');
       vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
       return sendTwiml(res, vr);
     }
+    const spoke = req.query.spoke === '1';
+    const spokeParam = spoke ? '&spoke=1' : '';
     const gather = vr.gather({
       input: 'speech',
-      action: `/voice/converse?empty=${emptyTurns + 1}`,
+      action: `/voice/converse?empty=${emptyTurns + 1}${spokeParam}`,
       method: 'POST',
-      speechTimeout: 'auto',
+      speechTimeout: '3',
     });
-    gather.say(VOICE, 'Sorry, I did not catch that. Could you say that again?');
-    vr.redirect({ method: 'POST' }, `/voice/converse?empty=${emptyTurns + 1}`);
+    const prompt = spoke
+      ? 'Is there anything else I can help you with today?'
+      : emptyTurns === 0
+        ? 'How can I help you today?'
+        : 'Sorry, I did not catch that. Could you say that again?';
+    gather.say(voice(tenant), prompt);
+    vr.redirect({ method: 'POST' }, `/voice/converse?empty=${emptyTurns + 1}${spokeParam}`);
     return sendTwiml(res, vr);
   }
 
@@ -217,7 +267,7 @@ router.post('/voice/converse', async (req, res) => {
   if (/\b(human|person|representative|agent|someone|staff|real)\b/i.test(speech) &&
       /\b(speak|talk|reach|connect|transfer|get)\b/i.test(speech)) {
     if (tenant.staff_phone) {
-      vr.say(VOICE, 'Of course. Connecting you with our staff now.');
+      vr.say(voice(tenant), 'Of course. Connecting you with our staff now.');
       const dial = vr.dial({
         action: '/voice/dial-status',
         method: 'POST',
@@ -233,25 +283,25 @@ router.post('/voice/converse', async (req, res) => {
   try {
     const conversation = await getOrCreateConversation(tenant.id, from);
     if (callSid) await updateCall(callSid, { conversation_id: conversation.id, outcome: 'ai_handled' });
-    reply = await handleMessage(tenant, conversation, from, speech, 'voice');
+    reply = await handleMessage(tenant, conversation, from, speech, { model: 'gpt-4o-mini', channel: 'voice' });
   } catch (err) {
     logger.error('voice.ai_failed', { tenant_id: tenant.id, error: err.message });
     reply = 'I am sorry, I ran into a problem. Let me take a message so someone can call you back.';
-    vr.say(VOICE, reply);
+    vr.say(voice(tenant), reply);
     vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
     return sendTwiml(res, vr);
   }
 
   // Speak the reply, then listen for the caller's next turn.
+  // spoke=1 tells the empty-turn handler the AI has already exchanged with the caller.
   const gather = vr.gather({
     input: 'speech',
-    action: '/voice/converse',
+    action: '/voice/converse?spoke=1',
     method: 'POST',
-    speechTimeout: 'auto',
+    speechTimeout: '3',
   });
-  gather.say(VOICE, reply);
-  // If they go quiet after a reply, say goodbye gracefully.
-  vr.say(VOICE, 'Thank you for calling. Goodbye.');
+  gather.say(voice(tenant), reply);
+  vr.say(voice(tenant), 'Thank you for calling. Goodbye.');
   vr.hangup();
   sendTwiml(res, vr);
 });
@@ -263,7 +313,8 @@ router.post('/voice/whisper', (req, res) => {
     return res.status(403).send('Invalid Twilio signature');
   }
   const vr = new VoiceResponse();
-  vr.say(VOICE, 'Call forwarded from your virtual receptionist. Connecting now.');
+  // tenant is not available in this callback — use a fixed neutral voice.
+  vr.say({ voice: DEFAULT_VOICE_ID }, 'Call forwarded from your virtual receptionist. Connecting now.');
   sendTwiml(res, vr);
 });
 
@@ -285,19 +336,26 @@ router.post('/voice/dial-status', async (req, res) => {
   }
 
   // Staff did not pick up — take a message instead of dropping the caller.
-  vr.say(VOICE, 'Sorry, our staff are not available right now.');
+  // tenant is not available in this callback — use a fixed neutral voice.
+  vr.say({ voice: DEFAULT_VOICE_ID }, 'Sorry, our staff are not available right now.');
   vr.redirect({ method: 'POST' }, '/voice/voicemail-prompt');
   sendTwiml(res, vr);
 });
 
 // --- Voicemail --------------------------------------------------------------
 
-router.post('/voice/voicemail-prompt', (req, res) => {
+router.post('/voice/voicemail-prompt', async (req, res) => {
   if (!isValidTwilioRequest(req)) {
     return res.status(403).send('Invalid Twilio signature');
   }
   const vr = new VoiceResponse();
-  vr.say(VOICE, 'Please leave your name, number, and a short message after the tone. Press any key when you are finished.');
+  // Resolve tenant so we can use their configured voice, falling back to default.
+  let voiceOpts = { voice: DEFAULT_VOICE_ID };
+  try {
+    const t = await resolveTenantByNumber(req.body.To);
+    if (t) voiceOpts = voice(t);
+  } catch (_) {}
+  vr.say(voiceOpts, 'Please leave your name, number, and a short message after the tone. Press any key when you are finished.');
   vr.record({
     action: '/voice/voicemail',
     method: 'POST',
@@ -308,7 +366,7 @@ router.post('/voice/voicemail-prompt', (req, res) => {
     transcribeCallback: '/voice/voicemail-transcription',
   });
   // Reached only if the caller leaves nothing.
-  vr.say(VOICE, 'We did not receive a message. Goodbye.');
+  vr.say(voiceOpts, 'We did not receive a message. Goodbye.');
   vr.hangup();
   sendTwiml(res, vr);
 });
@@ -318,13 +376,37 @@ router.post('/voice/voicemail', async (req, res) => {
     return res.status(403).send('Invalid Twilio signature');
   }
   const callSid = req.body.CallSid;
+  const from = req.body.From;
+  const to = req.body.To;
+  const recordingUrl = req.body.RecordingUrl || null;
+
   await updateCall(callSid, {
     outcome: 'voicemail',
-    recording_url: req.body.RecordingUrl || null,
+    recording_url: recordingUrl,
     recording_sid: req.body.RecordingSid || null,
   });
+
+  // Notify the tenant owner about the voicemail.
+  try {
+    const tenant = await resolveTenantByNumber(to);
+    if (tenant) {
+      const notifyTo = tenant.voicemail_email || tenant.owner_email;
+      if (notifyTo) {
+        await sendEmail({
+          to: notifyTo,
+          subject: `Voicemail from ${from} — ${tenant.business_name}`,
+          html: `<p>You have a new voicemail from <strong>${from}</strong>.</p>${recordingUrl ? `<p><a href="${recordingUrl}">Listen to recording</a></p>` : ''}`,
+          text: `New voicemail from ${from} for ${tenant.business_name}.${recordingUrl ? `\nRecording: ${recordingUrl}` : ''}`,
+        });
+      }
+    }
+  } catch (err) {
+    logger.error('voice.voicemail_notify_failed', { error: err.message });
+  }
+
   const vr = new VoiceResponse();
-  vr.say(VOICE, 'Thank you. We have your message and will get back to you soon. Goodbye.');
+  const tenant = await resolveTenantByNumber(to).catch(() => null);
+  vr.say(voice(tenant), 'Thank you. We have your message and will get back to you soon. Goodbye.');
   vr.hangup();
   sendTwiml(res, vr);
 });
@@ -389,6 +471,53 @@ router.post('/voice/status', async (req, res) => {
     }
   } catch (err) {
     logger.error('voice.status_failed', { error: err.message });
+  }
+});
+
+// --- Recording status callback (fires when Twilio recording is ready) --------
+
+router.post('/voice/recording-status', async (req, res) => {
+  res.sendStatus(204);
+  const callSid = req.body.CallSid;
+  const recordingUrl = req.body.RecordingUrl;
+  const recordingSid = req.body.RecordingSid;
+  if (!callSid || !recordingUrl) return;
+
+  try {
+    await updateCall(callSid, { recording_url: recordingUrl + '.mp3', recording_sid: recordingSid });
+    const call = await getCallBySid(callSid);
+    if (!call) return;
+    const { data: tenant } = await require('../lib/supabase').supabase
+      .from('tenants').select('*').eq('id', call.tenant_id).maybeSingle();
+    if (!tenant) return;
+    const notifyTo = tenant.voicemail_email || tenant.owner_email;
+    if (!notifyTo) return;
+    await sendEmail({
+      to: notifyTo,
+      subject: `🎙️ Recording ready — ${tenant.business_name}`,
+      html: `<p>Recording from <strong>${call.from_number || 'unknown'}</strong> is ready.</p><p><a href="${recordingUrl}.mp3">Download recording (MP3)</a></p>`,
+      text: `Recording ready: ${recordingUrl}.mp3`,
+    });
+    const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+    const tgChatId = process.env.TELEGRAM_CHAT_ID || '6335227029';
+    if (tgToken) {
+      // Download the MP3 from Twilio and send it as an audio file (not a URL).
+      const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+      fetch(`${recordingUrl}.mp3`, { headers: { Authorization: `Basic ${auth}` } })
+        .then(r => r.arrayBuffer())
+        .then(buf => {
+          const form = new FormData();
+          form.append('chat_id', tgChatId);
+          form.append('caption', `🎙️ From: ${call.from_number || 'unknown'} | ${tenant.business_name}`);
+          form.append('audio', new Blob([buf], { type: 'audio/mpeg' }), `call-${recordingSid}.mp3`);
+          return fetch(`https://api.telegram.org/bot${tgToken}/sendAudio`, { method: 'POST', body: form });
+        })
+        .then(r => r.json())
+        .then(j => { if (!j.ok) logger.error('voice.telegram.recording_failed', { description: j.description }); })
+        .catch(err => logger.error('voice.telegram.recording_failed', { error: err.message }));
+    }
+  } catch (err) {
+    logger.error('voice.recording_status_failed', { error: err.message });
   }
 });
 

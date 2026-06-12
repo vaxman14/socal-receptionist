@@ -8,3 +8,6 @@ data/
 
 # Local Netlify folder
 .netlify
+credentials/*.env
+credentials/*.env
+credentials/README.md

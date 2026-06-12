@@ -57,6 +57,7 @@ const EDITABLE_FIELDS = [
   'staff_phone',              // "press 2 / speak to staff" transfer target
   'voice_greeting',
   'voicemail_email',
+  'voice_id',                 // Twilio Polly Neural voice selection
   // Outbound Call Assist config.
   'outbound_enabled',
   'outbound_reminder_phone',  // number Josi calls to give proactive reminders
@@ -65,18 +66,71 @@ const EDITABLE_FIELDS = [
 
 router.use(requireAuth, requireTenant);
 
-// GET /admin/me — account, tenant, subscription.
+// GET /admin/me — account, tenant, subscription, phone number.
 router.get('/me', async (req, res) => {
-  const { data: subscription } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('tenant_id', req.tenant.id)
-    .maybeSingle();
+  const [{ data: subscription }, { data: phoneNumbers }] = await Promise.all([
+    supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('tenant_id', req.tenant.id)
+      .maybeSingle(),
+    supabase
+      .from('phone_numbers')
+      .select('phone_e164, status, is_byo')
+      .eq('tenant_id', req.tenant.id)
+      .eq('status', 'active')
+      .limit(1),
+  ]);
   res.json({
     user: { id: req.user.id, email: req.user.email },
     tenant: req.tenant,
     subscription: subscription || null,
+    phoneNumber: phoneNumbers && phoneNumbers[0] ? phoneNumbers[0] : null,
   });
+});
+
+// GET /admin/voice/preview?voice=Polly.Joanna-Neural
+// Streams an OpenAI TTS audio clip so the client can hear how each voice sounds.
+const POLLY_TO_OPENAI = {
+  'Polly.Joanna-Neural': 'nova',
+  'Polly.Salli-Neural':  'nova',
+  'Polly.Matthew-Neural': 'echo',
+  'Polly.Joey-Neural':   'echo',
+  'Polly.Amy-Neural':    'shimmer',
+  'Polly.Brian-Neural':  'onyx',
+};
+const PREVIEW_TEXT = 'Thank you for calling. How can I help you today?';
+
+router.get('/voice/preview', async (req, res) => {
+  const voiceId = req.query.voice || 'Polly.Joanna-Neural';
+  const oaiVoice = POLLY_TO_OPENAI[voiceId] || 'nova';
+  try {
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'tts-1',
+        input: PREVIEW_TEXT,
+        voice: oaiVoice,
+        speed: 0.95,
+      }),
+    });
+    if (!response.ok) {
+      // Do NOT forward the raw OpenAI error body — it may contain quota or key hints.
+      console.error('[admin/voice/preview] TTS upstream error:', response.status, await response.text());
+      return res.status(502).json({ error: 'TTS unavailable' });
+    }
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    const buf = await response.arrayBuffer();
+    res.send(Buffer.from(buf));
+  } catch (err) {
+    console.error('[admin/voice/preview] unexpected error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // PATCH /admin/tenant — update business config (whitelisted fields only).
@@ -101,19 +155,29 @@ router.patch('/tenant', requireAal2, async (req, res) => {
   res.json({ tenant: data });
 });
 
-// GET /admin/leads — this tenant's leads, newest first.
+// GET /admin/leads?page=1&limit=25 — this tenant's leads, newest first.
 router.get('/leads', async (req, res) => {
-  const { data, error } = await supabase
-    .from('leads')
-    .select('*')
-    .eq('tenant_id', req.tenant.id)
-    .order('created_at', { ascending: false })
-    .limit(200);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 100);
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const offset = (page - 1) * limit;
+
+  const [{ count }, { data, error }] = await Promise.all([
+    supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', req.tenant.id),
+    supabase
+      .from('leads')
+      .select('*')
+      .eq('tenant_id', req.tenant.id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+  ]);
   if (error) {
     console.error('[admin] list leads failed:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
-  res.json({ leads: data });
+  res.json({ leads: data, total: count ?? 0, page, limit });
 });
 
 // GET /admin/conversations — this tenant's conversation threads.
@@ -146,19 +210,29 @@ router.get('/conversations/:id/messages', async (req, res) => {
   res.json({ messages: data });
 });
 
-// GET /admin/calls — this tenant's inbound calls, newest first.
+// GET /admin/calls?page=1&limit=25 — this tenant's inbound calls, newest first.
 router.get('/calls', async (req, res) => {
-  const { data, error } = await supabase
-    .from('calls')
-    .select('*')
-    .eq('tenant_id', req.tenant.id)
-    .order('created_at', { ascending: false })
-    .limit(200);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 100);
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const offset = (page - 1) * limit;
+
+  const [{ count }, { data, error }] = await Promise.all([
+    supabase
+      .from('calls')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', req.tenant.id),
+    supabase
+      .from('calls')
+      .select('*')
+      .eq('tenant_id', req.tenant.id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+  ]);
   if (error) {
     console.error('[admin] list calls failed:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
-  res.json({ calls: data });
+  res.json({ calls: data, total: count ?? 0, page, limit });
 });
 
 // POST /admin/billing/checkout — start a subscription. Billed as a one-time

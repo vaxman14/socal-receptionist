@@ -1,0 +1,37 @@
+name: Deploy V2 SPA to Netlify
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'v2/web/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: v2/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: v2/web
+
+      - name: Build
+        run: npm run build
+        working-directory: v2/web
+        env:
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SMS_ENABLED: 'false'
+
+      - name: Deploy to Netlify
+        run: npx netlify-cli deploy --prod --dir=v2/web/dist --site=${{ secrets.NETLIFY_SITE_ID }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
