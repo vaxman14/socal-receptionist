@@ -13,6 +13,7 @@ const { supabase } = require('../lib/supabase');
 const { buildSystemPrompt } = require('../lib/ai');
 const { getOrCreateConversation } = require('../lib/conversations');
 const { recordCallStart, updateCall } = require('../lib/calls');
+const { recordUsage, estimateRealtimeCostCents } = require('../lib/usage');
 const { sendEmail } = require('../lib/email');
 const { fireWebhooks } = require('../lib/public-api');
 const logger = require('../lib/logger');
@@ -88,6 +89,19 @@ function handleMediaStream(twilioWs, req) {
   let isCallback = false;
   let ourNumber = null;
   let transcript = []; // { role: 'caller'|'ai', text: string }
+  let realtimeCostCents = 0; // accumulated from response.done usage blocks
+  let usageRecorded = false;
+
+  // Record accumulated OpenAI cost against the tenant exactly once per call,
+  // whether the stream ends via Twilio 'stop' or an abrupt socket close.
+  function flushUsage() {
+    if (usageRecorded || !tenant || realtimeCostCents <= 0) return;
+    usageRecorded = true;
+    const cents = Math.ceil(realtimeCostCents);
+    recordUsage(tenant.id, { openaiCostCents: cents }).catch((err) =>
+      logger.error('voice.realtime.record_usage_failed', { tenant_id: tenant.id, error: err.message })
+    );
+  }
 
   logger.info('voice.realtime.stream_connected');
 
@@ -142,6 +156,12 @@ function handleMediaStream(twilioWs, req) {
       // AI speech transcription.
       case 'response.audio_transcript.done': {
         if (event.transcript) transcript.push({ role: 'ai', text: event.transcript.trim() });
+        break;
+      }
+
+      // Each completed response reports token usage — accumulate the cost.
+      case 'response.done': {
+        realtimeCostCents += estimateRealtimeCostCents(event.response?.usage);
         break;
       }
 
@@ -345,6 +365,7 @@ function handleMediaStream(twilioWs, req) {
 
       case 'stop': {
         logger.info('voice.realtime.stream_stopped', { callSid });
+        flushUsage();
         if (callSid) await updateCall(callSid, { outcome: 'ai_handled' }).catch(() => {});
         if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
 
@@ -419,6 +440,7 @@ function handleMediaStream(twilioWs, req) {
 
   twilioWs.on('close', () => {
     logger.info('voice.realtime.twilio_closed');
+    flushUsage();
     if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
   });
 

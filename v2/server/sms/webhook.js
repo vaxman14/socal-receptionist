@@ -13,7 +13,7 @@ const { getOrCreateConversation } = require('../lib/conversations');
 const { handleMessage } = require('../lib/ai');
 const { supabase } = require('../lib/supabase');
 const { checkInbound } = require('../lib/ratelimit');
-const { withinCaps, recordUsage } = require('../lib/usage');
+const { withinCaps, recordUsage, notifyCapBreach } = require('../lib/usage');
 const logger = require('../lib/logger');
 
 const router = express.Router();
@@ -138,6 +138,7 @@ router.post('/sms', async (req, res) => {
     const caps = withinCaps(tenant);
     if (!caps.ok) {
       logger.warn('sms.spend_cap', { tenant_id: tenant.id, reason: caps.reason });
+      notifyCapBreach(tenant, caps.reason);
       twiml.message(
         `Thanks for contacting ${tenant.business_name}! We're unavailable right now — please try again later.`
       );

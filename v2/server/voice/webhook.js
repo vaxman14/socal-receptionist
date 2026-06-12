@@ -24,6 +24,7 @@ const { recordCallStart, updateCall, getCallBySid } = require('../lib/calls');
 const { draftFromCall } = require('../lib/time-tickets');
 const { sendEmail } = require('../lib/email');
 const { fireWebhooks } = require('../lib/public-api');
+const { withinCaps, notifyCapBreach } = require('../lib/usage');
 const logger = require('../lib/logger');
 
 const router = express.Router();
@@ -105,6 +106,18 @@ router.post('/voice', async (req, res) => {
     return sayAndHangup(
       res,
       `Thank you for calling ${tenant.business_name}. Please send us a text message and we will get right back to you.`,
+      tenant
+    );
+  }
+
+  // Hard spend cap — stop taking calls once the monthly cap is hit.
+  const caps = withinCaps(tenant);
+  if (!caps.ok) {
+    logger.warn('voice.spend_cap', { tenant_id: tenant.id, reason: caps.reason });
+    notifyCapBreach(tenant, caps.reason);
+    return sayAndHangup(
+      res,
+      `Thank you for calling ${tenant.business_name}. We are unable to take your call right now. Please try again later.`,
       tenant
     );
   }

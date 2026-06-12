@@ -13,6 +13,21 @@ function estimateOpenaiCostCents(promptTokens, completionTokens) {
   return Math.ceil(cents);
 }
 
+// Realtime API cost estimate in cents from a response.done usage block
+// (gpt-realtime: audio in $32/1M, audio out $64/1M, text in $4/1M, text out $16/1M).
+function estimateRealtimeCostCents(usage) {
+  if (!usage) return 0;
+  const inDet = usage.input_token_details || {};
+  const outDet = usage.output_token_details || {};
+  const cents =
+    (inDet.audio_tokens || 0) * 0.0032 +
+    (inDet.text_tokens || 0) * 0.0004 +
+    (inDet.cached_tokens || 0) * 0.0004 +
+    (outDet.audio_tokens || 0) * 0.0064 +
+    (outDet.text_tokens || 0) * 0.0016;
+  return cents;
+}
+
 // Check a tenant against its monthly caps. The tenant row may be slightly
 // stale (cached) — acceptable for a soft cap. Returns { ok, reason }.
 function withinCaps(tenant) {
@@ -43,4 +58,44 @@ async function recordUsage(tenantId, opts) {
   if (error) throw error;
 }
 
-module.exports = { estimateOpenaiCostCents, withinCaps, recordUsage };
+// Hard-cap breach: notify the tenant owner (and audit-log it) the first time
+// a cap is hit in the current usage period. Subsequent blocked requests in
+// the same period are silent — service simply stays off until the month rolls
+// or the cap is raised. Never throws.
+async function notifyCapBreach(tenant, reason) {
+  try {
+    const periodStart = tenant.usage_period_start || new Date().toISOString().slice(0, 8) + '01';
+    const { data: existing } = await supabase
+      .from('audit_log')
+      .select('id')
+      .eq('tenant_id', tenant.id)
+      .eq('action', 'spend_cap.breached')
+      .gte('created_at', new Date(periodStart).toISOString())
+      .limit(1);
+    if (existing && existing.length) return;
+
+    await supabase.from('audit_log').insert({
+      tenant_id: tenant.id,
+      actor_type: 'system',
+      action: 'spend_cap.breached',
+      target_type: 'tenant',
+      target_id: tenant.id,
+      metadata: { reason },
+    });
+
+    const { sendEmail } = require('./email'); // late require — email.js ↔ usage.js
+    const to = tenant.voicemail_email || tenant.owner_email;
+    if (to) {
+      await sendEmail({
+        to,
+        subject: `Service paused — monthly usage cap reached (${tenant.business_name})`,
+        html: `<p>Your AI receptionist hit its monthly usage cap and has paused handling new calls/messages.</p><p>Service resumes automatically at the start of the next billing month, or contact us to raise the cap.</p>`,
+        text: `Your AI receptionist hit its monthly usage cap and has paused handling new calls/messages. Service resumes automatically next month, or contact us to raise the cap.`,
+      });
+    }
+  } catch (err) {
+    console.error('[usage] cap breach notify failed:', err.message);
+  }
+}
+
+module.exports = { estimateOpenaiCostCents, estimateRealtimeCostCents, withinCaps, recordUsage, notifyCapBreach };
