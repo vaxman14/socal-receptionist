@@ -123,7 +123,12 @@ router.post('/voice', async (req, res) => {
   }
 
   // Use OpenAI Realtime API — stream audio directly, no TTS/STT round trips.
-  const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
+  // The media stream must hit the backend origin (API_PUBLIC_BASE_URL), not
+  // APP_BASE_URL which is the SPA origin and cannot serve WebSockets.
+  const baseUrl =
+    process.env.API_PUBLIC_BASE_URL ||
+    process.env.APP_BASE_URL ||
+    'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
   const wsUrl = baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
 
   const vr = new VoiceResponse();
@@ -159,7 +164,10 @@ router.post('/voice/callback', async (req, res) => {
     return sayAndHangup(res, 'This call could not be connected. Goodbye.', null);
   }
 
-  const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
+  const baseUrl =
+    process.env.API_PUBLIC_BASE_URL ||
+    process.env.APP_BASE_URL ||
+    'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
   const wsUrl = baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
 
   const vr = new VoiceResponse();

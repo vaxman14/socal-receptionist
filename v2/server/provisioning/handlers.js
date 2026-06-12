@@ -68,7 +68,7 @@ async function setupMessaging(job) {
     return;
   }
 
-  const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
+  const baseUrl = process.env.API_PUBLIC_BASE_URL || process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
 
   // Search for a local number — try 951 (Murrieta/Temecula) first, then any CA, then any US.
   let phoneNumber = null;

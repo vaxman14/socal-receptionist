@@ -256,7 +256,7 @@ function handleMediaStream(twilioWs, req) {
       const staffPhone = tenant?.staff_phone;
       if (staffPhone && callSid) {
         // Use Twilio REST to redirect the live call to staff.
-        const baseUrl = (process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
+        const baseUrl = (process.env.API_PUBLIC_BASE_URL || process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
         twilioClient.calls(callSid).update({
           twiml: `<Response><Say voice="${tenant.voice_id || 'Polly.Joanna-Neural'}">One moment while I connect you with our team.</Say><Dial timeout="20" action="${baseUrl}/voice/dial-status">${staffPhone}</Dial></Response>`,
         }).catch((err) => logger.error('voice.realtime.transfer_failed', { error: err.message }));
@@ -318,7 +318,7 @@ function handleMediaStream(twilioWs, req) {
         // Start recording for enabled tenants (DB flag; env var is legacy override).
         if (callSid && (tenant?.recording_enabled || RECORDING_TENANT_IDS.has(tenantId))) {
           recordingEnabled = true;
-          const baseUrl = (process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
+          const baseUrl = (process.env.API_PUBLIC_BASE_URL || process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
           twilioClient.calls(callSid).recordings.create({
             recordingChannels: 'dual',
             recordingStatusCallback: `${baseUrl}/voice/recording-status`,
@@ -421,7 +421,7 @@ function handleMediaStream(twilioWs, req) {
 
           // Schedule callback if no lead was captured and this was not already a callback.
           if (!leadCaptured && !isCallback && fromNumber && fromNumber !== 'anonymous') {
-            const baseUrl = (process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
+            const baseUrl = (process.env.API_PUBLIC_BASE_URL || process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
             const callbackFrom = ourNumber || '+19513958776';
             setTimeout(() => {
               twilioClient.calls.create({
