@@ -317,8 +317,9 @@ router.post('/billing/checkout', requireAal2, async (req, res) => {
       }
     }
 
-    // Build redirect URLs server-side from APP_BASE_URL — never trust the client
-    const base = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
+    // Build redirect URLs server-side — never trust the client. Stripe should
+    // send the user back to the SPA, so prefer WEB_BASE_URL.
+    const base = (process.env.WEB_BASE_URL || process.env.APP_BASE_URL || '').replace(/\/+$/, '');
     const session = await createCheckoutSession({
       tenant: req.tenant,
       priceId,
@@ -345,7 +346,7 @@ router.post('/billing/portal', requireAal2, async (req, res) => {
     if (!sub || !sub.stripe_customer_id) {
       return res.status(400).json({ error: 'no billing account yet' });
     }
-    const base = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
+    const base = (process.env.WEB_BASE_URL || process.env.APP_BASE_URL || '').replace(/\/+$/, '');
     const session = await createPortalSession({
       stripeCustomerId: sub.stripe_customer_id,
       returnUrl: `${base}/billing`,

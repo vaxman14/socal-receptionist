@@ -64,8 +64,10 @@ app.use(helmet({
   },
 }));
 
-// Restrict CORS to known origins (issue #7)
+// Restrict CORS to known origins (issue #7).
+// WEB_BASE_URL is the SPA origin (Netlify); APP_BASE_URL is this backend.
 const ALLOWED_ORIGINS = [
+  process.env.WEB_BASE_URL,
   process.env.APP_BASE_URL,
   'http://localhost:3000',
   'http://localhost:5173',

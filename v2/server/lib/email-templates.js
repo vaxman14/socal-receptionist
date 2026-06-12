@@ -4,7 +4,8 @@
 // Templates are plain string builders — no template engine — to match the rest
 // of the backend (see lib/agreements.js renderExecutedAgreementHtml).
 
-const APP_BASE_URL = process.env.APP_BASE_URL || 'https://app.socalreceptionist.com';
+// Links in email should land on the web app, not the API host.
+const APP_BASE_URL = process.env.WEB_BASE_URL || process.env.APP_BASE_URL || 'https://app.socalreceptionist.com';
 const BRAND = 'SoCal Receptionist';
 
 // Minimal inline-styled HTML shell. Email clients ignore <style> blocks and
