@@ -28,6 +28,7 @@ const onboardingRegisterRouter = require('./onboarding/register');
 const onboardingChatRouter = require('./onboarding/chat');
 const mfaRouter = require('./auth/mfa');
 const integrationsRouter = require('./integrations/router');
+const supportChatRouter = require('./support-chat');
 const outboundAssistRouter = require('./voice/outbound-assist');
 const { router: reminderRouter, start: startReminderPoller } = require('./voice/reminder-poller');
 
@@ -123,6 +124,9 @@ app.use('/onboarding', onboardingChatRouter);
 // revoke. The TOTP + passkey factors themselves are handled by Supabase Auth
 // directly from the browser; this only owns the app-side trust ledger.
 app.use('/auth/mfa', strictLimiter, mfaRouter);
+
+// Support chat — public (pre-auth visitors use it), so it gets the strict limiter.
+app.use('/api/support-chat', strictLimiter, supportChatRouter);
 
 // Admin API. The owner router is mounted first so /admin/owner/* never falls
 // into the client router's requireTenant middleware.
