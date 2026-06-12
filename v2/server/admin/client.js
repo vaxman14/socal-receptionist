@@ -14,6 +14,16 @@ const { listLeads: listOutboundLeads, createLead, bulkCreateLeads, updateLead, d
 // ---------------------------------------------------------------------------
 // Server-side price ID allowlist (issue #3 — client-supplied price IDs)
 // ---------------------------------------------------------------------------
+// STRIPE_PLAN_MAP_JSON lets ops add SKUs without a code change:
+//   {"growth_monthly":{"price":"price_x","setup":"price_y"}, ...}
+// Named env vars below remain the canonical config for the core plans.
+let EXTRA_PLANS = {};
+try {
+  EXTRA_PLANS = JSON.parse(process.env.STRIPE_PLAN_MAP_JSON || '{}');
+} catch (e) {
+  console.error('[billing] STRIPE_PLAN_MAP_JSON is invalid JSON — ignoring:', e.message);
+}
+
 const ALLOWED_PRICE_IDS = new Set([
   process.env.STRIPE_PRICE_ID_ESSENTIALS,
   process.env.STRIPE_PRICE_ID_ESSENTIALS_ANNUAL,
@@ -21,11 +31,15 @@ const ALLOWED_PRICE_IDS = new Set([
   process.env.STRIPE_PRICE_ID_CONCIERGE_ANNUAL,
   // Legacy single-price fallback
   process.env.STRIPE_PRICE_ID,
+  // Comma-separated extras (one-off promos etc.)
+  ...(process.env.STRIPE_EXTRA_PRICE_IDS || '').split(',').map((s) => s.trim()),
+  ...Object.values(EXTRA_PLANS).map((p) => p && p.price),
 ].filter(Boolean));
 
 const ALLOWED_SETUP_PRICE_IDS = new Set([
   process.env.STRIPE_SETUP_PRICE_ID_CONCIERGE,
   process.env.STRIPE_SETUP_PRICE_ID,
+  ...Object.values(EXTRA_PLANS).map((p) => p && p.setup),
 ].filter(Boolean));
 
 // Named plan keys — frontend sends a plan name, backend resolves price IDs.
@@ -34,11 +48,15 @@ const PLAN_PRICE_MAP = {
   essentials_annual: process.env.STRIPE_PRICE_ID_ESSENTIALS_ANNUAL,
   concierge_monthly: process.env.STRIPE_PRICE_ID_CONCIERGE,
   concierge_annual: process.env.STRIPE_PRICE_ID_CONCIERGE_ANNUAL,
+  ...Object.fromEntries(Object.entries(EXTRA_PLANS).map(([k, p]) => [k, p && p.price])),
 };
 
 const PLAN_SETUP_MAP = {
   concierge_monthly: process.env.STRIPE_SETUP_PRICE_ID_CONCIERGE,
   concierge_annual: process.env.STRIPE_SETUP_PRICE_ID_CONCIERGE,
+  ...Object.fromEntries(
+    Object.entries(EXTRA_PLANS).filter(([, p]) => p && p.setup).map(([k, p]) => [k, p.setup])
+  ),
 };
 
 const router = express.Router();
