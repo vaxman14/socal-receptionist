@@ -537,6 +537,8 @@ app.listen(port, () => {
   console.log(`[v2] SMS service listening on :${port}`);
   // Start proactive reminder poller — runs every 60s, pings tenants before calendar events.
   startReminderPoller();
+  // Start time-ticket sync — pushes accepted tickets to Clio/MyCase every 10 min.
+  require('./integrations/ticket-sync').start();
 });
 
 if (process.env.RUN_WORKER === 'true') {

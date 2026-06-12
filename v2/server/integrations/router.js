@@ -344,6 +344,11 @@ router.post('/:provider/push-ticket/:ticketId', requireAuth, requireAal2, requir
   try {
     const pushFn = providerName === 'clio' ? clio.pushTimeEntry : mycase.pushTimeEntry;
     const result = await pushFn(req.tenant.id, ticket);
+    // Mark billed so the background sync doesn't push the same ticket again.
+    await supabase
+      .from('time_tickets')
+      .update({ billed_at: new Date().toISOString() })
+      .eq('id', ticket.id);
     res.json({ ok: true, result });
   } catch (err) {
     console.error(`[integrations/${providerName}] push-ticket error:`, err);
