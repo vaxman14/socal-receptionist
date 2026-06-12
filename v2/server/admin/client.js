@@ -10,6 +10,7 @@ const { requireAuth, requireTenant, requireAal2 } = require('../lib/auth');
 const { createCheckoutSession, createPortalSession } = require('../lib/billing');
 const { listTickets, updateTicket, bulkAccept, exportCsv } = require('../lib/time-tickets');
 const { listLeads: listOutboundLeads, createLead, bulkCreateLeads, updateLead, deleteLead } = require('../lib/outbound-leads');
+const { normalizePhone, isValidTimezone, isValidEmail } = require('../lib/validate');
 
 // ---------------------------------------------------------------------------
 // Server-side price ID allowlist (issue #3 — client-supplied price IDs)
@@ -153,6 +154,8 @@ router.get('/voice/preview', async (req, res) => {
 });
 
 // PATCH /admin/tenant — update business config (whitelisted fields only).
+const PHONE_FIELDS = ['staff_phone', 'outbound_reminder_phone', 'outbound_caller_id'];
+
 router.patch('/tenant', requireAal2, async (req, res) => {
   const patch = {};
   for (const field of EDITABLE_FIELDS) {
@@ -160,6 +163,22 @@ router.patch('/tenant', requireAal2, async (req, res) => {
   }
   if (!Object.keys(patch).length) {
     return res.status(400).json({ error: 'no editable fields supplied' });
+  }
+
+  // Semantic validation. Empty string means "clear the field" and is allowed.
+  if (patch.timezone !== undefined && patch.timezone !== '' && !isValidTimezone(patch.timezone)) {
+    return res.status(400).json({ error: 'timezone must be a valid IANA timezone (e.g. America/Los_Angeles)' });
+  }
+  for (const f of PHONE_FIELDS) {
+    if (patch[f] === undefined || patch[f] === '' || patch[f] === null) continue;
+    const normalized = normalizePhone(patch[f]);
+    if (!normalized) {
+      return res.status(400).json({ error: `${f} must be a valid phone number (e.g. +19515551234)` });
+    }
+    patch[f] = normalized;
+  }
+  if (patch.voicemail_email !== undefined && patch.voicemail_email !== '' && !isValidEmail(patch.voicemail_email)) {
+    return res.status(400).json({ error: 'voicemail_email must be a valid email address' });
   }
   const { data, error } = await supabase
     .from('tenants')

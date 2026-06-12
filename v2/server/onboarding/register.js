@@ -16,6 +16,7 @@ const { requireAuth } = require('../lib/auth');
 const { sendEmail } = require('../lib/email');
 const { onboardingConfirmation } = require('../lib/email-templates');
 const { verifyRecaptcha } = require('../lib/recaptcha');
+const { normalizePhone, isValidTimezone, isValidEmail } = require('../lib/validate');
 
 const router = express.Router();
 
@@ -122,6 +123,21 @@ router.post('/business', requireAuth, async (req, res) => {
       return res.status(400).json({ error: `${field} must be under ${max} characters` });
     }
     row[field] = req.body[field];
+  }
+
+  // Semantic validation — formats, not just lengths.
+  if (row.timezone !== undefined && row.timezone !== '' && !isValidTimezone(row.timezone)) {
+    return res.status(400).json({ error: 'timezone must be a valid IANA timezone (e.g. America/Los_Angeles)' });
+  }
+  if (row.staff_phone !== undefined && row.staff_phone !== '') {
+    const normalized = normalizePhone(row.staff_phone);
+    if (!normalized) {
+      return res.status(400).json({ error: 'staff_phone must be a valid phone number (e.g. +19515551234)' });
+    }
+    row.staff_phone = normalized;
+  }
+  if (row.voicemail_email !== undefined && row.voicemail_email !== '' && !isValidEmail(row.voicemail_email)) {
+    return res.status(400).json({ error: 'voicemail_email must be a valid email address' });
   }
 
   // Insert with a unique slug; retry a few times on slug collision.
