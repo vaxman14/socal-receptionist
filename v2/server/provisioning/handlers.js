@@ -95,6 +95,8 @@ async function setupMessaging(job) {
     voiceMethod: 'POST',
     voiceFallbackUrl: `${baseUrl}/voice`,
     voiceFallbackMethod: 'POST',
+    smsUrl: `${baseUrl}/sms`,
+    smsMethod: 'POST',
     friendlyName: `SoCal Receptionist — ${job.tenant_id}`,
   });
 
@@ -113,6 +115,42 @@ async function setupMessaging(job) {
 
   console.log(`[worker] provisioned ${purchased.phoneNumber} for tenant ${job.tenant_id}`);
   await enqueue(job.tenant_id, 'finalize_onboarding', {});
+
+  // A2P 10DLC: attach the number to the platform Messaging Service so it is
+  // covered by the registered campaign. Runs as its own job so a pending
+  // campaign approval retries without re-buying numbers or blocking go-live.
+  if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
+    await enqueue(job.tenant_id, 'a2p_attach_number', { phone_number_sid: purchased.sid });
+  }
+}
+
+// Attach a purchased number to the platform's A2P-registered Messaging Service.
+// Twilio rejects this while the campaign is unapproved — the job retries with
+// backoff and escalates to manual review after max attempts.
+async function a2pAttachNumber(job) {
+  const serviceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+  if (!serviceSid) return; // SMS not enabled platform-wide — nothing to do
+
+  const phoneNumberSid = job.payload && job.payload.phone_number_sid;
+  if (!phoneNumberSid) {
+    throw new ManualReviewRequired('a2p_attach_number job missing payload.phone_number_sid');
+  }
+
+  try {
+    await twilioClient.messaging.v1.services(serviceSid).phoneNumbers.create({ phoneNumberSid });
+  } catch (err) {
+    // 21712: number already in this service — idempotent success.
+    if (err.code === 21712) return;
+    throw err;
+  }
+
+  await supabase
+    .from('phone_numbers')
+    .update({ number_type: 'local_10dlc' })
+    .eq('tenant_id', job.tenant_id)
+    .eq('twilio_sid', phoneNumberSid);
+
+  console.log(`[worker] attached ${phoneNumberSid} to messaging service ${serviceSid} (tenant ${job.tenant_id})`);
 }
 
 // Step 3 — flip the tenant live and auto-start the 7-day no-card trial.
@@ -205,6 +243,7 @@ async function purgeTranscripts(job) {
 module.exports = {
   provision_tenant: provisionTenant,
   setup_messaging: setupMessaging,
+  a2p_attach_number: a2pAttachNumber,
   finalize_onboarding: finalizeOnboarding,
   release_number: releaseNumber,
   purge_transcripts: purgeTranscripts,
