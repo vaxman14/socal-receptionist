@@ -5,7 +5,7 @@
 // every query scoped to req.tenant.id.
 
 const express = require('express');
-const { requireAuth, requireTenant } = require('../lib/auth');
+const { requireAuth, requireTenant, requireAal2 } = require('../lib/auth');
 const {
   createApiKey,
   listApiKeys,
@@ -32,7 +32,7 @@ router.get('/api-keys', async (req, res) => {
   }
 });
 
-router.post('/api-keys', async (req, res) => {
+router.post('/api-keys', requireAal2, async (req, res) => {
   const label = (req.body?.label || '').toString().slice(0, 80);
   try {
     const active = (await listApiKeys(req.tenant.id)).filter((k) => !k.revoked_at);
@@ -47,7 +47,7 @@ router.post('/api-keys', async (req, res) => {
   }
 });
 
-router.delete('/api-keys/:id', async (req, res) => {
+router.delete('/api-keys/:id', requireAal2, async (req, res) => {
   try {
     const revoked = await revokeApiKey(req.tenant.id, req.params.id);
     if (!revoked) return res.status(404).json({ error: 'Key not found or already revoked.' });
@@ -69,7 +69,7 @@ router.get('/api-webhooks', async (req, res) => {
   }
 });
 
-router.post('/api-webhooks', async (req, res) => {
+router.post('/api-webhooks', requireAal2, async (req, res) => {
   const { url, events } = req.body || {};
   let parsed;
   try {
@@ -96,7 +96,7 @@ router.post('/api-webhooks', async (req, res) => {
   }
 });
 
-router.delete('/api-webhooks/:id', async (req, res) => {
+router.delete('/api-webhooks/:id', requireAal2, async (req, res) => {
   try {
     const removed = await removeWebhook(req.tenant.id, req.params.id);
     if (!removed) return res.status(404).json({ error: 'Webhook not found.' });
