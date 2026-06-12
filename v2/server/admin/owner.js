@@ -231,4 +231,57 @@ router.post('/contracts/:id/publish', async (req, res) => {
   }
 });
 
+// GET /admin/owner/tenants/:id/agreements — executed service agreements.
+router.get('/tenants/:id/agreements', async (req, res) => {
+  const { data, error } = await supabase
+    .from('service_agreements')
+    .select('id, contract_version, signer_name, signer_email, signer_title, signed_at, revoked_at')
+    .eq('tenant_id', req.params.id)
+    .order('signed_at', { ascending: false });
+  if (error) {
+    console.error('[owner] list agreements failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+  res.json({ agreements: data || [] });
+});
+
+// POST /admin/owner/agreements/:id/revoke — end an active agreement.
+// Signed rows are immutable except revoked_at; revocation is audit-logged.
+router.post('/agreements/:id/revoke', async (req, res) => {
+  const { data: agreement, error: findErr } = await supabase
+    .from('service_agreements')
+    .select('id, tenant_id, contract_version, revoked_at')
+    .eq('id', req.params.id)
+    .maybeSingle();
+  if (findErr) {
+    console.error('[owner] find agreement failed:', findErr);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+  if (!agreement) return res.status(404).json({ error: 'agreement not found' });
+  if (agreement.revoked_at) return res.status(409).json({ error: 'agreement is already revoked' });
+
+  const { data, error } = await supabase
+    .from('service_agreements')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('id', agreement.id)
+    .select('id, contract_version, signed_at, revoked_at')
+    .single();
+  if (error) {
+    console.error('[owner] revoke agreement failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+
+  await supabase.from('audit_log').insert({
+    tenant_id: agreement.tenant_id,
+    actor_type: 'owner',
+    actor_user_id: req.user.id,
+    action: 'agreement.revoked',
+    target_type: 'service_agreement',
+    target_id: agreement.id,
+    metadata: { contract_version: agreement.contract_version, reason: (req.body && req.body.reason) || null },
+  });
+
+  res.json({ ok: true, agreement: data });
+});
+
 module.exports = router;

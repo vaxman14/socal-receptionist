@@ -1,8 +1,10 @@
 // Owner Tenant Detail — one tenant: profile, voice, billing, usage, numbers.
 // GET /admin/owner/tenants/:id  ->  { tenant: { ...tenant, subscriptions, phone_numbers } }
 
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useFetch } from '../../lib/useFetch';
+import { api } from '../../lib/api';
 import { Loading, ErrorState } from '../../components/States';
 import { Badge } from '../../components/Badge';
 import { formatDate, formatDateShort } from '../../lib/format';
@@ -11,6 +13,95 @@ import { formatDate, formatDateShort } from '../../lib/format';
 function usd(cents) {
   if (cents === null || cents === undefined) return '—';
   return `$${(Number(cents) / 100).toFixed(2)}`;
+}
+
+// Service agreements card — list + revoke. Revocation is permanent (the row
+// stays for the audit trail; only revoked_at is set).
+function AgreementsCard({ tenantId }) {
+  const { data, loading, error, reload } = useFetch(`/admin/owner/tenants/${tenantId}/agreements`);
+  const [busyId, setBusyId] = useState(null);
+  const [revokeError, setRevokeError] = useState(null);
+
+  async function revoke(agreement) {
+    const ok = window.confirm(
+      `Revoke service agreement ${agreement.contract_version} signed by ${agreement.signer_name}? This cannot be undone.`
+    );
+    if (!ok) return;
+    setBusyId(agreement.id);
+    setRevokeError(null);
+    try {
+      await api.post(`/admin/owner/agreements/${agreement.id}/revoke`);
+      reload();
+    } catch (err) {
+      setRevokeError(err.message || 'Revocation failed');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const agreements = data?.agreements || [];
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h2>Service agreements</h2>
+      </div>
+      {loading ? (
+        <div className="state">Loading agreements…</div>
+      ) : error ? (
+        <div className="state">Could not load agreements: {error}</div>
+      ) : agreements.length === 0 ? (
+        <div className="state">No executed agreements on file.</div>
+      ) : (
+        <div className="table-wrap">
+          {revokeError && (
+            <p className="state" style={{ color: 'var(--red, #c0392b)' }}>{revokeError}</p>
+          )}
+          <table className="data">
+            <thead>
+              <tr>
+                <th>Version</th>
+                <th>Signer</th>
+                <th>Signed</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {agreements.map((a) => (
+                <tr key={a.id}>
+                  <td className="mono">{a.contract_version}</td>
+                  <td>
+                    {a.signer_name}
+                    {a.signer_email ? <span className="muted"> · {a.signer_email}</span> : null}
+                  </td>
+                  <td>{formatDate(a.signed_at)}</td>
+                  <td>
+                    {a.revoked_at ? (
+                      <span className="badge badge-gray">Revoked {formatDateShort(a.revoked_at)}</span>
+                    ) : (
+                      <span className="badge badge-green">Active</span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    {!a.revoked_at && (
+                      <button
+                        className="btn btn-danger btn-sm"
+                        disabled={busyId === a.id}
+                        onClick={() => revoke(a)}
+                      >
+                        {busyId === a.id ? 'Revoking…' : 'Revoke'}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function TenantDetail() {
@@ -165,6 +256,8 @@ export default function TenantDetail() {
             </div>
           )}
         </div>
+
+        <AgreementsCard tenantId={id} />
       </div>
     </>
   );
