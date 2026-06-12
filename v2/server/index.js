@@ -31,6 +31,8 @@ const onboardingChatRouter = require('./onboarding/chat');
 const mfaRouter = require('./auth/mfa');
 const integrationsRouter = require('./integrations/router');
 const supportChatRouter = require('./support-chat');
+const publicApiRouter = require('./api/public');
+const apiAccessRouter = require('./admin/api-access');
 const outboundAssistRouter = require('./voice/outbound-assist');
 const { router: reminderRouter, start: startReminderPoller } = require('./voice/reminder-poller');
 
@@ -247,9 +249,13 @@ app.use('/auth/mfa', strictLimiter, mfaRouter);
 app.use('/api/support-chat', strictLimiter, supportChatRouter);
 
 
+// Public REST API v1 — API-key auth, tenant-scoped (db/012).
+app.use('/api/v1', adminLimiter, publicApiRouter);
+
 // Admin API. The owner router is mounted first so /admin/owner/* never falls
 // into the client router's requireTenant middleware.
 app.use('/admin/owner', adminLimiter, ownerAdminRouter);
+app.use('/admin', adminLimiter, apiAccessRouter);
 app.use('/admin', adminLimiter, clientAdminRouter);
 app.use('/integrations', adminLimiter, integrationsRouter);
 

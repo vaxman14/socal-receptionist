@@ -23,6 +23,7 @@ const { handleMessage } = require('../lib/ai');
 const { recordCallStart, updateCall, getCallBySid } = require('../lib/calls');
 const { draftFromCall } = require('../lib/time-tickets');
 const { sendEmail } = require('../lib/email');
+const { fireWebhooks } = require('../lib/public-api');
 const logger = require('../lib/logger');
 
 const router = express.Router();
@@ -455,6 +456,18 @@ router.post('/voice/status', async (req, res) => {
       patch.outcome = callStatus === 'completed' ? 'abandoned' : 'missed';
     }
     if (Object.keys(patch).length) await updateCall(callSid, patch);
+
+    // Public API webhook: the call has reached its final disposition.
+    if (call) {
+      fireWebhooks(call.tenant_id, 'call.completed', {
+        id: call.id,
+        from_number: call.from_number,
+        to_number: call.to_number,
+        outcome: patch.outcome || call.outcome,
+        duration_seconds: patch.duration_seconds ?? call.duration_seconds,
+        created_at: call.created_at,
+      });
+    }
 
     // Auto-draft time ticket for AI-handled calls that have a conversation transcript.
     const finalOutcome = (patch.outcome || call?.outcome);

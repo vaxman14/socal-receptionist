@@ -8,6 +8,7 @@ const { supabase } = require('./supabase');
 const { loadTranscript, appendMessage } = require('./conversations');
 const { recordUsage, estimateOpenaiCostCents } = require('./usage');
 const { sendEmail } = require('./email');
+const { fireWebhooks } = require('./public-api');
 
 // Lazy singletons — SDKs throw if the key is missing at import time.
 let _openai;
@@ -136,7 +137,7 @@ async function runTool(call, tenant, conversation, customerPhone) {
     const notes = [contact ? `Contact: ${contact}` : null, args.notes]
       .filter(Boolean)
       .join(' — ');
-    await supabase.from('leads').insert({
+    const { data: lead } = await supabase.from('leads').insert({
       tenant_id: tenant.id,
       conversation_id: conversation.id,
       customer_phone: customerPhone,
@@ -144,7 +145,8 @@ async function runTool(call, tenant, conversation, customerPhone) {
       service_interest: args.service || null,
       notes: notes || null,
       status: 'qualified',
-    });
+    }).select('id, customer_phone, customer_name, service_interest, status, notes, created_at').single();
+    if (lead) fireWebhooks(tenant.id, 'lead.created', lead);
     // Notify the tenant owner.
     const notifyTo = tenant.voicemail_email || tenant.owner_email;
     if (notifyTo) {
@@ -166,14 +168,15 @@ async function runTool(call, tenant, conversation, customerPhone) {
 
   if (call.function.name === 'request_human_followup') {
     const notes = [args.reason, args.customer_question].filter(Boolean).join(' — ');
-    await supabase.from('leads').insert({
+    const { data: followupLead } = await supabase.from('leads').insert({
       tenant_id: tenant.id,
       conversation_id: conversation.id,
       customer_phone: customerPhone,
       service_interest: 'Human follow-up requested',
       notes: notes || null,
       status: 'new',
-    });
+    }).select('id, customer_phone, customer_name, service_interest, status, notes, created_at').single();
+    if (followupLead) fireWebhooks(tenant.id, 'lead.created', followupLead);
     return 'The owner has been notified and will follow up. Tell the customer someone will reach out shortly.';
   }
 

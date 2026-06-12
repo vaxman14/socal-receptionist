@@ -14,6 +14,7 @@ const { buildSystemPrompt } = require('../lib/ai');
 const { getOrCreateConversation } = require('../lib/conversations');
 const { recordCallStart, updateCall } = require('../lib/calls');
 const { sendEmail } = require('../lib/email');
+const { fireWebhooks } = require('../lib/public-api');
 const logger = require('../lib/logger');
 
 const twilioClient = twilio(
@@ -204,7 +205,7 @@ function handleMediaStream(twilioWs, req) {
       try {
         const contact = args.contact || fromNumber;
         const notes = [contact ? `Contact: ${contact}` : null, args.notes].filter(Boolean).join(' — ');
-        await supabase.from('leads').insert({
+        const { data: lead } = await supabase.from('leads').insert({
           tenant_id: tenantId,
           conversation_id: conversationId,
           customer_phone: fromNumber,
@@ -212,7 +213,8 @@ function handleMediaStream(twilioWs, req) {
           service_interest: args.service || null,
           notes: notes || null,
           status: 'qualified',
-        });
+        }).select('id, customer_phone, customer_name, service_interest, status, notes, created_at').single();
+        if (lead) fireWebhooks(tenantId, 'lead.created', lead);
         const notifyTo = tenant?.voicemail_email || tenant?.owner_email;
         if (notifyTo) {
           await sendEmail({

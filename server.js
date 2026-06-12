@@ -11,7 +11,6 @@ const { handleRealtimeCall } = require('./src/voice-realtime');
 const { initiateCall, handleOutboundStream } = require('./src/voice-outbound');
 const { makeStreamToken } = require('./src/stream-auth');
 const emailPoller = require('./src/email-poller');
-const publicApi = require('./src/public-api');
 const crypto = require('crypto');
 
 const app = express();
@@ -31,9 +30,6 @@ app.use((req, res, next) => {
 });
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-
-// Public API
-app.use('/api/v1', publicApi);
 
 // --- Rate limiting (in-memory, sliding window, per-IP) ---
 const _rlStore = new Map();
