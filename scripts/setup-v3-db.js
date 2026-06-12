@@ -26,6 +26,8 @@ const MIGRATIONS = [
   '006_mfa.sql',
   '007_time_tickets.sql',
   '009_outbound_leads_integrations.sql',
+  '010_rls_complete.sql',
+  '011_outbound_assist.sql',
 ];
 
 function buildCombined() {
