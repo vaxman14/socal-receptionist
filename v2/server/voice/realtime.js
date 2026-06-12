@@ -295,8 +295,8 @@ function handleMediaStream(twilioWs, req) {
           await recordCallStart({ tenantId, callSid, from: fromNumber, to: null }).catch(() => {});
         }
 
-        // Start recording for enabled tenants.
-        if (callSid && RECORDING_TENANT_IDS.has(tenantId)) {
+        // Start recording for enabled tenants (DB flag; env var is legacy override).
+        if (callSid && (tenant?.recording_enabled || RECORDING_TENANT_IDS.has(tenantId))) {
           recordingEnabled = true;
           const baseUrl = (process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
           twilioClient.calls(callSid).recordings.create({

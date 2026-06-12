@@ -30,6 +30,7 @@ const MIGRATIONS = [
   '010_rls_complete.sql',
   '011_outbound_assist.sql',
   '012_public_api.sql',
+  '013_recording_flag.sql',
 ];
 
 function buildCombined() {

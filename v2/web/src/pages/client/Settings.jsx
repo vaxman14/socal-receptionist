@@ -28,6 +28,7 @@ const FIELDS = [
   'timezone',
   'ai_system_prompt',
   'voice_enabled',
+  'recording_enabled',
   'staff_phone',
   'voice_greeting',
   'voicemail_email',
@@ -86,7 +87,7 @@ export default function Settings() {
     if (data?.tenant) {
       const t = data.tenant;
       const next = {};
-      const boolFields = new Set(['voice_enabled', 'outbound_enabled']);
+      const boolFields = new Set(['voice_enabled', 'recording_enabled', 'outbound_enabled']);
       for (const f of FIELDS) {
         next[f] = boolFields.has(f) ? Boolean(t[f]) : t[f] ?? '';
       }
@@ -120,7 +121,7 @@ export default function Settings() {
     }
 
     // Send all editable fields; empty strings become null on the server side.
-    const boolFields = new Set(['voice_enabled', 'outbound_enabled']);
+    const boolFields = new Set(['voice_enabled', 'recording_enabled', 'outbound_enabled']);
     const body = {};
     for (const f of FIELDS) {
       body[f] = boolFields.has(f) ? form[f] : String(form[f]).trim() || null;
@@ -224,6 +225,23 @@ export default function Settings() {
                 type="checkbox"
                 checked={form.voice_enabled}
                 onChange={set('voice_enabled')}
+              />
+              <span>Enabled</span>
+            </label>
+          </div>
+
+          <div className="toggle-row">
+            <div>
+              <div style={{ fontWeight: 600 }}>Record calls</div>
+              <div className="muted" style={{ fontSize: '0.82rem' }}>
+                Calls are recorded for quality review. The AI discloses recording to callers at the start of every call (required in California).
+              </div>
+            </div>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={form.recording_enabled}
+                onChange={set('recording_enabled')}
               />
               <span>Enabled</span>
             </label>

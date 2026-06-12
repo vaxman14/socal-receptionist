@@ -54,6 +54,7 @@ const EDITABLE_FIELDS = [
   'ai_system_prompt',
   // Voice receptionist config.
   'voice_enabled',
+  'recording_enabled',        // call recording (AI discloses at call start)
   'staff_phone',              // "press 2 / speak to staff" transfer target
   'voice_greeting',
   'voicemail_email',

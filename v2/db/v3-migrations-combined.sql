@@ -1091,3 +1091,15 @@ create policy api_webhooks_delete on api_webhooks for delete
   using (owns_tenant(tenant_id) or is_platform_admin());
 
 
+
+-- ============================================================
+-- Migration: 013_recording_flag.sql
+-- ============================================================
+
+-- Migration 013: per-tenant call recording flag.
+-- Replaces the RECORDING_TENANT_IDS env var (which required a redeploy to
+-- change). The AI discloses recording at call start when enabled.
+
+alter table tenants add column recording_enabled boolean not null default false;
+
+
