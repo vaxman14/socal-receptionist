@@ -13,6 +13,16 @@ const logger = require('./logger');
 
 const FROM = process.env.EMAIL_FROM || 'SoCal Receptionist <hello@noreply.socalreceptionist.com>';
 
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+// In production a missing key means onboarding/lead/MFA mail is silently
+// dropped — that's an incident, not a degradation. Scream at boot.
+if (IS_PROD && !process.env.RESEND_API_KEY) {
+  logger.error('email.missing_api_key', {
+    message: 'RESEND_API_KEY is not set in production — ALL transactional email (onboarding, leads, MFA) will be dropped',
+  });
+}
+
 // Lazily constructed, like the OpenAI client in lib/ai.js: build it on first
 // use so routes that never send mail boot fine without the key.
 let _resend;
@@ -38,7 +48,8 @@ async function sendEmail({ to, subject, html, text } = {}) {
 
   const client = resendClient();
   if (!client) {
-    logger.warn('email.send_skipped_no_key', { to, subject });
+    // Error-level in prod so it pages/aggregates; warn in dev where it's expected.
+    logger[IS_PROD ? 'error' : 'warn']('email.send_skipped_no_key', { to, subject });
     return { ok: false, skipped: true };
   }
 
