@@ -3,6 +3,7 @@
 // Emails full conversation transcripts to support@ via Resend when session ends.
 
 const express = require('express');
+const { supabase } = require('./lib/supabase');
 const router = express.Router();
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
@@ -134,10 +135,18 @@ router.post('/message', async (req, res) => {
   try {
     const reply = await getAIResponse(messages);
 
-    // Detect callback lead tag and fire email immediately
+    // Detect callback lead tag — persist to DB and fire email immediately
     const callbackMatch = reply.match(/\[CALLBACK_LEAD:\s*name="([^"]+)"\s*phone="([^"]+)"\]/);
     if (callbackMatch) {
       const [, name, phone] = callbackMatch;
+      supabase.from('platform_leads').insert({
+        source: 'support_chat',
+        name,
+        phone,
+        notes: `Session ${sessionId || 'unknown'}`,
+      }).then(({ error }) => {
+        if (error) console.error('[support-chat] lead insert failed:', error.message);
+      });
       emailCallbackLead(name, phone).catch(e => console.error('[support-chat] callback email failed:', e.message));
     }
 
