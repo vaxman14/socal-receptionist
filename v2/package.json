@@ -26,6 +26,8 @@
     "node-fetch": "^2.7.0",
     "nodemailer": "^8.0.10",
     "openai": "^4.56.0",
+    "rate-limit-redis": "^4.3.1",
+    "redis": "^4.7.1",
     "resend": "^6.12.3",
     "stripe": "^17.7.0",
     "twilio": "^5.2.3",

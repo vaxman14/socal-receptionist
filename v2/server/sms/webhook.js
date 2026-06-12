@@ -118,7 +118,7 @@ router.post('/sms', async (req, res) => {
     }
 
     // Rate limiting + abuse detection (per tenant and per customer).
-    const rate = checkInbound(tenant.id, from);
+    const rate = await checkInbound(tenant.id, from);
     if (!rate.allowed) {
       logger.warn('sms.rate_limited', { tenant_id: tenant.id, from, reason: rate.reason });
       if (rate.abuse) {

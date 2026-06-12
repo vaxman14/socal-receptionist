@@ -80,12 +80,16 @@ app.use(cors({
   credentials: true,
 }));
 
-// Rate limiting for admin and onboarding routes (issue #11)
+// Rate limiting for admin and onboarding routes (issue #11).
+// Stores are Redis-backed when REDIS_URL is set (multi-instance safe),
+// in-memory otherwise — see lib/ratelimit.makeLimiterStore.
+const { makeLimiterStore } = require('./lib/ratelimit');
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeLimiterStore('admin'),
   message: { error: 'Too many requests, please try again later.' },
 });
 const strictLimiter = rateLimit({
@@ -93,6 +97,7 @@ const strictLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeLimiterStore('strict'),
   message: { error: 'Too many requests, please try again later.' },
 });
 
