@@ -1,8 +1,8 @@
 // Practice management, CRM, calendar, and SIP integration OAuth routes.
 // Mounted at /integrations in the main server.
 //
-// Supported providers: clio, mycase, microsoft_calendar, hubspot, salesforce,
-//                      ringcentral, vonage, telnyx
+// Supported providers: google_calendar, clio, mycase, microsoft_calendar,
+//                      hubspot, salesforce, ringcentral, vonage, telnyx
 // Flow: /connect → provider OAuth screen → /callback → tokens stored in DB
 // Telnyx exception: API key, not OAuth — POST /integrations/telnyx/connect
 
@@ -10,8 +10,8 @@ const express = require('express');
 const crypto = require('crypto');
 const { requireAuth, requireTenant, requireAal2 } = require('../lib/auth');
 const { supabase } = require('../lib/supabase');
-const { encryptToken } = require('../lib/token-crypto');
 const clio              = require('./clio');
+const googleCalendar    = require('./google-calendar');
 const mycase            = require('./mycase');
 const microsoftCalendar = require('./microsoft-calendar');
 const hubspot           = require('./hubspot');
@@ -23,6 +23,13 @@ const telnyx            = require('./telnyx');
 const router = express.Router();
 
 const PROVIDERS = {
+  google_calendar: {
+    buildAuthUrl:   googleCalendar.buildAuthUrl,
+    exchangeCode:   googleCalendar.exchangeCode,
+    saveTokens:     googleCalendar.saveTokens,
+    getAccountInfo: googleCalendar.getAccountInfo,
+    disconnect:     googleCalendar.disconnect,
+  },
   clio: {
     buildAuthUrl:   clio.buildAuthUrl,
     exchangeCode:   clio.exchangeCode,
@@ -197,13 +204,9 @@ router.get('/:provider/callback', async (req, res) => {
     const tokens = await provider.exchangeCode(code, callbackBase);
     const extra = tokens.access_token ? await provider.getAccountInfo(tokens.access_token).catch(() => ({})) : {};
 
-    // Encrypt tokens before storing in DB.
-    const encryptedTokens = {
-      ...tokens,
-      access_token: encryptToken(tokens.access_token),
-      refresh_token: encryptToken(tokens.refresh_token),
-    };
-    await provider.saveTokens(tenantId, encryptedTokens, extra);
+    // Pass tokens through raw — each provider's saveTokens() encrypts before
+    // storing. Encrypting here too would double-encrypt and break decryption.
+    await provider.saveTokens(tenantId, tokens, extra);
 
     // Redirect browser back to SPA settings page — use APP_BASE_URL (SPA origin).
     res.redirect(`${spaBase()}/settings?integration=${req.params.provider}&status=connected`);

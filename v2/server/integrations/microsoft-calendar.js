@@ -22,7 +22,9 @@ const CLIENT_ID     = process.env.MS_CAL_CLIENT_ID     || '';
 const CLIENT_SECRET = process.env.MS_CAL_CLIENT_SECRET || '';
 
 function getRedirectUri(baseUrl) {
-  return `${baseUrl}/integrations/microsoft-calendar/callback`;
+  // Must match the PROVIDERS key in router.js (underscore) — the callback route
+  // is /integrations/:provider/callback and :provider is looked up verbatim.
+  return `${baseUrl}/integrations/microsoft_calendar/callback`;
 }
 
 function buildAuthUrl(baseUrl, state) {

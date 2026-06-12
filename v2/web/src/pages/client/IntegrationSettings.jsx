@@ -19,6 +19,13 @@ const SECTIONS = [
     description: 'Connect your calendar so the AI receptionist can check availability, book appointments, and send proactive call reminders.',
     providers: [
       {
+        id: 'google_calendar',
+        name: 'Google Calendar',
+        description: 'Book appointments into Google Calendar. Attendees from upcoming events are available to Outbound Call Assist, and reminders fire before Google Calendar events.',
+        logo: '🗓️',
+        oauth: true,
+      },
+      {
         id: 'microsoft_calendar',
         name: 'Microsoft Calendar',
         description: 'Book appointments into Outlook and Microsoft 365 calendars. Required for Outbound Call Assist reminders on Microsoft accounts.',

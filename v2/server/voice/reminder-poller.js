@@ -149,36 +149,25 @@ async function fetchUpcomingEvents(tenantId, minMs, maxMs) {
   const windowMs = maxMs - Date.now();
   const events   = [];
 
-  // Google Calendar
+  // Google Calendar — token storage + refresh owned by integrations/google-calendar.js
   const { data: gCalInt } = await supabase
     .from('tenant_integrations')
-    .select('refresh_token')
+    .select('enabled')
     .eq('tenant_id', tenantId).eq('provider', 'google_calendar').maybeSingle();
 
-  if (gCalInt?.refresh_token) {
+  if (gCalInt?.enabled) {
     try {
-      const { decryptToken } = require('../lib/token-crypto');
-      const { google }       = require('googleapis');
-      const oauth2 = new google.auth.OAuth2(process.env.GCAL_CLIENT_ID, process.env.GCAL_CLIENT_SECRET);
-      oauth2.setCredentials({ refresh_token: decryptToken(gCalInt.refresh_token) });
-      const cal = google.calendar({ version: 'v3', auth: oauth2 });
-      const res = await cal.events.list({
-        calendarId:   'primary',
-        timeMin:      new Date(minMs - 60000).toISOString(), // 1 min buffer
-        timeMax:      new Date(maxMs).toISOString(),
-        singleEvents: true,
-        maxResults:   10,
-        fields:       'items(id,summary,start,attendees)',
-      });
-      for (const e of (res.data.items || [])) {
-        const startMs = new Date(e.start?.dateTime || e.start?.date).getTime();
+      const gcal = require('../integrations/google-calendar');
+      const gEvents = await gcal.listUpcomingEvents(tenantId, windowMs);
+      for (const e of gEvents) {
+        const startMs = new Date(e.startAt).getTime();
         if (startMs >= minMs && startMs <= maxMs) {
           events.push({
             id:        e.id,
             source:    'google',
-            title:     e.summary || '',
-            startAt:   e.start?.dateTime || e.start?.date,
-            attendees: (e.attendees || []).filter(a => !a.self).map(a => ({ name: a.displayName || '', email: a.email || '' })),
+            title:     e.title,
+            startAt:   e.startAt,
+            attendees: e.attendees,
           });
         }
       }

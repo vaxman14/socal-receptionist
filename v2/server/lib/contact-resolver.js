@@ -44,45 +44,27 @@ async function searchLocalContacts(tenantId, queryTokens) {
 
 // ── 2. Google Calendar attendees ──────────────────────────────────────────────
 async function searchGoogleCalAttendees(tenantId, queryTokens) {
-  // Pull upcoming events from the calls integration. Google Cal tokens per
-  // tenant are stored in tenant_integrations with provider='google_calendar'
-  // (if connected) or come from the global env (legacy single-tenant config).
+  // Tokens live in tenant_integrations (provider='google_calendar') — written
+  // by the per-tenant OAuth flow in integrations/google-calendar.js, which also
+  // owns token refresh.
   const { data: integration } = await supabase
     .from('tenant_integrations')
-    .select('access_token, refresh_token, token_expires_at')
+    .select('enabled')
     .eq('tenant_id', tenantId)
     .eq('provider', 'google_calendar')
     .maybeSingle();
 
-  if (!integration) return [];
+  if (!integration?.enabled) return [];
 
   try {
-    const { decryptToken } = require('./token-crypto');
-    const { google }       = require('googleapis');
-
-    const oauth2 = new google.auth.OAuth2(
-      process.env.GCAL_CLIENT_ID,
-      process.env.GCAL_CLIENT_SECRET,
-    );
-    oauth2.setCredentials({ refresh_token: decryptToken(integration.refresh_token) });
-    const calendar = google.calendar({ version: 'v3', auth: oauth2 });
-
-    const now = new Date();
-    const end = new Date(now.getTime() + 24 * 60 * 60 * 1000); // next 24h
-    const eventsRes = await calendar.events.list({
-      calendarId:   'primary',
-      timeMin:      now.toISOString(),
-      timeMax:      end.toISOString(),
-      singleEvents: true,
-      maxResults:   20,
-      fields:       'items(id,summary,attendees)',
-    });
+    const gcal = require('../integrations/google-calendar');
+    const events = await gcal.listUpcomingEvents(tenantId, 24 * 60 * 60 * 1000); // next 24h
 
     const attendees = [];
-    for (const event of (eventsRes.data.items || [])) {
+    for (const event of events) {
       for (const a of (event.attendees || [])) {
-        if (!a.self && a.displayName) {
-          attendees.push({ name: a.displayName, email: a.email || '', phone: '', source: 'google_cal' });
+        if (a.name) {
+          attendees.push({ name: a.name, email: a.email || '', phone: '', source: 'google_cal' });
         }
       }
     }
