@@ -153,8 +153,8 @@ function handleMediaStream(twilioWs, req) {
         break;
       }
 
-      // AI speech transcription.
-      case 'response.audio_transcript.done': {
+      // AI speech transcription. GA event name (beta was response.audio_transcript.done).
+      case 'response.output_audio_transcript.done': {
         if (event.transcript) transcript.push({ role: 'ai', text: event.transcript.trim() });
         break;
       }
@@ -188,11 +188,13 @@ function handleMediaStream(twilioWs, req) {
           input: {
             format: { type: 'audio/pcmu' },
             turn_detection: { type: 'semantic_vad', eagerness: 'low', create_response: true },
+            // Caller speech transcription. GA API: lives under input, not output —
+            // output transcripts arrive automatically via response.output_audio_transcript.*
+            transcription: { model: 'gpt-4o-mini-transcribe' },
           },
           output: {
             format: { type: 'audio/pcmu' },
             voice: realtimeVoice,
-            transcription: { model: 'gpt-4o-mini-transcribe' },
           },
         },
         instructions,
