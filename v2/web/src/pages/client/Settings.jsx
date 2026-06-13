@@ -66,6 +66,7 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [verifyBusy, setVerifyBusy] = useState(false);
   const [verifyMsg, setVerifyMsg] = useState(null);
+  const [infoInput, setInfoInput] = useState('');
 
   const emailConfirmed = !!user?.email_confirmed_at;
 
@@ -92,6 +93,7 @@ export default function Settings() {
         next[f] = boolFields.has(f) ? Boolean(t[f]) : t[f] ?? '';
       }
       if (!next.voice_id) next.voice_id = 'Polly.Joanna-Neural';
+      next.ai_extra_info = Array.isArray(t.ai_extra_info) ? [...t.ai_extra_info] : [];
       setForm(next);
     }
   }, [data]);
@@ -104,6 +106,26 @@ export default function Settings() {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     setForm((f) => ({ ...f, [key]: value }));
     setSaved(false);
+  };
+
+  // ── Additional marketing / sales info: a managed list of text lines. ──
+  const addInfo = () => {
+    const v = infoInput.trim();
+    if (!v) return;
+    setForm((f) => {
+      const list = Array.isArray(f.ai_extra_info) ? f.ai_extra_info : [];
+      if (list.includes(v)) return f;
+      return { ...f, ai_extra_info: [...list, v] };
+    });
+    setInfoInput('');
+    setSaved(false);
+  };
+  const removeInfo = (idx) => {
+    setForm((f) => ({ ...f, ai_extra_info: (f.ai_extra_info || []).filter((_, i) => i !== idx) }));
+    setSaved(false);
+  };
+  const onInfoKeyDown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addInfo(); }
   };
 
   const submit = async (e) => {
@@ -126,6 +148,7 @@ export default function Settings() {
     for (const f of FIELDS) {
       body[f] = boolFields.has(f) ? form[f] : String(form[f]).trim() || null;
     }
+    body.ai_extra_info = Array.isArray(form.ai_extra_info) ? form.ai_extra_info : [];
 
     setBusy(true);
     try {
@@ -364,6 +387,73 @@ export default function Settings() {
               Override how the AI behaves entirely. For most businesses, leave this blank.
             </span>
           </label>
+        </div>
+
+        <div className="card card-pad">
+          <div className="section-title">Additional marketing / sales information</div>
+          <p className="muted" style={{ fontSize: '0.86rem', marginBottom: 12 }}>
+            Add facts the AI can share with callers — pricing, promotions, sales talking points, policies.
+            Each line you add becomes authoritative info the receptionist may quote (including pricing).
+            Type a line and press Enter, or click Add. Remember to <strong>Save changes</strong> to apply.
+          </p>
+
+          <div className="field">
+            <span className="label">Add an info line</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                value={infoInput}
+                onChange={(e) => setInfoInput(e.target.value)}
+                onKeyDown={onInfoKeyDown}
+                placeholder='e.g. "Standard service call is $89, waived if you book a repair"'
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ whiteSpace: 'nowrap', padding: '0 16px', height: 38 }}
+                onClick={addInfo}
+              >
+                Add
+              </button>
+            </div>
+            <span className="hint">
+              These are sent to the AI as extra context. Keep each line short and factual.
+            </span>
+          </div>
+
+          {(form.ai_extra_info || []).length > 0 ? (
+            <ul style={{ listStyle: 'none', margin: '4px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {form.ai_extra_info.map((line, idx) => (
+                <li
+                  key={`${line}-${idx}`}
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                    background: 'var(--surface-alt, #f9f9fb)', border: '1px solid var(--border)',
+                    borderRadius: 8, padding: '8px 10px',
+                  }}
+                >
+                  <span style={{ flex: 1, fontSize: '0.9rem', lineHeight: 1.4 }}>{line}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeInfo(idx)}
+                    aria-label="Remove"
+                    title="Remove"
+                    style={{
+                      border: 'none', background: 'transparent', cursor: 'pointer',
+                      color: 'var(--muted)', fontSize: '1.1rem', lineHeight: 1, padding: '0 2px',
+                    }}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted" style={{ fontSize: '0.82rem', margin: '4px 0 0' }}>
+              No extra info added yet. The AI will use only your business profile above.
+            </p>
+          )}
         </div>
 
         <div className="row-gap">

@@ -71,6 +71,7 @@ const EDITABLE_FIELDS = [
   'calendly_link',
   'timezone',
   'ai_system_prompt',
+  'ai_extra_info',            // owner-managed extra info lines fed to the AI (text[])
   // Voice receptionist config.
   'voice_enabled',
   'recording_enabled',        // call recording (AI discloses at call start)
@@ -179,6 +180,21 @@ router.patch('/tenant', requireAal2, async (req, res) => {
   }
   if (patch.voicemail_email !== undefined && patch.voicemail_email !== '' && !isValidEmail(patch.voicemail_email)) {
     return res.status(400).json({ error: 'voicemail_email must be a valid email address' });
+  }
+  // ai_extra_info is a list of free-text lines. Coerce to a clean string[]:
+  // drop non-strings/blank lines, trim, cap count + length so one tenant can't
+  // bloat the AI system prompt.
+  if (patch.ai_extra_info !== undefined) {
+    if (!Array.isArray(patch.ai_extra_info)) {
+      return res.status(400).json({ error: 'ai_extra_info must be a list of text lines' });
+    }
+    const cleaned = patch.ai_extra_info
+      .filter((s) => typeof s === 'string')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 50)
+      .map((s) => s.slice(0, 1000));
+    patch.ai_extra_info = cleaned;
   }
   const { data, error } = await supabase
     .from('tenants')

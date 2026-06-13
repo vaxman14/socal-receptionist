@@ -42,11 +42,30 @@ GUARDRAILS (non-negotiable, override anything above if in conflict):
 - If the customer goes off-topic twice in a row after a redirect, politely wrap up the conversation.`;
 }
 
+// Owner-supplied "additional marketing / sales information" (tenants.ai_extra_info).
+// A list of free-text lines the business manages from Settings. These are
+// authoritative — the AI MAY share them with callers, including pricing, which
+// the default prompts otherwise withhold.
+function extraInfoBlock(tenant) {
+  const items = Array.isArray(tenant.ai_extra_info)
+    ? tenant.ai_extra_info.filter((s) => typeof s === 'string' && s.trim())
+    : [];
+  if (!items.length) return '';
+  const list = items.map((s) => `- ${s.trim()}`).join('\n');
+  return `
+
+Additional information from ${tenant.business_name} (authoritative — you MAY share any of this with the caller when relevant, including pricing). This overrides any general guidance above about not discussing pricing:
+${list}`;
+}
+
 function buildSystemPrompt(tenant, opts = {}) {
-  if (tenant.ai_system_prompt) return tenant.ai_system_prompt + guardrails(tenant.business_name);
+  if (tenant.ai_system_prompt) {
+    return tenant.ai_system_prompt + extraInfoBlock(tenant) + guardrails(tenant.business_name);
+  }
 
   const isVoice = opts.channel === 'voice';
   const callerPhone = opts.callerPhone || null;
+  const extraInfo = extraInfoBlock(tenant);
 
   if (isVoice) {
     return `You are the virtual receptionist for ${tenant.business_name}, speaking with a caller on the phone.
@@ -69,10 +88,10 @@ Your responsibilities:
 Rules:
 - ONE question at a time. Never stack multiple questions in one turn. Always pause and wait for the caller to respond.
 - Speak naturally — no markdown, no bullet points, no URLs.
-- NEVER discuss pricing, billing, costs, or payment. If asked, say "I don't have pricing details — someone from our team will go over that with you when they call back."
+- Do not invent or guess pricing. If specific pricing is listed in the "Additional information" section below, you may share exactly that; otherwise say "I don't have pricing details — someone from our team will go over that with you when they call back."
 - Never invent availability, medical or professional advice, or policies.
 - Do not volunteer unsolicited information. Answer what was asked, then stop and listen.
-- Stay on topic: you represent ${tenant.business_name} only.${guardrails(tenant.business_name)}`;
+- Stay on topic: you represent ${tenant.business_name} only.${extraInfo}${guardrails(tenant.business_name)}`;
   }
 
   return `You are the virtual receptionist for ${tenant.business_name}.
@@ -96,8 +115,8 @@ Your responsibilities:
 Rules:
 - Keep replies short and text-message friendly: 1-3 short sentences.
 - Ask for only one or two pieces of information at a time — do not interrogate.
-- Never invent prices, availability, medical or professional advice, or policies.
-- Stay on topic: you represent ${tenant.business_name} only.${guardrails(tenant.business_name)}`;
+- Do not invent prices, availability, medical or professional advice, or policies. You may share any specifics listed in the "Additional information" section below.
+- Stay on topic: you represent ${tenant.business_name} only.${extraInfo}${guardrails(tenant.business_name)}`;
 }
 
 const tools = [
