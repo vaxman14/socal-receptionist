@@ -13,6 +13,7 @@ const { getOrCreateConversation } = require('../lib/conversations');
 const { handleMessage } = require('../lib/ai');
 const { supabase } = require('../lib/supabase');
 const { checkInbound } = require('../lib/ratelimit');
+const { overLimit } = require('../lib/abuse-guard');
 const { withinCaps, recordUsage, notifyCapBreach } = require('../lib/usage');
 const logger = require('../lib/logger');
 
@@ -115,6 +116,13 @@ router.post('/sms', async (req, res) => {
         `Thanks for reaching ${tenant.business_name}! Our virtual receptionist isn't live yet — please try again soon.`
       );
       return res.send(twiml.toString());
+    }
+
+    // Daily per-sender cap — the per-minute window below catches bursts; this
+    // catches a slow drip of LLM freeloading spread across the day.
+    if (overLimit('sms', `${tenant.id}:${from}`, 30)) {
+      logger.warn('sms.caller_daily_limit', { tenant_id: tenant.id, from });
+      return res.send(twiml.toString()); // drop silently
     }
 
     // Rate limiting + abuse detection (per tenant and per customer).

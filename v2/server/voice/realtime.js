@@ -40,6 +40,10 @@ const POLLY_TO_REALTIME = {
 const REALTIME_MODEL = 'gpt-realtime-2';
 const OPENAI_WS_URL = `wss://api.openai.com/v1/realtime?model=${REALTIME_MODEL}`;
 
+// Hard per-call duration ceiling. A real receptionist call wraps inside 10
+// minutes; anything longer is either a stuck stream or someone freeloading.
+const MAX_CALL_MS = 10 * 60 * 1000;
+
 // Tools available to the AI receptionist during a call.
 function buildTools(tenant) {
   const tools = [
@@ -91,6 +95,8 @@ function handleMediaStream(twilioWs, req) {
   let transcript = []; // { role: 'caller'|'ai', text: string }
   let realtimeCostCents = 0; // accumulated from response.done usage blocks
   let usageRecorded = false;
+  let wrapUpTimer = null;
+  let hardStopTimer = null;
 
   // Record accumulated OpenAI cost against the tenant exactly once per call,
   // whether the stream ends via Twilio 'stop' or an abrupt socket close.
@@ -351,6 +357,27 @@ function handleMediaStream(twilioWs, req) {
         if (openaiWs && openaiWs.readyState === WebSocket.OPEN) {
           configureSession();
         }
+
+        // Hard duration cap — Realtime API + Twilio both bill per minute.
+        // Warn the model to wrap up, then force-close the stream.
+        wrapUpTimer = setTimeout(() => {
+          if (!openaiWs || openaiWs.readyState !== WebSocket.OPEN) return;
+          logger.warn('voice.realtime.wrap_up_warning', { callSid });
+          openaiWs.send(JSON.stringify({
+            type: 'conversation.item.create',
+            item: {
+              type: 'message',
+              role: 'system',
+              content: [{ type: 'input_text', text: 'TIME LIMIT REACHED: end the call NOW in one short sentence. If you have their info, confirm someone will follow up. Say goodbye warmly.' }],
+            },
+          }));
+          openaiWs.send(JSON.stringify({ type: 'response.create' }));
+        }, MAX_CALL_MS - 45_000);
+        hardStopTimer = setTimeout(() => {
+          logger.warn('voice.realtime.max_duration', { callSid });
+          try { if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close(); } catch {}
+          try { if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close(); } catch {}
+        }, MAX_CALL_MS);
         break;
       }
 
@@ -367,6 +394,8 @@ function handleMediaStream(twilioWs, req) {
 
       case 'stop': {
         logger.info('voice.realtime.stream_stopped', { callSid });
+        clearTimeout(wrapUpTimer);
+        clearTimeout(hardStopTimer);
         flushUsage();
         if (callSid) await updateCall(callSid, { outcome: 'ai_handled' }).catch(() => {});
         if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
@@ -442,6 +471,8 @@ function handleMediaStream(twilioWs, req) {
 
   twilioWs.on('close', () => {
     logger.info('voice.realtime.twilio_closed');
+    clearTimeout(wrapUpTimer);
+    clearTimeout(hardStopTimer);
     flushUsage();
     if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
   });
