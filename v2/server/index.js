@@ -28,6 +28,7 @@ const onboardingAgreementRouter = require('./onboarding/agreement');
 const onboardingRegisterRouter = require('./onboarding/register');
 const onboardingNumbersRouter = require('./onboarding/numbers');
 const onboardingChatRouter = require('./onboarding/chat');
+const onboardingActivateRouter = require('./onboarding/activate');
 const mfaRouter = require('./auth/mfa');
 const integrationsRouter = require('./integrations/router');
 const supportChatRouter = require('./support-chat');
@@ -249,6 +250,7 @@ app.ws('/voice/stream', handleMediaStream);
 // the chat handler is ever reached.
 app.use('/onboarding', strictLimiter, onboardingRegisterRouter);
 app.use('/onboarding', onboardingChatRouter);
+app.use('/onboarding', onboardingActivateRouter);
 app.use('/onboarding', onboardingAgreementRouter);
 app.use('/onboarding', onboardingNumbersRouter);
 

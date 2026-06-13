@@ -80,12 +80,10 @@ router.post('/agreement/sign', async (req, res) => {
       userAgent: req.header('user-agent') || null,
     });
 
-    // Signing is what kicks off provisioning. provision_tenant is idempotent
-    // (no-ops unless the tenant is still 'onboarding'), and its handler also
-    // re-checks the signature as a defensive gate.
-    if (req.tenant.status === 'onboarding') {
-      await enqueue(req.tenant.id, 'provision_tenant', {});
-    }
+    // NOTE: provisioning is NO LONGER kicked off here. The Activate step
+    // (POST /onboarding/activate) now starts the trial and enqueues
+    // provision_tenant once the client explicitly chooses to get a number.
+    // The provision_tenant handler still re-checks the signature defensively.
 
     res.status(201).json({
       ok: true,
@@ -97,7 +95,7 @@ router.post('/agreement/sign', async (req, res) => {
         signer_email: agreement.signer_email,
         signed_at: agreement.signed_at,
       },
-      provisioning_started: req.tenant.status === 'onboarding',
+      provisioning_started: false, // moved to the Activate step
     });
   } catch (err) {
     if (err instanceof AgreementError) {
