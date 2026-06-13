@@ -18,6 +18,7 @@ const express = require('express');
 const twilio = require('twilio');
 const { isValidTwilioRequest } = require('../lib/twilio');
 const { resolveTenantByNumber } = require('../lib/tenants');
+const { overLimit } = require('../lib/abuse-guard');
 const { getOrCreateConversation } = require('../lib/conversations');
 const { handleMessage } = require('../lib/ai');
 const { recordCallStart, updateCall, getCallBySid } = require('../lib/calls');
@@ -103,6 +104,17 @@ router.post('/voice', async (req, res) => {
     return sayAndHangup(
       res,
       `Thank you for calling ${tenant.business_name}. Please send us a text message and we will get right back to you.`,
+      tenant
+    );
+  }
+
+  // Per-caller daily cap, scoped per tenant. Generous enough for a real
+  // customer calling back a few times; stops one number burning AI minutes.
+  if (overLimit('voice', `${tenant.id}:${from}`, 10)) {
+    logger.warn('voice.caller_daily_limit', { tenantId: tenant.id, from });
+    return sayAndHangup(
+      res,
+      `Thank you for calling ${tenant.business_name}. We've received several calls from this number today — someone from the team will follow up with you directly. Goodbye.`,
       tenant
     );
   }
