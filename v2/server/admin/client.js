@@ -72,6 +72,7 @@ const EDITABLE_FIELDS = [
   'timezone',
   'ai_system_prompt',
   'ai_extra_info',            // owner-managed extra info lines fed to the AI (text[])
+  'social_handles',           // client social media handles by platform (jsonb)
   // Voice receptionist config.
   'voice_enabled',
   'recording_enabled',        // call recording (AI discloses at call start)
@@ -195,6 +196,22 @@ router.patch('/tenant', requireAal2, async (req, res) => {
       .slice(0, 50)
       .map((s) => s.slice(0, 1000));
     patch.ai_extra_info = cleaned;
+  }
+  // social_handles is a { platform: handle } map. Only accept known platforms;
+  // keep string values, trim, and cap length. Blank values drop the platform.
+  if (patch.social_handles !== undefined) {
+    if (typeof patch.social_handles !== 'object' || patch.social_handles === null || Array.isArray(patch.social_handles)) {
+      return res.status(400).json({ error: 'social_handles must be an object of platform -> handle' });
+    }
+    const ALLOWED_PLATFORMS = ['facebook', 'instagram', 'linkedin', 'twitter', 'tiktok', 'youtube', 'google_business'];
+    const cleaned = {};
+    for (const platform of ALLOWED_PLATFORMS) {
+      const v = patch.social_handles[platform];
+      if (typeof v !== 'string') continue;
+      const trimmed = v.trim().slice(0, 300);
+      if (trimmed) cleaned[platform] = trimmed;
+    }
+    patch.social_handles = cleaned;
   }
   const { data, error } = await supabase
     .from('tenants')

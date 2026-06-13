@@ -8,6 +8,7 @@ import Calls from './Calls';
 import TimeTickets from './TimeTickets';
 import OutboundLeads from './OutboundLeads';
 import IntegrationSettings from './IntegrationSettings';
+import Marketing from './Marketing';
 import Settings from './Settings';
 import Billing from './Billing';
 import Help from '../Help';
@@ -17,6 +18,7 @@ const LINKS = [
   { to: '/leads', label: 'Leads' },
   { to: '/calls', label: 'Calls' },
   { to: '/integrations', label: 'Integrations' },
+  { to: '/marketing', label: 'Marketing' },
   { to: '/settings', label: 'Settings' },
   { to: '/billing', label: 'Billing' },
   { to: '/help', label: 'Help & FAQ' },
@@ -32,6 +34,7 @@ export default function ClientApp() {
         <Route path="time-tickets" element={<TimeTickets />} />
         <Route path="outbound" element={<OutboundLeads />} />
         <Route path="integrations" element={<IntegrationSettings />} />
+        <Route path="marketing" element={<Marketing />} />
         <Route path="settings" element={<Settings />} />
         <Route path="billing" element={<Billing />} />
         <Route path="help" element={<Help />} />
