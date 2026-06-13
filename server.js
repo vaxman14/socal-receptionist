@@ -45,6 +45,25 @@ function rateLimit(maxHits, windowMs) {
   };
 }
 
+// --- Per-caller abuse guard (in-memory, 24h sliding window, per phone number) ---
+// Per-IP limits don't help on Twilio webhooks (all traffic comes from Twilio's IPs),
+// so calls and texts are also capped per originating phone number.
+const _callerStore = new Map();
+setInterval(() => {
+  const cutoff = Date.now() - 86_400_000;
+  for (const [k, hits] of _callerStore) if (!hits.length || hits[hits.length - 1] < cutoff) _callerStore.delete(k);
+}, 600_000).unref();
+function callerOverLimit(kind, from, maxPerDay) {
+  if (!from) return false; // anonymous callers are handled separately downstream
+  const key = `${kind}:${from}`;
+  const now = Date.now();
+  const hits = (_callerStore.get(key) || []).filter(t => t > now - 86_400_000);
+  if (hits.length >= maxPerDay) return true;
+  hits.push(now);
+  _callerStore.set(key, hits);
+  return false;
+}
+
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', business: config.business.name });
@@ -709,6 +728,14 @@ app.post('/voice/sales', rateLimit(5, 60_000), (req, res) => {
   const rawFrom = req.body.From || '';
   const callSid = req.body.CallSid || '';
 
+  if (callerOverLimit('voice', rawFrom, 3)) {
+    console.warn(`[voice-sales] per-caller daily limit hit from=${rawFrom}`);
+    res.type('text/xml');
+    return res.send(
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">Thanks for your interest in SoCal Receptionist! You've reached our demo line a few times today already. Roman will follow up with you directly, or you can email info at socal receptionist dot com.</Say><Hangup/></Response>`
+    );
+  }
+
   const token = makeStreamToken(callSid, rawFrom);
   const safeFrom = rawFrom.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   // Auth passed as a Parameter (not URL query) — DO strips query params from WS upgrades
@@ -782,6 +809,15 @@ app.post('/sms', rateLimit(30, 60_000), async (req, res) => {
 
   const status = await consent.getStatus(from);
   const normalizedBody = body.toUpperCase();
+
+  // Per-number daily cap (checked after STOP handling below via early keyword test
+  // so opt-outs are always honored even for capped numbers).
+  const isOptOutKeyword = normalizedBody === 'STOP' || normalizedBody === 'UNSUBSCRIBE';
+  if (!isOptOutKeyword && callerOverLimit('sms', from, 30)) {
+    console.warn(`[sms] per-number daily limit hit from=${from}`);
+    res.type('text/xml');
+    return res.send(twiml.toString()); // empty TwiML — no reply, no outbound cost
+  }
 
   // Always honor STOP regardless of consent state (Twilio also handles this
   // automatically for toll-free numbers, but we track it ourselves too).
