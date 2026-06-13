@@ -59,16 +59,24 @@ async function createCheckoutSession({ tenant, priceId, setupPriceId, successUrl
   const lineItems = [{ price: priceId, quantity: 1 }];
   if (setupPriceId) lineItems.push({ price: setupPriceId, quantity: 1 });
 
+  // Two checkout shapes:
+  //   • With a setup fee (Concierge): the fee covers month one, so the recurring
+  //     price is deferred via a Stripe trial. The setup fee is charged today, so
+  //     a card is collected at checkout ('if_required' is enough).
+  //   • Without a setup fee (Essentials, incl. converting a no-card trial): there
+  //     is nothing to charge up front and no second free week — bill the monthly
+  //     price now and REQUIRE a card on file ('always').
+  const hasSetupFee = Boolean(setupPriceId);
+  const subscriptionData = { metadata: { tenant_id: tenant.id } };
+  if (hasSetupFee) subscriptionData.trial_period_days = TRIAL_DAYS;
+
   return stripe.checkout.sessions.create({
     mode: 'subscription',
     line_items: lineItems,
     customer_email: tenant.owner_email,
     client_reference_id: tenant.id,
-    payment_method_collection: 'if_required',
-    subscription_data: {
-      trial_period_days: TRIAL_DAYS,
-      metadata: { tenant_id: tenant.id },
-    },
+    payment_method_collection: hasSetupFee ? 'if_required' : 'always',
+    subscription_data: subscriptionData,
     metadata: { tenant_id: tenant.id },
     allow_promotion_codes: true,
     success_url: successUrl,

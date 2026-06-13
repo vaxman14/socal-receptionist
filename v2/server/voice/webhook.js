@@ -103,6 +103,14 @@ router.post('/voice', async (req, res) => {
     return sayAndHangup(res, 'This number is not in service. Goodbye.', null);
   }
 
+  // Only a live (active) tenant answers calls. A suspended tenant — e.g. a
+  // no-card trial that ended without a subscription (suspended_billing) — is
+  // not in service. The inbound SMS path gates the same way (sms/webhook.js).
+  if (tenant.status !== 'active') {
+    logger.warn('voice.tenant_not_active', { tenant: tenant.id, status: tenant.status });
+    return sayAndHangup(res, 'This number is not in service. Goodbye.', tenant);
+  }
+
   if (tenant.voice_enabled === false) {
     return sayAndHangup(
       res,

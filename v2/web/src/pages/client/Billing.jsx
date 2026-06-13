@@ -125,6 +125,13 @@ export default function Billing() {
   }
 
   // ── No subscription — show plan selector ─────────────────────────────────
+  // A no-card trial tenant (activated via the onboarding "Activate" step) has no
+  // subscription yet but is live on a 7-day trial. Surface that state + urgency.
+  const tenant = me.data?.tenant;
+  const onNoCardTrial = tenant?.activation_method === 'socal_number' && tenant?.trial_ends_at;
+  const trialEnded = onNoCardTrial && new Date(tenant.trial_ends_at) <= new Date();
+  const noCardDaysLeft = onNoCardTrial ? daysUntil(tenant.trial_ends_at) : null;
+
   const planKey = `${selectedPlan}_${billing}`;
 
   return (
@@ -133,6 +140,27 @@ export default function Billing() {
         <h1>Billing</h1>
         <p>Choose a plan to activate your AI receptionist.</p>
       </div>
+
+      {onNoCardTrial && !trialEnded && (
+        <div className="card card-pad" style={{ marginBottom: 16, borderLeft: '3px solid var(--green)' }}>
+          <h3 style={{ marginBottom: 6 }}>Free trial active</h3>
+          <p className="muted" style={{ marginBottom: 0 }}>
+            Your receptionist is live on a free trial
+            {noCardDaysLeft !== null && noCardDaysLeft > 0 && <> — <strong>{noCardDaysLeft} day{noCardDaysLeft === 1 ? '' : 's'} left</strong></>}.
+            Add a card before <strong>{fmtDate(tenant.trial_ends_at)}</strong> to keep it running. No charge until then.
+          </p>
+        </div>
+      )}
+
+      {trialEnded && (
+        <div className="card card-pad" style={{ marginBottom: 16, borderLeft: '3px solid var(--red, #c0392b)' }}>
+          <h3 style={{ marginBottom: 6 }}>Your trial has ended</h3>
+          <p className="muted" style={{ marginBottom: 0 }}>
+            Your free trial ended on <strong>{fmtDate(tenant.trial_ends_at)}</strong> and your receptionist is paused.
+            Add a card and subscribe below to reactivate it right away.
+          </p>
+        </div>
+      )}
 
       {err && <div className="alert alert-error" style={{ marginBottom: 16 }}>{err}</div>}
 

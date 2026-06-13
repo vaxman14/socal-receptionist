@@ -16,6 +16,7 @@ const LINKS = [
   { to: '/', label: 'Overview', end: true },
   { to: '/leads', label: 'Leads' },
   { to: '/calls', label: 'Calls' },
+  { to: '/integrations', label: 'Integrations' },
   { to: '/settings', label: 'Settings' },
   { to: '/billing', label: 'Billing' },
   { to: '/help', label: 'Help & FAQ' },
