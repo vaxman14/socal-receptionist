@@ -242,10 +242,15 @@ app.ws('/voice/stream', handleMediaStream);
 
 // Onboarding API — business registration, then service-agreement e-signature
 // (which gates provisioning). Register is mounted first; both share /onboarding.
+// IMPORTANT: the chat router (requireAuth only) MUST be mounted before the
+// agreement/numbers routers, which apply router-level requireTenant. They share
+// the /onboarding mount, so their requireTenant would otherwise 404 the
+// tenantless onboarding chat (Step 1) with "no tenant for this account" before
+// the chat handler is ever reached.
 app.use('/onboarding', strictLimiter, onboardingRegisterRouter);
+app.use('/onboarding', onboardingChatRouter);
 app.use('/onboarding', onboardingAgreementRouter);
 app.use('/onboarding', onboardingNumbersRouter);
-app.use('/onboarding', onboardingChatRouter);
 
 // MFA API — trusted-device ("trust this device for 30 days") issue / verify /
 // revoke. The TOTP + passkey factors themselves are handled by Supabase Auth
