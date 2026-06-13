@@ -8,12 +8,13 @@ import { useAuth } from '../../context/AuthContext';
 import StepBusiness from './StepBusiness';
 import ChatWizard from './ChatWizard';
 import StepAgreement from './StepAgreement';
+import StepActivate from './StepActivate';
 import StepMfa from './StepMfa';
 import StepDone from './StepDone';
 
 const USE_CHAT = import.meta.env.VITE_CHAT_ONBOARDING === 'true';
 
-const STEPS = ['Your business', 'Service agreement', 'Two-factor auth', 'All set'];
+const STEPS = ['Your business', 'Service agreement', 'Activate', 'Two-factor auth', 'All set'];
 const STORAGE_KEY = 'socal-onboard';
 
 function loadSaved() {
@@ -26,10 +27,11 @@ export default function Wizard({ onComplete }) {
   const [step, setStep] = useState(saved?.step ?? 1);
   const [tenant, setTenant] = useState(saved?.tenant ?? null);
   const [signResult, setSignResult] = useState(saved?.signResult ?? null);
+  const [activation, setActivation] = useState(saved?.activation ?? null);
 
   useEffect(() => {
-    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ step, tenant, signResult })); } catch {}
-  }, [step, tenant, signResult]);
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ step, tenant, signResult, activation })); } catch {}
+  }, [step, tenant, signResult, activation]);
 
   const handleComplete = () => {
     try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
@@ -92,10 +94,19 @@ export default function Wizard({ onComplete }) {
         )}
 
         {step === 3 && (
-          <StepMfa onVerified={() => setStep(4)} />
+          <StepActivate
+            onActivated={(result) => {
+              setActivation(result);
+              setStep(4);
+            }}
+          />
         )}
 
         {step === 4 && (
+          <StepMfa onVerified={() => setStep(5)} />
+        )}
+
+        {step === 5 && (
           <StepDone
             tenant={tenant}
             signResult={signResult}

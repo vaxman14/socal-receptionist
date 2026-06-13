@@ -701,3 +701,31 @@ audio { width: 100%; margin-top: 8px; }
   flex-wrap: wrap;
   margin-top: 4px;
 }
+
+/* ── Activate onboarding step ──────────────────────────────────── */
+.activate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.activate-option {
+  position: relative;
+  border: 1px solid var(--border, #e3e6ea);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #fff;
+}
+.activate-option h3 { margin: 0; }
+.activate-option ul { margin: 0.25rem 0 1rem; padding-left: 1.1rem; font-size: 0.9rem; }
+.activate-option li { margin: 0.15rem 0; }
+.activate-option .btn { margin-top: auto; }
+.activate-concierge { border-color: #c9b8ff; background: #faf8ff; }
+.activate-option .pill {
+  position: absolute; top: 0.9rem; right: 0.9rem;
+  background: #6d4aff; color: #fff; font-size: 0.7rem; font-weight: 600;
+  padding: 0.15rem 0.55rem; border-radius: 999px; letter-spacing: 0.03em;
+}
