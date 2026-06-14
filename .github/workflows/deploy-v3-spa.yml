@@ -29,9 +29,6 @@ jobs:
           VITE_API_BASE: ${{ secrets.V3_VITE_API_BASE }}
           VITE_SUPABASE_URL: ${{ secrets.V3_VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.V3_VITE_SUPABASE_ANON_KEY }}
-          # Optional — when set, Billing uses on-page embedded Stripe Checkout;
-          # unset bakes empty and Billing falls back to the hosted Checkout redirect.
-          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.V3_VITE_STRIPE_PUBLISHABLE_KEY }}
           VITE_SMS_ENABLED: 'false'
 
       - name: Deploy to Netlify

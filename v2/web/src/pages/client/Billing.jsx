@@ -1,15 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useFetch } from '../../lib/useFetch';
 import { api } from '../../lib/api';
 import { Loading, ErrorState } from '../../components/States';
-import { loadStripe } from '@stripe/stripe-js';
-import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe-js';
-
-// Embedded (on-page) checkout activates only when a publishable key is present.
-// Without it, billing falls back to Stripe's hosted Checkout redirect — so the
-// page works either way, and embedded "lights up" the moment the key is set.
-const STRIPE_PK = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
-const stripePromise = STRIPE_PK ? loadStripe(STRIPE_PK) : null;
 
 const PLANS = [
   {
@@ -53,9 +45,6 @@ export default function Billing() {
   const [billing, setBilling] = useState('monthly'); // 'monthly' | 'annual'
   const [selectedPlan, setSelectedPlan] = useState('essentials');
 
-  const [embedded, setEmbedded] = useState(false);
-  const planKey = `${selectedPlan}_${billing}`;
-
   const callApi = useCallback(async (action, body = {}) => {
     setBusy(true);
     setErr(null);
@@ -68,33 +57,6 @@ export default function Billing() {
     } finally {
       setBusy(false);
     }
-  }, []);
-
-  // Stripe calls this to create the embedded checkout session for the chosen plan.
-  const fetchClientSecret = useCallback(
-    () => api.post('/admin/billing/checkout-embedded', { planKey }).then((r) => r.clientSecret),
-    [planKey]
-  );
-
-  // Subscribe: embedded on-page checkout when a publishable key is configured,
-  // otherwise the hosted Stripe Checkout redirect.
-  const onSubscribe = () => {
-    if (stripePromise) setEmbedded(true);
-    else callApi('checkout', { planKey });
-  };
-
-  // Returning from embedded checkout — Stripe appends ?checkout=complete.
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    if (p.get('checkout') === 'complete') {
-      setEmbedded(false);
-      me.reload();
-      const url = new URL(window.location);
-      url.searchParams.delete('checkout');
-      url.searchParams.delete('session_id');
-      window.history.replaceState({}, '', url);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (me.loading) return <Loading label="Loading billing info…" />;
@@ -178,6 +140,8 @@ export default function Billing() {
   const trialEnded = onNoCardTrial && new Date(trialEndsAt) <= new Date();
   const noCardDaysLeft = onNoCardTrial ? daysUntil(trialEndsAt) : null;
 
+  const planKey = `${selectedPlan}_${billing}`;
+
   return (
     <>
       <div className="page-head">
@@ -208,17 +172,6 @@ export default function Billing() {
 
       {err && <div className="alert alert-error" style={{ marginBottom: 16 }}>{err}</div>}
 
-      {embedded && stripePromise ? (
-        <div className="card card-pad">
-          <button className="btn btn-ghost btn-sm" onClick={() => setEmbedded(false)} style={{ marginBottom: 12 }}>
-            ← Back to plans
-          </button>
-          <EmbeddedCheckoutProvider stripe={stripePromise} options={{ fetchClientSecret }}>
-            <EmbeddedCheckout />
-          </EmbeddedCheckoutProvider>
-        </div>
-      ) : (
-      <>
       {/* Billing toggle */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         {['monthly', 'annual'].map((t) => (
@@ -282,14 +235,12 @@ export default function Billing() {
       <div className="card card-pad" style={{ background: 'var(--surface-alt, #f9f9fb)' }}>
         <button
           className="btn btn-primary btn-block"
-          onClick={onSubscribe}
+          onClick={() => callApi('checkout', { planKey })}
           disabled={busy}
         >
-          {busy ? 'Working…' : `Subscribe — ${PLANS.find(p => p.key === selectedPlan)[billing].price} →`}
+          {busy ? 'Redirecting to checkout…' : `Subscribe — ${PLANS.find(p => p.key === selectedPlan)[billing].price} →`}
         </button>
       </div>
-      </>
-      )}
     </>
   );
 }

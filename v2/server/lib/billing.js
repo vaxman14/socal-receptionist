@@ -84,31 +84,6 @@ async function createCheckoutSession({ tenant, priceId, setupPriceId, successUrl
   });
 }
 
-// Embedded Checkout variant — same subscription shape, but renders on our own
-// page (no redirect to stripe.com). Returns a client_secret the SPA mounts with
-// Stripe's EmbeddedCheckout. return_url must carry {CHECKOUT_SESSION_ID}.
-async function createEmbeddedCheckoutSession({ tenant, priceId, setupPriceId, returnUrl }) {
-  const lineItems = [{ price: priceId, quantity: 1 }];
-  if (setupPriceId) lineItems.push({ price: setupPriceId, quantity: 1 });
-
-  const hasSetupFee = Boolean(setupPriceId);
-  const subscriptionData = { metadata: { tenant_id: tenant.id } };
-  if (hasSetupFee) subscriptionData.trial_period_days = TRIAL_DAYS;
-
-  return stripe.checkout.sessions.create({
-    ui_mode: 'embedded',
-    mode: 'subscription',
-    line_items: lineItems,
-    customer_email: tenant.owner_email,
-    client_reference_id: tenant.id,
-    payment_method_collection: hasSetupFee ? 'if_required' : 'always',
-    subscription_data: subscriptionData,
-    metadata: { tenant_id: tenant.id },
-    allow_promotion_codes: true,
-    return_url: returnUrl,
-  });
-}
-
 // Create a Stripe Customer Portal session so a tenant can manage billing.
 async function createPortalSession({ stripeCustomerId, returnUrl }) {
   return stripe.billingPortal.sessions.create({
@@ -249,7 +224,6 @@ module.exports = {
   SETUP_REFUND_AMOUNT_CENTS,
   isEntitled,
   createCheckoutSession,
-  createEmbeddedCheckoutSession,
   createPortalSession,
   recordSetupPayment,
   maybeRefundSetupFee,
