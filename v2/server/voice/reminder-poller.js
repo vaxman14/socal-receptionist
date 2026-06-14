@@ -18,6 +18,7 @@
 const twilio  = require('twilio');
 const { supabase }  = require('../lib/supabase');
 const { resolve: resolveContact } = require('../lib/contact-resolver');
+const { sendEmail } = require('../lib/email');
 const logger  = require('../lib/logger');
 const express = require('express');
 
@@ -45,12 +46,12 @@ async function poll() {
   const apiBase = (process.env.API_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
   if (!apiBase) return;
 
-  // Fetch tenants with outbound enabled and a reminder phone configured
+  // Fetch tenants with outbound enabled. A tenant qualifies if it has a legacy
+  // reminder phone OR any per-user reminder recipients (email-only is valid).
   const { data: tenants } = await supabase
     .from('tenants')
     .select('id, business_name, outbound_reminder_phone')
-    .eq('outbound_enabled', true)
-    .not('outbound_reminder_phone', 'is', null);
+    .eq('outbound_enabled', true);
 
   if (!tenants?.length) return;
 
@@ -60,14 +61,20 @@ async function poll() {
 
   for (const tenant of tenants) {
     try {
-      await pollTenant(tenant, minMs, maxMs, apiBase);
+      const { data: recipients } = await supabase
+        .from('reminder_recipients')
+        .select('name, match_email, call_enabled, call_phone, ext_enabled, ext_value, email_enabled, email_address')
+        .eq('tenant_id', tenant.id);
+      // Nothing to remind through — no recipients and no legacy phone.
+      if ((!recipients || !recipients.length) && !tenant.outbound_reminder_phone) continue;
+      await pollTenant(tenant, recipients || [], minMs, maxMs, apiBase);
     } catch (err) {
       logger.error('reminder-poller.tenant_failed', { tenantId: tenant.id, error: err.message });
     }
   }
 }
 
-async function pollTenant(tenant, minMs, maxMs, apiBase) {
+async function pollTenant(tenant, recipients, minMs, maxMs, apiBase) {
   const events = await fetchUpcomingEvents(tenant.id, minMs, maxMs);
   if (!events.length) return;
 
@@ -98,7 +105,29 @@ async function pollTenant(tenant, minMs, maxMs, apiBase) {
       if (!attendeeName) attendeeName = attendee.name;
     }
 
-    // Insert reminder row first (unique constraint prevents double-fire)
+    // Route by event organizer → per-user recipient. Fall back to the legacy
+    // single reminder phone when the organizer has no configured recipient.
+    const organizer = (event.organizerEmail || '').toLowerCase();
+    const recipient = organizer
+      ? recipients.find(r => (r.match_email || '').toLowerCase() === organizer)
+      : null;
+
+    const willEmail = !!(recipient && recipient.email_enabled && recipient.email_address);
+    let callTo = null;
+    if (recipient) {
+      if (recipient.call_enabled && recipient.call_phone) callTo = recipient.call_phone;
+      // ext_enabled targets a PBX extension — requires a connected phone system
+      // to bridge, so it's stored now and dialed once SIP routing lands.
+    } else if (tenant.outbound_reminder_phone) {
+      callTo = tenant.outbound_reminder_phone;
+    }
+
+    // Nothing actionable for this event/organizer — skip without writing a row.
+    if (!willEmail && !callTo) continue;
+
+    const mins = Math.round((new Date(event.startAt).getTime() - Date.now()) / 60000);
+
+    // Insert reminder row first (unique constraint prevents double-fire).
     const { data: reminder, error: insertErr } = await supabase
       .from('call_reminders')
       .insert({
@@ -109,7 +138,7 @@ async function pollTenant(tenant, minMs, maxMs, apiBase) {
         attendee_phone: attendeePhone || null,
         event_title:    event.title   || null,
         starts_at:      new Date(event.startAt).toISOString(),
-        status:         'calling',
+        status:         callTo ? 'calling' : 'notified',
       })
       .select()
       .single();
@@ -121,25 +150,38 @@ async function pollTenant(tenant, minMs, maxMs, apiBase) {
       continue;
     }
 
-    // Fire the Twilio call
-    const mins = Math.round((new Date(event.startAt).getTime() - Date.now()) / 60000);
-    try {
-      const call = await twilioClient().calls.create({
-        to:   tenant.outbound_reminder_phone,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        url:  `${apiBase}/voice/reminder/twiml?rid=${reminder.id}&mins=${mins}&name=${encodeURIComponent(attendeeName)}&phone=${encodeURIComponent(attendeePhone)}&title=${encodeURIComponent(event.title || '')}`,
-        statusCallback: `${apiBase}/voice/reminder/outbound-status?rid=${reminder.id}`,
-        statusCallbackMethod: 'POST',
-        statusCallbackEvent: ['completed', 'failed', 'no-answer', 'busy'],
-      });
+    // Email channel.
+    if (willEmail) {
+      const who  = attendeeName ? ` with ${attendeeName}` : (event.title ? ` for "${event.title}"` : '');
+      const when = mins <= 1 ? 'in 1 minute' : `in ${mins} minutes`;
+      await sendEmail({
+        to:      recipient.email_address,
+        subject: `Reminder: upcoming call${who} ${when}`,
+        text:    `Heads up — you have a call${who} ${when}.` + (attendeePhone ? ` Contact number: ${attendeePhone}.` : ''),
+        html:    `<p>Heads up — you have a call${who} <strong>${when}</strong>.</p>` + (attendeePhone ? `<p>Contact number: ${attendeePhone}</p>` : ''),
+      }).catch(err => logger.warn('reminder-poller.email_failed', { tenantId: tenant.id, error: err.message }));
+    }
 
-      await supabase.from('call_reminders').update({ call_sid: call.sid })
-        .eq('id', reminder.id);
+    // Call channel.
+    if (callTo) {
+      try {
+        const call = await twilioClient().calls.create({
+          to:   callTo,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          url:  `${apiBase}/voice/reminder/twiml?rid=${reminder.id}&mins=${mins}&name=${encodeURIComponent(attendeeName)}&phone=${encodeURIComponent(attendeePhone)}&title=${encodeURIComponent(event.title || '')}`,
+          statusCallback: `${apiBase}/voice/reminder/outbound-status?rid=${reminder.id}`,
+          statusCallbackMethod: 'POST',
+          statusCallbackEvent: ['completed', 'failed', 'no-answer', 'busy'],
+        });
 
-      logger.info('reminder-poller.call_fired', { tenantId: tenant.id, reminderId: reminder.id, callSid: call.sid });
-    } catch (err) {
-      await supabase.from('call_reminders').update({ status: 'failed' }).eq('id', reminder.id);
-      logger.error('reminder-poller.call_failed', { tenantId: tenant.id, error: err.message });
+        await supabase.from('call_reminders').update({ call_sid: call.sid })
+          .eq('id', reminder.id);
+
+        logger.info('reminder-poller.call_fired', { tenantId: tenant.id, reminderId: reminder.id, callSid: call.sid });
+      } catch (err) {
+        await supabase.from('call_reminders').update({ status: 'failed' }).eq('id', reminder.id);
+        logger.error('reminder-poller.call_failed', { tenantId: tenant.id, error: err.message });
+      }
     }
   }
 }

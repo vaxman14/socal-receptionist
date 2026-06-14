@@ -148,11 +148,34 @@ async function listUpcomingEvents(tenantId, windowMs = 30 * 60 * 1000) {
     title:     e.summary || '',
     startAt:   e.start?.dateTime || e.start?.date,
     endAt:     e.end?.dateTime   || e.end?.date,
+    // Organizer drives per-recipient reminder routing (who owns the event).
+    organizerEmail: e.organizer?.email || '',
+    organizerName:  e.organizer?.displayName || '',
     attendees: (e.attendees || []).map(a => ({
       name:  a.displayName || (a.email ? a.email.split('@')[0] : ''),
       email: a.email || '',
     })),
   }));
+}
+
+// List the calendars this account can see. Each calendar maps to a person or
+// resource — used to populate per-user reminder recipients. We treat the
+// calendar id (an email) as the match identity.
+async function listUsers(tenantId) {
+  const accessToken = await getAccessToken(tenantId);
+  const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Google calendarList failed: ${res.status}`);
+  const body = await res.json();
+  return (body.items || [])
+    .filter(c => c.id && c.id.includes('@'))
+    .map(c => ({
+      name:       c.summaryOverride || c.summary || c.id,
+      email:      c.id,
+      externalId: c.id,
+      source:     'google',
+    }));
 }
 
 // Create an event on the tenant's primary calendar.
@@ -189,4 +212,4 @@ async function disconnect(tenantId) {
     .eq('tenant_id', tenantId).eq('provider', 'google_calendar');
 }
 
-module.exports = { buildAuthUrl, exchangeCode, saveTokens, getAccountInfo, getAccessToken, listUpcomingEvents, createEvent, disconnect };
+module.exports = { buildAuthUrl, exchangeCode, saveTokens, getAccountInfo, getAccessToken, listUpcomingEvents, listUsers, createEvent, disconnect };

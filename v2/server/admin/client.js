@@ -471,6 +471,177 @@ router.post('/marketing/review-request', requireAal2, express.json(), async (req
 });
 
 // ---------------------------------------------------------------------------
+// Reminder recipients — per-user proactive reminders
+// ---------------------------------------------------------------------------
+
+const REMINDER_COLS = 'id, name, match_email, source, external_id, call_enabled, call_phone, ext_enabled, ext_value, email_enabled, email_address';
+
+// Coerce one client-supplied recipient into a clean, storable row. Returns
+// { row } or { error }.
+function sanitizeRecipient(r, tenantId) {
+  if (!r || typeof r !== 'object') return { error: 'invalid recipient' };
+  const name = typeof r.name === 'string' ? r.name.trim().slice(0, 200) : '';
+  if (!name) return { error: 'each recipient needs a name' };
+
+  const row = {
+    tenant_id:     tenantId,
+    name,
+    match_email:   typeof r.match_email === 'string' && r.match_email.trim() ? r.match_email.trim().slice(0, 320) : null,
+    source:        ['manual', 'clio', 'google', 'microsoft'].includes(r.source) ? r.source : 'manual',
+    external_id:   typeof r.external_id === 'string' ? r.external_id.slice(0, 200) : null,
+    call_enabled:  !!r.call_enabled,
+    call_phone:    null,
+    ext_enabled:   !!r.ext_enabled,
+    ext_value:     typeof r.ext_value === 'string' ? r.ext_value.trim().slice(0, 32) : null,
+    email_enabled: !!r.email_enabled,
+    email_address: null,
+  };
+
+  if (row.match_email && !isValidEmail(row.match_email)) return { error: `"${row.match_email}" is not a valid email` };
+
+  if (row.call_enabled) {
+    const normalized = normalizePhone(r.call_phone);
+    if (!normalized) return { error: `${name}: a valid call phone number is required when call reminders are on` };
+    row.call_phone = normalized;
+  } else if (r.call_phone) {
+    row.call_phone = normalizePhone(r.call_phone) || null;
+  }
+
+  if (row.ext_enabled && !row.ext_value) return { error: `${name}: an extension is required when extension reminders are on` };
+
+  if (row.email_enabled) {
+    if (!isValidEmail(r.email_address)) return { error: `${name}: a valid email is required when email reminders are on` };
+    row.email_address = r.email_address.trim();
+  } else if (r.email_address && isValidEmail(r.email_address)) {
+    row.email_address = r.email_address.trim();
+  }
+
+  return { row };
+}
+
+// GET /admin/reminders — list this tenant's reminder recipients.
+router.get('/reminders', async (req, res) => {
+  const { data, error } = await supabase
+    .from('reminder_recipients')
+    .select(REMINDER_COLS)
+    .eq('tenant_id', req.tenant.id)
+    .order('name', { ascending: true });
+  if (error) {
+    console.error('[admin] list reminders failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+  res.json({ recipients: data || [] });
+});
+
+// PUT /admin/reminders — replace the full recipient set for this tenant.
+router.put('/reminders', requireAal2, express.json(), async (req, res) => {
+  const incoming = req.body && req.body.recipients;
+  if (!Array.isArray(incoming)) return res.status(400).json({ error: 'recipients array required' });
+  if (incoming.length > 200) return res.status(400).json({ error: 'maximum 200 recipients' });
+
+  const rows = [];
+  for (const r of incoming) {
+    const { row, error } = sanitizeRecipient(r, req.tenant.id);
+    if (error) return res.status(400).json({ error });
+    rows.push(row);
+  }
+
+  // Replace-all: simplest predictable semantics for a managed list.
+  const { error: delErr } = await supabase.from('reminder_recipients').delete().eq('tenant_id', req.tenant.id);
+  if (delErr) {
+    console.error('[admin] reminders clear failed:', delErr);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+  if (rows.length) {
+    const { error: insErr } = await supabase.from('reminder_recipients').insert(rows);
+    if (insErr) {
+      console.error('[admin] reminders insert failed:', insErr);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+  const { data } = await supabase
+    .from('reminder_recipients')
+    .select(REMINDER_COLS)
+    .eq('tenant_id', req.tenant.id)
+    .order('name', { ascending: true });
+  res.json({ recipients: data || [] });
+});
+
+// POST /admin/reminders/sync — pull users from connected calendar/practice
+// integrations and add any not already present (channels start disabled).
+router.post('/reminders/sync', requireAal2, async (req, res) => {
+  const { data: ints } = await supabase
+    .from('tenant_integrations')
+    .select('provider, enabled')
+    .eq('tenant_id', req.tenant.id)
+    .eq('enabled', true);
+  const connected = new Set((ints || []).map(i => i.provider));
+
+  const found = [];
+  const errors = [];
+  const sources = [
+    { provider: 'clio',            mod: '../integrations/clio' },
+    { provider: 'google_calendar', mod: '../integrations/google-calendar' },
+  ];
+  for (const s of sources) {
+    if (!connected.has(s.provider)) continue;
+    try {
+      const users = await require(s.mod).listUsers(req.tenant.id);
+      found.push(...users);
+    } catch (err) {
+      console.error(`[admin] reminder sync ${s.provider} failed:`, err.message);
+      errors.push(s.provider);
+    }
+  }
+
+  if (!found.length) {
+    const msg = connected.has('clio') || connected.has('google_calendar')
+      ? 'Could not pull any users from your connected calendar. Add them manually below.'
+      : 'Connect Clio or Google Calendar on the Integrations page first, then sync.';
+    return res.status(errors.length ? 502 : 400).json({ error: msg });
+  }
+
+  // Existing match emails so we only add new people.
+  const { data: existing } = await supabase
+    .from('reminder_recipients')
+    .select('match_email')
+    .eq('tenant_id', req.tenant.id);
+  const have = new Set((existing || []).map(e => (e.match_email || '').toLowerCase()).filter(Boolean));
+
+  const toInsert = [];
+  const seen = new Set();
+  for (const u of found) {
+    const email = (u.email || '').toLowerCase();
+    if (!email || have.has(email) || seen.has(email)) continue;
+    seen.add(email);
+    toInsert.push({
+      tenant_id:     req.tenant.id,
+      name:          u.name || u.email,
+      match_email:   u.email,
+      source:        u.source || 'manual',
+      external_id:   u.externalId || null,
+      email_enabled: false,
+      email_address: u.email,
+    });
+  }
+
+  if (toInsert.length) {
+    const { error: insErr } = await supabase.from('reminder_recipients').insert(toInsert);
+    if (insErr) {
+      console.error('[admin] reminder sync insert failed:', insErr);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  const { data } = await supabase
+    .from('reminder_recipients')
+    .select(REMINDER_COLS)
+    .eq('tenant_id', req.tenant.id)
+    .order('name', { ascending: true });
+  res.json({ recipients: data || [], added: toInsert.length });
+});
+
+// ---------------------------------------------------------------------------
 // Time tickets
 // ---------------------------------------------------------------------------
 

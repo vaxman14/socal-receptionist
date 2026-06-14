@@ -184,4 +184,22 @@ async function disconnect(tenantId) {
     .eq('provider', 'clio');
 }
 
-module.exports = { buildAuthUrl, exchangeCode, saveTokens, getFirmInfo, pushTimeEntry, disconnect };
+// List the firm's Clio users — used to populate per-user reminder recipients.
+async function listUsers(tenantId) {
+  const accessToken = await getAccessToken(tenantId);
+  const res = await fetch(`${CLIO_BASE}/users.json?fields=id,name,email&limit=200`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Clio users fetch failed: ${res.status}`);
+  const json = await res.json();
+  return (json.data || [])
+    .filter(u => u.email)
+    .map(u => ({
+      name:       u.name || u.email,
+      email:      u.email,
+      externalId: String(u.id),
+      source:     'clio',
+    }));
+}
+
+module.exports = { buildAuthUrl, exchangeCode, saveTokens, getFirmInfo, pushTimeEntry, listUsers, disconnect };
