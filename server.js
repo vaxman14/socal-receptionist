@@ -199,6 +199,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/roadmap', (req, res) => res.sendFile(path.join(__dirname, 'public', 'roadmap.html')));
 
+app.get('/deck', (req, res) => res.sendFile(path.join(__dirname, 'public', 'deck.html')));
+
 // Inject analytics tags into the landing page HTML at request time so
 // GTM_ID / GA_ID / FB_PIXEL_ID env vars take effect without a redeploy.
 app.use((req, res, next) => {
