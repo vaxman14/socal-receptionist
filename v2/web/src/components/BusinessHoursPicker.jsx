@@ -122,24 +122,26 @@ export default function BusinessHoursPicker({ value, onChange }) {
                 <select value={day.to} onChange={(e) => update(i, { to: e.target.value })}>
                   {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
-                <label className="hours-lunch-toggle">
-                  <input type="checkbox" checked={day.hasLunch} onChange={(e) => update(i, { hasLunch: e.target.checked })} />
-                  <span>Lunch</span>
-                </label>
               </div>
 
-              {day.hasLunch && (
-                <div className="hours-times hours-lunch-row">
-                  <span className="hours-sep" style={{ minWidth: 50 }}>Break:</span>
-                  <select value={day.lunchStart} onChange={(e) => update(i, { lunchStart: e.target.value })}>
-                    {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                  <span className="hours-sep">to</span>
-                  <select value={day.lunchEnd} onChange={(e) => update(i, { lunchEnd: e.target.value })}>
-                    {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
-              )}
+              <div className="hours-lunch">
+                <label className="hours-lunch-toggle">
+                  <input type="checkbox" checked={day.hasLunch} onChange={(e) => update(i, { hasLunch: e.target.checked })} />
+                  <span>Lunch break</span>
+                </label>
+
+                {day.hasLunch && (
+                  <div className="hours-times hours-lunch-row">
+                    <select value={day.lunchStart} onChange={(e) => update(i, { lunchStart: e.target.value })}>
+                      {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                    <span className="hours-sep">to</span>
+                    <select value={day.lunchEnd} onChange={(e) => update(i, { lunchEnd: e.target.value })}>
+                      {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <span className="hours-closed">Closed</span>

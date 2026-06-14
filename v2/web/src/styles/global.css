@@ -555,24 +555,27 @@ audio { width: 100%; margin-top: 8px; }
 }
 
 /* Business Hours Picker */
-.hours-picker { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
-.hours-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.hours-picker { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.hours-row { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .hours-row:last-child { border-bottom: none; }
-.hours-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; min-width: 60px; }
+.hours-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; min-width: 58px; padding-top: 6px; }
 .hours-toggle input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; }
 .hours-day { font-size: 0.85rem; font-weight: 600; color: var(--text); width: 30px; }
 .hours-times { display: flex; align-items: center; gap: 8px; flex: 1; }
 .hours-times select { flex: 1; padding: 5px 8px; font-size: 0.82rem; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; color: var(--text); min-width: 0; }
 .hours-sep { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
-.hours-closed { font-size: 0.82rem; color: var(--muted); font-style: italic; }
+.hours-closed { font-size: 0.82rem; color: var(--muted); font-style: italic; padding-top: 6px; }
 @media (max-width: 480px) {
   .hours-times { flex-wrap: wrap; }
   .hours-times select { min-width: 120px; }
 }
 .hours-open-block { display: flex; flex-direction: column; gap: 6px; flex: 1; }
-.hours-lunch-toggle { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--muted); white-space: nowrap; cursor: pointer; margin-left: 4px; }
+/* Lunch lives directly under the main hours selector, indented to read as a child setting. */
+.hours-lunch { display: flex; flex-direction: column; gap: 6px; }
+.hours-lunch-toggle { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); white-space: nowrap; cursor: pointer; }
 .hours-lunch-toggle input { accent-color: var(--green); }
-.hours-lunch-row { padding-left: 2px; }
+.hours-lunch-row { padding-left: 18px; }
+.hours-lunch-row select { flex: 0 1 132px; }
 
 /* Pagination */
 .pagination { display: flex; align-items: center; gap: 12px; padding: 14px 0 4px; }

@@ -35,7 +35,6 @@ const FIELDS = [
   'voice_id',
   'outbound_enabled',
   'outbound_reminder_phone',
-  'outbound_caller_id',
 ];
 
 const VOICE_OPTIONS = [
@@ -342,7 +341,7 @@ export default function Settings() {
             </label>
           </div>
 
-          <label className="field">
+          <label className="field" style={{ marginBottom: 0 }}>
             <span className="label">
               Reminder phone number {form.outbound_enabled ? '*' : ''}
             </span>
@@ -354,20 +353,6 @@ export default function Settings() {
             />
             <span className="hint">
               The AI will call this number 5 minutes before calendar events to remind you and offer to connect your contact.
-            </span>
-          </label>
-
-          <label className="field" style={{ marginBottom: 0 }}>
-            <span className="label">Outbound caller ID</span>
-            <input
-              type="tel"
-              value={form.outbound_caller_id}
-              onChange={set('outbound_caller_id')}
-              placeholder="+1 555 000 0000"
-            />
-            <span className="hint">
-              The number that appears when the AI dials on your behalf. Defaults to your main receptionist number.
-              Must be a Twilio-verified number.
             </span>
           </label>
         </div>

@@ -11,6 +11,8 @@ const { createCheckoutSession, createPortalSession } = require('../lib/billing')
 const { listTickets, updateTicket, bulkAccept, exportCsv } = require('../lib/time-tickets');
 const { listLeads: listOutboundLeads, createLead, bulkCreateLeads, updateLead, deleteLead } = require('../lib/outbound-leads');
 const { normalizePhone, isValidTimezone, isValidEmail } = require('../lib/validate');
+const { sendEmail } = require('../lib/email');
+const { sendSms } = require('../lib/sms');
 
 // ---------------------------------------------------------------------------
 // Server-side price ID allowlist (issue #3 — client-supplied price IDs)
@@ -83,7 +85,6 @@ const EDITABLE_FIELDS = [
   // Outbound Call Assist config.
   'outbound_enabled',
   'outbound_reminder_phone',  // number Josi calls to give proactive reminders
-  'outbound_caller_id',       // number the professional calls FROM to reach Josi
 ];
 
 router.use(requireAuth, requireTenant);
@@ -156,7 +157,7 @@ router.get('/voice/preview', async (req, res) => {
 });
 
 // PATCH /admin/tenant — update business config (whitelisted fields only).
-const PHONE_FIELDS = ['staff_phone', 'outbound_reminder_phone', 'outbound_caller_id'];
+const PHONE_FIELDS = ['staff_phone', 'outbound_reminder_phone'];
 
 router.patch('/tenant', requireAal2, async (req, res) => {
   const patch = {};
@@ -429,6 +430,44 @@ router.post('/billing/portal', requireAal2, async (req, res) => {
     console.error('[admin] portal failed:', err);
     res.status(500).json({ error: 'portal failed' });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Marketing — Google review requests
+// ---------------------------------------------------------------------------
+
+// POST /admin/marketing/review-request — text or email a customer the tenant's
+// Google review link. The link is whatever the tenant saved as their Google
+// Business Profile handle (social_handles.google_business).
+router.post('/marketing/review-request', requireAal2, express.json(), async (req, res) => {
+  const { channel, to } = req.body || {};
+  if (!['sms', 'email'].includes(channel)) {
+    return res.status(400).json({ error: 'channel must be "sms" or "email"' });
+  }
+
+  const reviewLink = req.tenant.social_handles && req.tenant.social_handles.google_business;
+  if (!reviewLink) {
+    return res.status(400).json({ error: 'Add your Google review link on the Marketing page first.' });
+  }
+
+  const businessName = req.tenant.business_name || 'our team';
+  const message = `Hi! Thanks for choosing ${businessName}. We'd love your feedback — leave us a quick Google review here: ${reviewLink}`;
+
+  if (channel === 'sms') {
+    const normalized = normalizePhone(to);
+    if (!normalized) return res.status(400).json({ error: 'Enter a valid phone number (e.g. +19515551234).' });
+    const result = await sendSms({ tenantId: req.tenant.id, to: normalized, body: message });
+    if (!result.ok) return res.status(502).json({ error: result.error || 'Could not send the text.' });
+    return res.json({ ok: true });
+  }
+
+  // email
+  if (!isValidEmail(to)) return res.status(400).json({ error: 'Enter a valid email address.' });
+  const html = `<p>Hi,</p><p>Thanks for choosing <strong>${businessName}</strong>. We'd love your feedback!</p>`
+    + `<p><a href="${reviewLink}">Leave us a quick Google review</a></p><p>Thank you,<br/>${businessName}</p>`;
+  const result = await sendEmail({ to, subject: `How was your experience with ${businessName}?`, html, text: message });
+  if (!result.ok) return res.status(502).json({ error: result.error || 'Could not send the email.' });
+  return res.json({ ok: true });
 });
 
 // ---------------------------------------------------------------------------

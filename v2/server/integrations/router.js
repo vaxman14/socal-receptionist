@@ -171,7 +171,11 @@ router.get('/:provider/connect', requireAuth, requireAal2, requireTenant, (req, 
     ? `http://localhost:${process.env.PORT || 8080}`
     : apiBase();
   const url = provider.buildAuthUrl(callbackBase, state);
-  res.redirect(url);
+  // Return the authorize URL as JSON rather than a 302. The SPA must call this
+  // with its bearer token (a plain <a href> can't carry the Authorization
+  // header, which is what produced the "missing bearer token" error), then
+  // redirect the browser to `url` itself.
+  res.json({ url });
 });
 
 // GET /integrations/:provider/callback — handle OAuth callback

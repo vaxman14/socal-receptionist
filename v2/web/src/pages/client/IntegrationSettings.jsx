@@ -121,10 +121,12 @@ const SECTIONS = [
 
 // ── OAuth card ────────────────────────────────────────────────────────────────
 
-function OAuthCard({ provider, integration, onDisconnect, onConfigure, apiBase }) {
+function OAuthCard({ provider, integration, onDisconnect, onConfigure, onConnect }) {
   const [disconnecting, setDisconnecting] = useState(false);
   const [configuring, setConfiguring] = useState(false);
   const [configMsg, setConfigMsg] = useState(null);
+  const [connecting, setConnecting] = useState(false);
+  const [connectErr, setConnectErr] = useState(null);
   const connected = !!integration;
   const hasError = !!integration?.last_error;
 
@@ -132,6 +134,22 @@ function OAuthCard({ provider, integration, onDisconnect, onConfigure, apiBase }
     if (!confirm(`Disconnect ${provider.name}? This won't delete your data in ${provider.name}.`)) return;
     setDisconnecting(true);
     try { await onDisconnect(provider.id); } finally { setDisconnecting(false); }
+  }
+
+  async function handleConnect() {
+    setConnecting(true);
+    setConnectErr(null);
+    try {
+      await onConnect(provider.id);
+    } catch (err) {
+      // requireAal2 on the connect route surfaces as a 401/403 — point the user
+      // at MFA rather than showing a raw error.
+      const msg = err?.status === 401 || err?.status === 403
+        ? 'Enable two-factor authentication in Settings → Security before connecting.'
+        : (err?.message || `Could not start the ${provider.name} connection.`);
+      setConnectErr(msg);
+      setConnecting(false);
+    }
   }
 
   async function handleConfigure() {
@@ -183,6 +201,10 @@ function OAuthCard({ provider, integration, onDisconnect, onConfigure, apiBase }
         <p className="hint" style={{ marginTop: 6 }}>{provider.configureHint}</p>
       )}
 
+      {connectErr && (
+        <div className="alert alert-error" style={{ marginTop: 8 }}>{connectErr}</div>
+      )}
+
       <div className="integration-actions">
         {connected ? (
           <>
@@ -204,12 +226,13 @@ function OAuthCard({ provider, integration, onDisconnect, onConfigure, apiBase }
             </button>
           </>
         ) : (
-          <a
-            href={`${apiBase}/integrations/${provider.id}/connect`}
+          <button
             className="btn btn-primary btn-sm"
+            onClick={handleConnect}
+            disabled={connecting}
           >
-            Connect {provider.name}
-          </a>
+            {connecting ? 'Connecting…' : `Connect ${provider.name}`}
+          </button>
         )}
       </div>
     </div>
@@ -356,6 +379,16 @@ export default function IntegrationSettings() {
     await api.post(endpoint, {});
   }
 
+  // Start an OAuth connection. The connect endpoint requires the bearer token,
+  // so we fetch it (authenticated) to get the provider authorize URL, then send
+  // the browser there. A plain link can't carry the token — that was the
+  // "missing bearer token" bug.
+  async function handleConnect(providerId) {
+    const { url } = await api.get(`/integrations/${providerId}/connect`);
+    if (!url) throw new Error('No authorization URL returned.');
+    window.location.href = url;
+  }
+
   async function handleSaveApiKey(providerId, apiKey) {
     try {
       await api.post(`/integrations/${providerId}/connect`, { api_key: apiKey });
@@ -370,7 +403,6 @@ export default function IntegrationSettings() {
 
   const integrations = data?.integrations || [];
   const byProvider = Object.fromEntries(integrations.map(i => [i.provider, i]));
-  const apiBase = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '');
 
   return (
     <div className="page">
@@ -412,7 +444,7 @@ export default function IntegrationSettings() {
                   integration={integration}
                   onDisconnect={handleDisconnect}
                   onConfigure={handleConfigure}
-                  apiBase={apiBase}
+                  onConnect={handleConnect}
                 />
               );
             })}

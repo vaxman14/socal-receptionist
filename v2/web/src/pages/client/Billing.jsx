@@ -63,14 +63,19 @@ export default function Billing() {
   if (me.error) return <ErrorState message={me.error} onRetry={me.reload} />;
 
   const sub = me.data?.subscription;
-  const hasActiveSub = sub && ENTITLED.includes(sub.status);
+  // A real Stripe-backed subscription has a customer. A no-card trial may have a
+  // 'trialing' subscription row but NO Stripe customer — the billing portal has
+  // nothing to open for it (that produced the "no billing account yet" error),
+  // so those users belong in the plan selector / add-a-card flow below.
+  const hasStripeCustomer = !!sub?.stripe_customer_id;
+  const hasManagedSub = sub && ENTITLED.includes(sub.status) && hasStripeCustomer;
   const isTrialing = sub?.status === 'trialing';
   const trialDaysLeft = isTrialing ? daysUntil(sub.trial_ends_at) : null;
   const setupDaysAgo = sub?.setup_paid_at ? daysAgo(sub.setup_paid_at) : null;
   const inRefundWindow = setupDaysAgo !== null && setupDaysAgo <= REFUND_WINDOW_DAYS;
 
-  // ── Active / trialing subscriber ──────────────────────────────────────────
-  if (hasActiveSub) {
+  // ── Active / trialing subscriber with a real billing account ──────────────
+  if (hasManagedSub) {
     return (
       <>
         <div className="page-head">
@@ -128,9 +133,12 @@ export default function Billing() {
   // A no-card trial tenant (activated via the onboarding "Activate" step) has no
   // subscription yet but is live on a 7-day trial. Surface that state + urgency.
   const tenant = me.data?.tenant;
-  const onNoCardTrial = tenant?.activation_method === 'socal_number' && tenant?.trial_ends_at;
-  const trialEnded = onNoCardTrial && new Date(tenant.trial_ends_at) <= new Date();
-  const noCardDaysLeft = onNoCardTrial ? daysUntil(tenant.trial_ends_at) : null;
+  // Trial end can live on the tenant (no-card activation) or on a customer-less
+  // 'trialing' subscription row. Accept either so the banner always shows.
+  const trialEndsAt = tenant?.trial_ends_at || (isTrialing && !hasStripeCustomer ? sub?.trial_ends_at : null);
+  const onNoCardTrial = !!trialEndsAt;
+  const trialEnded = onNoCardTrial && new Date(trialEndsAt) <= new Date();
+  const noCardDaysLeft = onNoCardTrial ? daysUntil(trialEndsAt) : null;
 
   const planKey = `${selectedPlan}_${billing}`;
 
@@ -147,7 +155,7 @@ export default function Billing() {
           <p className="muted" style={{ marginBottom: 0 }}>
             Your receptionist is live on a free trial
             {noCardDaysLeft !== null && noCardDaysLeft > 0 && <> — <strong>{noCardDaysLeft} day{noCardDaysLeft === 1 ? '' : 's'} left</strong></>}.
-            Add a card before <strong>{fmtDate(tenant.trial_ends_at)}</strong> to keep it running. No charge until then.
+            Add a card before <strong>{fmtDate(trialEndsAt)}</strong> to keep it running. No charge until then.
           </p>
         </div>
       )}
@@ -156,7 +164,7 @@ export default function Billing() {
         <div className="card card-pad" style={{ marginBottom: 16, borderLeft: '3px solid var(--red, #c0392b)' }}>
           <h3 style={{ marginBottom: 6 }}>Your trial has ended</h3>
           <p className="muted" style={{ marginBottom: 0 }}>
-            Your free trial ended on <strong>{fmtDate(tenant.trial_ends_at)}</strong> and your receptionist is paused.
+            Your free trial ended on <strong>{fmtDate(trialEndsAt)}</strong> and your receptionist is paused.
             Add a card and subscribe below to reactivate it right away.
           </p>
         </div>
