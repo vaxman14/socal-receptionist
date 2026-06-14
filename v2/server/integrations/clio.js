@@ -99,7 +99,7 @@ async function getAccessToken(tenantId) {
 }
 
 async function saveTokens(tenantId, tokens, extra = {}) {
-  await supabase.from('tenant_integrations').upsert({
+  const { error } = await supabase.from('tenant_integrations').upsert({
     tenant_id: tenantId,
     provider: 'clio',
     access_token: tokens.access_token,
@@ -108,6 +108,9 @@ async function saveTokens(tenantId, tokens, extra = {}) {
     extra,
     enabled: true,
   }, { onConflict: 'tenant_id,provider' });
+  // Surface DB failures instead of swallowing them — a silent upsert error here
+  // would let the callback redirect "connected" with no row actually saved.
+  if (error) throw new Error(`saveTokens(clio) failed: ${error.message}`);
 }
 
 async function getFirmInfo(accessToken) {

@@ -351,13 +351,21 @@ function ApiKeyCard({ provider, integration, onDisconnect, onConfigure, onSaveAp
 
 export default function IntegrationSettings() {
   const { data, loading, error, reload } = useFetch('/integrations');
+  const [flash, setFlash] = useState(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const integration = params.get('integration');
     const status = params.get('status');
     if (integration && status) {
-      if (status === 'connected') reload();
+      const msg = params.get('msg');
+      if (status === 'connected') {
+        setFlash({ ok: true, text: `${integration} connected.` });
+        reload();
+      } else if (status === 'error') {
+        // Surface the real reason instead of silently bouncing back to "Connect".
+        setFlash({ ok: false, text: `Couldn't connect ${integration}: ${msg ? decodeURIComponent(msg) : 'authorization failed'}` });
+      }
       const url = new URL(window.location);
       url.searchParams.delete('integration');
       url.searchParams.delete('status');
@@ -414,6 +422,12 @@ export default function IntegrationSettings() {
           </p>
         </div>
       </div>
+
+      {flash && (
+        <div className={`alert ${flash.ok ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: 16 }}>
+          {flash.text}
+        </div>
+      )}
 
       {SECTIONS.map(section => (
         <div key={section.id} className="integration-section">

@@ -216,7 +216,8 @@ router.get('/:provider/callback', async (req, res) => {
     res.redirect(`${spaBase()}/settings?integration=${req.params.provider}&status=connected`);
   } catch (err) {
     console.error(`[integrations/${req.params.provider}] callback error:`, err.message);
-    res.redirect(`${spaBase()}/settings?integration=${req.params.provider}&status=error`);
+    const reason = encodeURIComponent((err.message || 'authorization failed').slice(0, 200));
+    res.redirect(`${spaBase()}/settings?integration=${req.params.provider}&status=error&msg=${reason}`);
   }
 });
 
