@@ -7,7 +7,7 @@
 const express = require('express');
 const { supabase } = require('../lib/supabase');
 const { requireAuth, requireTenant, requireAal2 } = require('../lib/auth');
-const { createCheckoutSession, createPortalSession } = require('../lib/billing');
+const { createCheckoutSession, createEmbeddedCheckoutSession, createPortalSession } = require('../lib/billing');
 const { listTickets, updateTicket, bulkAccept, exportCsv } = require('../lib/time-tickets');
 const { listLeads: listOutboundLeads, createLead, bulkCreateLeads, updateLead, deleteLead } = require('../lib/outbound-leads');
 const { normalizePhone, isValidTimezone, isValidEmail } = require('../lib/validate');
@@ -404,6 +404,33 @@ router.post('/billing/checkout', requireAal2, async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     console.error('[admin] checkout failed:', err);
+    res.status(500).json({ error: 'checkout failed' });
+  }
+});
+
+// POST /admin/billing/checkout-embedded — same subscription as /checkout but
+// returns a client_secret for on-page (embedded) Stripe Checkout — no redirect
+// to stripe.com. The SPA only sends named plan keys here.
+router.post('/billing/checkout-embedded', requireAal2, async (req, res) => {
+  try {
+    const { planKey } = req.body;
+    if (!planKey || !Object.keys(PLAN_PRICE_MAP).includes(planKey)) {
+      return res.status(400).json({ error: 'unknown plan' });
+    }
+    const priceId = PLAN_PRICE_MAP[planKey];
+    if (!priceId) return res.status(400).json({ error: 'no plan price configured' });
+    const setupPriceId = PLAN_SETUP_MAP[planKey] || null;
+
+    const base = (process.env.WEB_BASE_URL || process.env.APP_BASE_URL || '').replace(/\/+$/, '');
+    const session = await createEmbeddedCheckoutSession({
+      tenant: req.tenant,
+      priceId,
+      setupPriceId,
+      returnUrl: `${base}/billing?checkout=complete&session_id={CHECKOUT_SESSION_ID}`,
+    });
+    res.json({ clientSecret: session.client_secret });
+  } catch (err) {
+    console.error('[admin] embedded checkout failed:', err);
     res.status(500).json({ error: 'checkout failed' });
   }
 });
