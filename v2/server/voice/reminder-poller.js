@@ -50,7 +50,7 @@ async function poll() {
   // reminder phone OR any per-user reminder recipients (email-only is valid).
   const { data: tenants } = await supabase
     .from('tenants')
-    .select('id, business_name, outbound_reminder_phone')
+    .select('id, business_name, outbound_reminder_phone, asterisk_connector_url, asterisk_connector_key')
     .eq('outbound_enabled', true);
 
   if (!tenants?.length) return;
@@ -113,17 +113,20 @@ async function pollTenant(tenant, recipients, minMs, maxMs, apiBase) {
       : null;
 
     const willEmail = !!(recipient && recipient.email_enabled && recipient.email_address);
+    // Extension reminders ring the attorney's PBX extension through their
+    // on-prem Asterisk connector (a per-tenant DO droplet). Only fire when the
+    // tenant actually has a connector provisioned.
+    const willExt = !!(recipient && recipient.ext_enabled && recipient.ext_value
+      && tenant.asterisk_connector_url && tenant.asterisk_connector_key);
     let callTo = null;
     if (recipient) {
       if (recipient.call_enabled && recipient.call_phone) callTo = recipient.call_phone;
-      // ext_enabled targets a PBX extension — requires a connected phone system
-      // to bridge, so it's stored now and dialed once SIP routing lands.
     } else if (tenant.outbound_reminder_phone) {
       callTo = tenant.outbound_reminder_phone;
     }
 
     // Nothing actionable for this event/organizer — skip without writing a row.
-    if (!willEmail && !callTo) continue;
+    if (!willEmail && !willExt && !callTo) continue;
 
     const mins = Math.round((new Date(event.startAt).getTime() - Date.now()) / 60000);
 
@@ -160,6 +163,32 @@ async function pollTenant(tenant, recipients, minMs, maxMs, apiBase) {
         text:    `Heads up — you have a call${who} ${when}.` + (attendeePhone ? ` Contact number: ${attendeePhone}.` : ''),
         html:    `<p>Heads up — you have a call${who} <strong>${when}</strong>.</p>` + (attendeePhone ? `<p>Contact number: ${attendeePhone}</p>` : ''),
       }).catch(err => logger.warn('reminder-poller.email_failed', { tenantId: tenant.id, error: err.message }));
+    }
+
+    // Extension channel — ring the attorney's PBX extension via their on-prem
+    // Asterisk connector droplet (cloud-to-cloud, bearer-authed HTTP).
+    if (willExt) {
+      const who  = attendeeName ? ` with ${attendeeName}` : (event.title ? ` for "${event.title}"` : '');
+      const when = mins <= 1 ? 'in 1 minute' : `in ${mins} minutes`;
+      const base = tenant.asterisk_connector_url.replace(/\/+$/, '');
+      try {
+        const resp = await fetch(`${base}/v1/reminder`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${tenant.asterisk_connector_key}`,
+          },
+          body: JSON.stringify({
+            extension: recipient.ext_value,
+            message: `Reminder: you have a call${who} ${when}.`,
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!resp.ok) throw new Error(`connector responded ${resp.status}`);
+        logger.info('reminder-poller.ext_fired', { tenantId: tenant.id, ext: recipient.ext_value });
+      } catch (err) {
+        logger.warn('reminder-poller.ext_failed', { tenantId: tenant.id, error: err.message });
+      }
     }
 
     // Call channel.
