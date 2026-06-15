@@ -64,8 +64,17 @@ app.get('/internal/gmail-check', async (req, res) => {
   const secret = process.env.INTERNAL_SECRET;
   if (!secret || req.query.token !== secret) return res.status(401).json({ error: 'unauthorized' });
 
-  const sinceMs = parseInt(req.query.since || '0', 10) || (Date.now() - 6 * 60 * 1000);
-  const afterSec = Math.floor(sinceMs / 1000);
+  const { supabase } = require('./lib/supabase');
+  // High-water mark: report each email exactly once. Stored as the max Gmail
+  // internalDate (ms) already reported. Stops the every-5-min cron from
+  // re-alerting the same message across overlapping lookback windows.
+  let highWater = 0;
+  try {
+    const { data } = await supabase.from('monitor_state').select('value').eq('key', 'gmail_last_internaldate').maybeSingle();
+    highWater = parseInt(data?.value || '0', 10) || 0;
+  } catch (e) { /* table missing → behave as fresh */ }
+  if (!highWater) highWater = Date.now() - 10 * 60 * 1000; // first run: only look back 10 min
+  const afterSec = Math.floor(highWater / 1000);
 
   const ACCOUNTS = [
     { name: 'info',    email: 'info@socalreceptionist.com',    refreshToken: process.env.GOOGLE_REFRESH_TOKEN_INFO },
@@ -106,13 +115,15 @@ app.get('/internal/gmail-check', async (req, res) => {
         const msg = await msgRes.json();
         const headers = {};
         for (const h of (msg.payload?.headers || [])) headers[h.name] = h.value;
+        const internalDate = parseInt(msg.internalDate || '0');
+        if (internalDate <= highWater) continue; // already reported in a prior run
         messages.push({
           id: msg.id,
           account: account.name,
           from: headers['From'] || '',
           subject: headers['Subject'] || '(no subject)',
           date: headers['Date'] || '',
-          internalDate: parseInt(msg.internalDate || '0'),
+          internalDate,
         });
       }
     } catch (err) {
@@ -121,7 +132,17 @@ app.get('/internal/gmail-check', async (req, res) => {
   }
 
   messages.sort((a, b) => a.internalDate - b.internalDate);
-  res.json({ ok: true, count: messages.length, messages, sinceMs, afterSec });
+  // Advance the high-water mark so these messages are never reported again.
+  if (messages.length) {
+    const newMax = Math.max(...messages.map(m => m.internalDate));
+    try {
+      await supabase.from('monitor_state').upsert(
+        { key: 'gmail_last_internaldate', value: String(newMax), updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      );
+    } catch (e) { /* best effort */ }
+  }
+  res.json({ ok: true, count: messages.length, messages, afterSec });
 });
 
 // Public voice preview — no auth required (sample phrase only, cached per process).
