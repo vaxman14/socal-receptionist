@@ -243,7 +243,7 @@ app.get('/privacy', (req, res) => {
   <p>SoCal Receptionist operates an SMS text messaging program that allows customers to communicate with participating businesses via automated AI-generated text messages. By texting a participating business's dedicated phone number, you agree to receive automated text messages in response.</p>
 
   <h3>How You Opt In</h3>
-  <p>You opt in to our SMS program by texting a participating business's SoCal Receptionist number. Your first inbound text message to that number constitutes your explicit opt-in consent to receive AI-generated SMS replies. No unsolicited outbound messages are ever sent — this is a 100% inbound, consumer-initiated service.</p>
+  <p>You can opt in to receive SMS messages in two ways: (1) by texting a participating business's SoCal Receptionist number, where your first inbound text message constitutes your opt-in consent to receive replies; or (2) by submitting your mobile number through an opt-in form on our website (see <a href="https://www.socalreceptionist.com/sms-optin">www.socalreceptionist.com/sms-optin</a>) or a participating business's booking page and checking the SMS consent box. After you opt in, you may receive appointment-related messages such as scheduling, confirmations, and reminders. We never send marketing or promotional text blasts, and we never message numbers that have not opted in.</p>
 
   <h3>Message Frequency</h3>
   <p>Message frequency varies based on your inquiries. Typically 1–5 messages per conversation session. Recurring messages may apply while your inquiry is active.</p>

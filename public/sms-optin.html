@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMS Sign-Up — SoCal Receptionist</title>
+<meta name="description" content="Opt in to receive appointment and scheduling text messages from SoCal Receptionist.">
+<link rel="icon" href="/images/favicon.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--grad:linear-gradient(135deg,#ff5a1f,#e91e8c,#7b2fbe);--text:#0b1430;--muted:#6b7280;--border:#e5e7eb}
+  body{font-family:'Inter',-apple-system,sans-serif;color:var(--text);background:#f7f8fc;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px;line-height:1.5}
+  .grad{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .card{background:#fff;border:1px solid var(--border);border-radius:18px;max-width:520px;width:100%;padding:34px;box-shadow:0 16px 40px rgba(20,30,60,.08)}
+  img.logo{width:230px;max-width:80%;height:auto;display:block;margin:0 auto 22px}
+  h1{font-size:1.5rem;font-weight:800;text-align:center;letter-spacing:-.5px}
+  p.intro{color:#444;text-align:center;margin:10px 0 22px}
+  label.f{display:block;font-weight:600;font-size:.9rem;margin:14px 0 6px}
+  input[type=text],input[type=tel]{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:1rem;font-family:inherit}
+  .consent{display:flex;gap:10px;align-items:flex-start;margin:18px 0;background:#f7f8fc;border:1px solid var(--border);border-radius:12px;padding:14px}
+  .consent input{margin-top:3px;flex:none;width:18px;height:18px}
+  .consent label{font-size:.86rem;color:#444;line-height:1.5}
+  .consent a{font-weight:600}
+  .consent a{color:#7b2fbe;text-decoration:underline}
+  button{width:100%;padding:14px;border:none;border-radius:100px;background:var(--grad);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;opacity:.55;pointer-events:none;transition:opacity .15s}
+  button.on{opacity:1;pointer-events:auto}
+  .fine{font-size:.78rem;color:var(--muted);text-align:center;margin-top:16px;line-height:1.5}
+  .fine a{color:var(--muted)}
+  .ok{display:none;text-align:center;padding:10px 0}
+  .ok h2{font-size:1.25rem;margin-bottom:8px}
+  .alt{text-align:center;margin-top:18px;font-size:.92rem;color:#444}
+  .alt b{font-weight:800}
+</style>
+</head>
+<body>
+  <div class="card">
+    <img class="logo" src="/images/logo-clean.png" alt="SoCal Receptionist">
+    <div id="form">
+      <h1>Get appointment texts from <span class="grad">SoCal Receptionist</span></h1>
+      <p class="intro">Sign up to book and manage appointments by text. Or just text us directly at <b>(951) 395-8776</b>.</p>
+
+      <form id="optinForm" onsubmit="return submitForm(event)">
+        <label class="f" for="name">Your name</label>
+        <input type="text" id="name" name="name" autocomplete="name" required>
+
+        <label class="f" for="phone">Mobile number</label>
+        <input type="tel" id="phone" name="phone" autocomplete="tel" placeholder="(951) 555-0199" required>
+
+        <div class="consent">
+          <input type="checkbox" id="consent" onchange="toggleBtn()">
+          <label for="consent">I agree to receive recurring SMS text messages from SoCal Receptionist about appointments, scheduling, confirmations, reminders, and my inquiries. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, HELP for help. See our <a href="/privacy">Privacy Policy</a>, <a href="/terms">Terms</a>, and <a href="/sms-terms">SMS Terms</a>.</label>
+        </div>
+
+        <button type="submit" id="btn">Sign me up</button>
+        <p class="fine">Consent is not a condition of purchase. We never sell or share your mobile information. <a href="/privacy">Privacy Policy</a></p>
+      </form>
+    </div>
+
+    <div class="ok" id="ok">
+      <h2 class="grad">You're signed up.</h2>
+      <p>Thanks. You will receive a confirmation text shortly. Reply STOP at any time to opt out, or HELP for help.</p>
+    </div>
+  </div>
+
+<script>
+  function toggleBtn(){
+    var c=document.getElementById('consent').checked;
+    document.getElementById('btn').classList.toggle('on', c);
+  }
+  function submitForm(e){
+    e.preventDefault();
+    if(!document.getElementById('consent').checked) return false;
+    // Opt-in capture is wired to the messaging backend on activation.
+    document.getElementById('form').style.display='none';
+    document.getElementById('ok').style.display='block';
+    return false;
+  }
+</script>
+</body>
+</html>
