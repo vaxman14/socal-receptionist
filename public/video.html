@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoCal Receptionist — Demo</title>
+  <meta name="description" content="See SoCal Receptionist in action: an AI phone receptionist that answers every call 24/7, captures leads, and books appointments." />
+
+  <!-- Social/link previews -->
+  <meta property="og:title" content="SoCal Receptionist — Demo" />
+  <meta property="og:description" content="An AI phone receptionist that answers every call 24/7, captures leads, and books appointments." />
+  <meta property="og:type" content="video.other" />
+  <meta property="og:url" content="https://www.socalreceptionist.com/video" />
+  <meta property="og:video" content="https://fxjbxeckzeplixdgwbqk.supabase.co/storage/v1/object/public/demos/socal-receptionist-demo.mp4" />
+  <meta property="og:image" content="https://www.socalreceptionist.com/images/logo-dark.png" />
+  <meta name="twitter:card" content="player" />
+
+  <link rel="icon" href="/images/favicon.png" />
+  <style>
+    :root { --bg:#0b1020; --panel:#121a33; --text:#eef2ff; --muted:#9fb0d6; --accent:#5b8cff; }
+    * { box-sizing: border-box; }
+    body {
+      margin:0; min-height:100vh; background:radial-gradient(1200px 600px at 50% -10%, #1a2547 0%, var(--bg) 60%);
+      color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      display:flex; flex-direction:column; align-items:center; padding:32px 20px 48px;
+    }
+    .logo { height:42px; margin-bottom:22px; }
+    h1 { font-size:1.5rem; font-weight:700; margin:0 0 6px; text-align:center; }
+    p.sub { color:var(--muted); margin:0 0 26px; text-align:center; max-width:620px; line-height:1.5; }
+    .frame {
+      width:100%; max-width:920px; background:var(--panel); border:1px solid #25325c;
+      border-radius:16px; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.45);
+    }
+    video { width:100%; display:block; background:#000; aspect-ratio:16/9; }
+    .cta { margin-top:28px; display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+    .btn {
+      text-decoration:none; padding:12px 22px; border-radius:999px; font-weight:600; font-size:.95rem;
+    }
+    .btn.primary { background:var(--accent); color:#fff; }
+    .btn.ghost { border:1px solid #2c3a66; color:var(--text); }
+    .foot { margin-top:34px; color:var(--muted); font-size:.85rem; text-align:center; }
+    .foot a { color:var(--accent); text-decoration:none; }
+  </style>
+</head>
+<body>
+  <img class="logo" src="/images/logo-white.png" alt="SoCal Receptionist" onerror="this.style.display='none'" />
+  <h1>Watch SoCal Receptionist in action</h1>
+  <p class="sub">An AI phone receptionist that answers every call 24/7, holds a natural conversation, captures leads, and books appointments.</p>
+
+  <div class="frame">
+    <video controls playsinline preload="metadata"
+      src="https://fxjbxeckzeplixdgwbqk.supabase.co/storage/v1/object/public/demos/socal-receptionist-demo.mp4">
+      Your browser does not support the video tag.
+      <a href="https://fxjbxeckzeplixdgwbqk.supabase.co/storage/v1/object/public/demos/socal-receptionist-demo.mp4">Download the video</a>.
+    </video>
+  </div>
+
+  <div class="cta">
+    <a class="btn primary" href="tel:+19513958776">Call the live demo: (951) 395-8776</a>
+    <a class="btn ghost" href="https://www.socalreceptionist.com">Visit website</a>
+  </div>
+
+  <div class="foot">SoCal Receptionist · <a href="https://www.socalreceptionist.com">socalreceptionist.com</a></div>
+</body>
+</html>
