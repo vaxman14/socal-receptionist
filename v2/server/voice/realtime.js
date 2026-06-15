@@ -19,11 +19,43 @@ const { fireWebhooks } = require('../lib/public-api');
 const { computeSlots } = require('../lib/booking');
 const googleCalendar = require('../integrations/google-calendar');
 const logger = require('../lib/logger');
+const OpenAI = require('openai');
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
+
+// Lazily-built client for the post-call lead-rescue extraction.
+let _oai;
+function oaiClient() {
+  if (!_oai) _oai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _oai;
+}
+
+// The realtime model sometimes narrates capturing a lead ("we have your number
+// and the service") without actually invoking the capture_lead tool, so the
+// lead is lost and the call gets mislabeled as aborted. As a safety net we
+// re-read the transcript at hang-up and pull any usable info the caller gave.
+async function extractLeadFromTranscript(convoText) {
+  const r = await oaiClient().chat.completions.create({
+    model: 'gpt-4o-mini',
+    temperature: 0,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You read a phone-call transcript between a Receptionist and a Caller and extract the caller\'s lead info. ' +
+          'Return ONLY JSON: {"name": string|null, "contact": string|null, "service": string|null, "notes": string|null}. ' +
+          'contact = a specific callback phone or email the caller gave; use null if they only confirmed the number they are already calling from. ' +
+          'Use null for anything not clearly stated. Never invent values.',
+      },
+      { role: 'user', content: convoText },
+    ],
+  });
+  try { return JSON.parse(r.choices[0].message.content); } catch { return null; }
+}
 
 const RECORDING_TENANT_IDS = new Set(
   (process.env.RECORDING_TENANT_IDS || '').split(',').filter(Boolean)
@@ -549,6 +581,37 @@ function handleMediaStream(twilioWs, req) {
         flushUsage();
         if (callSid) await updateCall(callSid, { outcome: 'ai_handled' }).catch(() => {});
         if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
+
+        // Safety net: if the model gathered the caller's info but never actually
+        // called capture_lead, rescue the lead from the transcript so a real
+        // lead is never lost (and the call is not mislabeled as aborted).
+        if (!leadCaptured && fromNumber && fromNumber !== 'anonymous' && transcript.some(l => l.role === 'caller')) {
+          try {
+            const convoText = transcript.map(l => `${l.role === 'ai' ? 'Receptionist' : 'Caller'}: ${l.text}`).join('\n');
+            const ex = await extractLeadFromTranscript(convoText);
+            if (ex && (ex.name || ex.contact || ex.service)) {
+              const contact = ex.contact || fromNumber;
+              const notes = ['Auto-captured from transcript (capture_lead tool was not called).',
+                contact ? `Contact: ${contact}` : null, ex.notes].filter(Boolean).join(' — ');
+              const { data: lead } = await supabase.from('leads').insert({
+                tenant_id: tenantId,
+                conversation_id: conversationId,
+                customer_phone: fromNumber,
+                customer_name: ex.name || null,
+                service_interest: ex.service || null,
+                notes,
+                status: 'qualified',
+              }).select('id, customer_phone, customer_name, service_interest, status, notes, created_at').single();
+              if (lead) {
+                fireWebhooks(tenantId, 'lead.created', lead);
+                leadCaptured = true;
+                logger.info('voice.realtime.lead_rescued', { hasName: !!ex.name, hasContact: !!ex.contact, hasService: !!ex.service });
+              }
+            }
+          } catch (err) {
+            logger.error('voice.realtime.lead_rescue_failed', { error: err.message });
+          }
+        }
 
         // Notify tenant — distinguish completed (lead captured) vs aborted (hung up mid-call).
         if (tenant) {
