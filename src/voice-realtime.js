@@ -139,6 +139,39 @@ function handleRealtimeCall(twilioWs, opts = {}) {
   const audioBuffer = []; // buffer audio arriving between 'start' and OpenAI open
   const transcript = [];
 
+  // --- Outbound audio pacing + barge-in (fixes garbled/overlapping playback) ---
+  // OpenAI sends audio faster than real time and in bursts; we queue the raw
+  // mu-law bytes and feed Twilio steady 20ms (160-byte) frames. We also drop
+  // audio from stale/cancelled responses so two streams never interleave.
+  let playQueue = Buffer.alloc(0);
+  let drainTimer = null;
+  let currentResponseId = null;
+  let assistantSpeaking = false;
+  const FRAME_BYTES = 160; // 20ms of 8kHz G.711 mu-law
+
+  function startDrain() {
+    if (drainTimer) return;
+    drainTimer = setInterval(() => {
+      if (!streamSid || playQueue.length === 0) return;
+      const frame = playQueue.subarray(0, FRAME_BYTES);
+      playQueue = playQueue.subarray(frame.length);
+      try {
+        twilioWs.send(JSON.stringify({
+          event: 'media',
+          streamSid,
+          media: { payload: frame.toString('base64') },
+        }));
+      } catch {}
+    }, 20);
+  }
+
+  function flushPlayback() {
+    playQueue = Buffer.alloc(0);
+    if (streamSid) {
+      try { twilioWs.send(JSON.stringify({ event: 'clear', streamSid })); } catch {}
+    }
+  }
+
   // Opened only after Twilio 'start' — avoids burning OpenAI if stream never starts
   function connectOpenAI() {
     oaiWs = new WebSocket(REALTIME_URL, {
@@ -181,15 +214,30 @@ function handleRealtimeCall(twilioWs, opts = {}) {
       try { msg = JSON.parse(raw); } catch { return; }
 
       switch (msg.type) {
+        case 'response.created':
+          currentResponseId = (msg.response && msg.response.id) || currentResponseId;
+          assistantSpeaking = true;
+          break;
+
+        case 'response.done':
+          assistantSpeaking = false;
+          break;
+
+        case 'input_audio_buffer.speech_started':
+          // Caller barged in — stop the current playback immediately and cancel
+          // the in-progress response so old + new audio don't interleave (garble).
+          flushPlayback();
+          if (assistantSpeaking && oaiWs && oaiWs.readyState === WebSocket.OPEN) {
+            try { oaiWs.send(JSON.stringify({ type: 'response.cancel' })); } catch {}
+            assistantSpeaking = false;
+          }
+          break;
+
         case 'response.output_audio.delta':
-          if (streamSid && msg.delta) {
-            try {
-              twilioWs.send(JSON.stringify({
-                event: 'media',
-                streamSid,
-                media: { payload: msg.delta },
-              }));
-            } catch {}
+          // Ignore audio from a stale/cancelled response.
+          if (msg.response_id && currentResponseId && msg.response_id !== currentResponseId) break;
+          if (msg.delta) {
+            try { playQueue = Buffer.concat([playQueue, Buffer.from(msg.delta, 'base64')]); } catch {}
           }
           break;
 
@@ -326,6 +374,7 @@ function handleRealtimeCall(twilioWs, opts = {}) {
         if (params.from) fromNumber = params.from;
         if (params.isCallback === 'true') isCallback = true;
         console.log(`[voice-realtime] stream started callSid=${callSid} from=${fromNumber} streamSid=${streamSid} isCallback=${isCallback}`);
+        startDrain(); // begin paced 20ms outbound audio frames
         getAvailableTimes(3).then(slots => {
           availableSlots = slots;
           console.log(`[voice-realtime] pre-fetched ${slots.length} Calendly slots callSid=${callSid}`);
@@ -378,6 +427,7 @@ function handleRealtimeCall(twilioWs, opts = {}) {
     callEnded = true;
     clearTimeout(wrapUpTimer);
     clearTimeout(hardStopTimer);
+    if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
     console.log(`[voice-realtime] cleanup reason=${reason} callSid=${callSid} leadCaptured=${leadCaptured}`);
 
     try { if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close(); } catch {}
