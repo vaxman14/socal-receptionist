@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoCal Receptionist — Meet Josi, your AI receptionist</title>
+<meta name="description" content="Josi is the AI receptionist that answers every call 24/7, captures every lead, books appointments, and files them into the software your business already runs. She never calls in sick.">
+<meta name="robots" content="noindex">
+<meta property="og:title" content="Meet Josi — your AI receptionist">
+<meta property="og:description" content="Answers every call 24/7, captures leads, books appointments, and works inside the software you already run.">
+<meta property="og:image" content="https://www.socalreceptionist.com/images/logo-clean.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --navy:#0b1430;--bg:#fff;--bg2:#f7f8fc;--orange:#ff5a1f;--pink:#e91e8c;--purple:#7b2fbe;
+    --grad:linear-gradient(135deg,#ff5a1f,#e91e8c,#7b2fbe);--muted:#6b7280;--card:#f4f5f9;--border:rgba(0,0,0,.08);--text:#0b1430;
+  }
+  body{font-family:'Inter',-apple-system,sans-serif;color:var(--text);background:#fff;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .grad{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+  .btn{display:inline-block;padding:13px 26px;border-radius:100px;font-weight:700;font-size:.98rem;cursor:pointer;border:none;transition:transform .1s}
+  .btn:hover{transform:translateY(-1px)}
+  .btn-primary{background:var(--grad);color:#fff}
+  .btn-ghost{border:1px solid var(--border);color:var(--text);background:#fff}
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:68px}
+  nav img{height:34px}
+  nav .links{display:flex;gap:26px;align-items:center}
+  nav .links a.t{font-weight:600;font-size:.92rem;color:#444}
+  @media(max-width:760px){nav .links a.t{display:none}}
+  /* hero */
+  .hero{text-align:center;padding:90px 0 70px;background:radial-gradient(900px 420px at 50% -8%,#fff4ef 0%,#fff 60%)}
+  .eyebrow{display:inline-block;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-size:.76rem;padding:6px 14px;border-radius:100px;border:1px solid rgba(255,90,31,.3);margin-bottom:22px}
+  .hero h1{font-size:clamp(2.4rem,6vw,4rem);font-weight:900;letter-spacing:-2px;line-height:1.04}
+  .hero p.sub{font-size:clamp(1.05rem,2vw,1.4rem);color:#444;max-width:680px;margin:22px auto 32px;line-height:1.55}
+  .hero .row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .hero .demo-note{margin-top:18px;color:var(--muted);font-size:.95rem}
+  .hero .demo-note a{font-weight:700}
+  /* sections */
+  section.s{padding:72px 0;border-top:1px solid var(--border)}
+  section.s.alt{background:var(--bg2)}
+  .label{font-size:.8rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;text-align:center}
+  h2{font-size:clamp(1.8rem,3.6vw,2.6rem);font-weight:800;letter-spacing:-1px;text-align:center;line-height:1.12}
+  .sec-sub{text-align:center;color:#555;max-width:680px;margin:14px auto 0;font-size:1.05rem}
+  .grid{display:grid;gap:18px;margin-top:40px}
+  .g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:860px){.g3,.g4,.g2{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:26px}
+  section.alt .card{background:#fff}
+  .card .ic{font-size:1.7rem;margin-bottom:10px}
+  .card h3{font-size:1.12rem;font-weight:700;margin-bottom:7px}
+  .card p{color:#555;font-size:.97rem}
+  .step{display:flex;gap:16px;align-items:flex-start;padding:18px 0}
+  .step .n{flex:none;width:38px;height:38px;border-radius:50%;background:var(--grad);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+  /* integrations */
+  .vert{border:1px solid var(--border);border-radius:14px;padding:20px;background:#fff}
+  .vert h4{font-size:1rem;font-weight:800;margin-bottom:8px}
+  .vert span{display:inline-block;background:var(--card);border:1px solid var(--border);border-radius:100px;padding:4px 11px;font-size:.82rem;margin:3px 3px 0 0;color:#444}
+  .beta{font-size:.7rem;font-weight:700;color:#7b2fbe;border:1px solid rgba(123,47,190,.3);border-radius:100px;padding:2px 8px;margin-left:6px;text-transform:uppercase;letter-spacing:.5px}
+  /* pricing */
+  .price{background:#fff;border:1px solid var(--border);border-radius:18px;padding:30px;display:flex;flex-direction:column}
+  .price.feat{border:2px solid transparent;background:linear-gradient(#fff,#fff) padding-box,var(--grad) border-box;box-shadow:0 16px 40px rgba(20,30,60,.10)}
+  .price h3{font-size:1.2rem;font-weight:800}
+  .price .amt{font-size:2.1rem;font-weight:900;margin:10px 0 2px}
+  .price .amt small{font-size:.95rem;font-weight:600;color:var(--muted)}
+  .price ul{list-style:none;margin:16px 0 22px;display:flex;flex-direction:column;gap:9px}
+  .price li{font-size:.95rem;color:#444;padding-left:24px;position:relative}
+  .price li:before{content:"✓";position:absolute;left:0;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .price .who{color:var(--muted);font-size:.85rem;margin-bottom:14px}
+  .anchor{text-align:center;color:#555;max-width:680px;margin:0 auto 8px;font-size:1.02rem}
+  /* brand strip */
+  .brand{text-align:center}
+  .brand .big{font-size:clamp(2rem,5vw,3.2rem);font-weight:900;letter-spacing:-1.5px}
+  /* cta band */
+  .band{background:var(--navy);color:#fff;text-align:center;padding:74px 0}
+  .band h2{color:#fff}
+  .band p{color:#c7cede;max-width:620px;margin:14px auto 28px}
+  /* footer */
+  footer{padding:44px 0;border-top:1px solid var(--border);color:var(--muted);font-size:.9rem}
+  footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="/home2"><img src="/images/logo-clean.png" alt="SoCal Receptionist"></a>
+    <div class="links">
+      <a class="t" href="#features">Features</a>
+      <a class="t" href="#integrations">Integrations</a>
+      <a class="t" href="#pricing">Pricing</a>
+      <a class="t" href="https://app2.socalreceptionist.com/login">Log in</a>
+      <a class="btn btn-primary" href="https://app2.socalreceptionist.com/signup">Get Started</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow grad">Meet Josi, your AI receptionist</span>
+    <h1>Never miss another call.<br><span class="grad">She never calls in sick.</span></h1>
+    <p class="sub">Josi answers every call 24/7, captures every lead, books appointments, and files them straight into the software your business already runs. The front desk that never takes a day off.</p>
+    <div class="row">
+      <a class="btn btn-primary" href="https://app2.socalreceptionist.com/signup">Get Started</a>
+      <a class="btn btn-ghost" href="/video">Watch the 2-minute demo</a>
+    </div>
+    <p class="demo-note">Or talk to her right now: <a class="grad" href="tel:+19513958776">(951) 395-8776</a></p>
+  </div>
+</header>
+
+<!-- PROBLEM -->
+<section class="s">
+  <div class="wrap">
+    <div class="label grad">The Problem</div>
+    <h2>A missed call is a lost customer.</h2>
+    <p class="sec-sub">When someone calls your business and gets voicemail, they hang up and call the next name on the list. Hiring a receptionist is expensive, covers one shift, and they call in sick or quit.</p>
+    <div class="grid g3">
+      <div class="card"><div class="ic">📵</div><h3>Calls go unanswered</h3><p>After hours, lunch, and overflow calls fall to voicemail. The lead is gone for good.</p></div>
+      <div class="card"><div class="ic">💸</div><h3>Receptionists are costly</h3><p>A front-desk hire runs $3,300+ a month, covers one shift, and turns over constantly.</p></div>
+      <div class="card"><div class="ic">📞</div><h3>The phone owns you</h3><p>No vacation, no date night, no off switch. You are chained to the ring.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="s alt" id="features">
+  <div class="wrap">
+    <div class="label grad">How Josi Works</div>
+    <h2>She does the whole job, not just the hello.</h2>
+    <div class="grid g2" style="margin-top:34px">
+      <div>
+        <div class="step"><div class="n">1</div><div><h3>Answers instantly, 24/7</h3><p>Every call, every hour, in a natural voice. No overflow, no voicemail, no hold music.</p></div></div>
+        <div class="step"><div class="n">2</div><div><h3>Captures the lead</h3><p>Name, number, and reason for calling, every single time, and alerts you immediately.</p></div></div>
+      </div>
+      <div>
+        <div class="step"><div class="n">3</div><div><h3>Books the appointment</h3><p>Reads your real calendar availability and schedules the caller on the spot.</p></div></div>
+        <div class="step"><div class="n">4</div><div><h3>Files it into your software</h3><p>Pushes the new client and appointment into the system you already use, automatically.</p></div></div>
+      </div>
+    </div>
+    <div class="grid g4" style="margin-top:30px">
+      <div class="card"><div class="ic">🎙️</div><h3>Natural voice AI</h3><p>Callers talk to her like a person, not a phone tree.</p></div>
+      <div class="card"><div class="ic">📝</div><h3>Transcripts and recordings</h3><p>Every call captured, searchable, in your dashboard.</p></div>
+      <div class="card"><div class="ic">🔔</div><h3>Reminders</h3><p>Automatic appointment reminders so fewer no-shows.</p></div>
+      <div class="card"><div class="ic">🔢</div><h3>Your own number</h3><p>A dedicated line and a voice tuned to your brand.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- INTEGRATIONS -->
+<section class="s" id="integrations">
+  <div class="wrap">
+    <div class="label grad">Works With Your Software</div>
+    <h2>Built for your profession, not a generic bot.</h2>
+    <p class="sec-sub">Josi connects to the tools your industry already runs, so a captured call becomes a real client in your system. <span class="beta">Beta</span> connectors are rolling out now.</p>
+    <div class="grid g3" style="margin-top:34px">
+      <div class="vert"><h4>⚖️ Legal</h4><span>Clio</span><span>MyCase</span><span>PracticePanther</span></div>
+      <div class="vert"><h4>🩺 Medical</h4><span>DrChrono</span><span>athenahealth</span><span>SimplePractice</span></div>
+      <div class="vert"><h4>🦷 Dental</h4><span>Open Dental</span><span>Dentrix</span><span>Eaglesoft</span></div>
+      <div class="vert"><h4>💵 Accounting</h4><span>QuickBooks</span><span>Karbon</span><span>TaxDome</span></div>
+      <div class="vert"><h4>🔧 Home Services</h4><span>Jobber</span><span>Housecall Pro</span><span>ServiceTitan</span></div>
+      <div class="vert"><h4>🗓️ Calendar & CRM</h4><span>Google</span><span>Microsoft</span><span>HubSpot</span><span>Salesforce</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- BRAND / EMOTIONAL -->
+<section class="s alt">
+  <div class="wrap brand">
+    <div class="label grad">Get Your Life Back</div>
+    <div class="big">While you live your life,<br><span class="grad">Josi runs the front desk.</span></div>
+    <p class="sec-sub">Be at dinner, on a job site, or on vacation. Josi is calmly answering every call, booking every appointment, and never asking for a day off.</p>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="s" id="pricing">
+  <div class="wrap">
+    <div class="label grad">Pricing</div>
+    <h2>Priced against a hire, not a $49 bot.</h2>
+    <p class="anchor" style="margin-top:14px">A human front-desk receptionist costs $3,300 or more a month and still calls in sick. Josi is a fraction of that and never does.</p>
+    <div class="grid g3" style="margin-top:36px">
+      <div class="price">
+        <h3>Essentials</h3>
+        <div class="amt">$500<small> / month</small></div>
+        <div class="who">For trades and general small businesses</div>
+        <ul>
+          <li>24/7 AI receptionist</li>
+          <li>Dedicated phone number</li>
+          <li>Lead capture and alerts</li>
+          <li>Appointment booking</li>
+          <li>Calls, transcripts, and dashboard</li>
+        </ul>
+        <a class="btn btn-ghost" href="https://app2.socalreceptionist.com/signup">Get Started</a>
+      </div>
+      <div class="price feat">
+        <h3>Professional</h3>
+        <div class="amt">$900<small> to $1,200 / month</small></div>
+        <div class="who">For legal, medical, dental, and accounting</div>
+        <ul>
+          <li>Everything in Essentials</li>
+          <li>Native integration into your software</li>
+          <li>Clio, Dentrix, QuickBooks, and more</li>
+          <li>New clients filed automatically</li>
+          <li>Priority support</li>
+        </ul>
+        <a class="btn btn-primary" href="https://app2.socalreceptionist.com/signup">Get Started</a>
+      </div>
+      <div class="price">
+        <h3>Concierge Setup</h3>
+        <div class="amt">$1,500<small> one-time</small></div>
+        <div class="who">Done-for-you onboarding</div>
+        <ul>
+          <li>White-glove setup</li>
+          <li>Number provisioning</li>
+          <li>Voice tuned to your brand</li>
+          <li>Integration configuration</li>
+          <li>You do nothing</li>
+        </ul>
+        <a class="btn btn-ghost" href="tel:+19513958776">Talk to us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BAND -->
+<section class="band">
+  <div class="wrap">
+    <h2>Stop missing calls today.</h2>
+    <p>Meet Josi. She answers every call and works inside the software you already run. Hear her yourself in 60 seconds.</p>
+    <div class="hero row" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+      <a class="btn btn-primary" href="https://app2.socalreceptionist.com/signup">Get Started</a>
+      <a class="btn btn-ghost" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.3)" href="tel:+19513958776">Call the live demo</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>© 2026 SOCAL RECEPTIONIST LLC · Murrieta, CA</div>
+    <div><a href="mailto:roman@socalreceptionist.com">roman@socalreceptionist.com</a> · <a href="tel:+19513958776">(951) 395-8776</a></div>
+  </div>
+</footer>
+
+</body>
+</html>
