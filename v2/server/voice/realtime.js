@@ -119,6 +119,7 @@ function handleMediaStream(twilioWs, req) {
   let currentResponseId = null;
   let assistantSpeaking = false;
   let pcmRemainder = Buffer.alloc(0); // leftover PCM16 bytes between deltas
+  let dbgAudioDeltas = 0; // TEMP diag: audio deltas in the current response
   const FRAME_BYTES = 160; // 20ms of 8kHz G.711 mu-law
 
   // Decode a base64 PCM16@24kHz delta from OpenAI, downsample to 8kHz (average
@@ -186,21 +187,37 @@ function handleMediaStream(twilioWs, req) {
       case 'response.created': {
         currentResponseId = (event.response && event.response.id) || currentResponseId;
         assistantSpeaking = true;
+        dbgAudioDeltas = 0;
+        console.log('[VOICE] response.created', currentResponseId);
         break;
       }
 
       case 'response.done': {
         assistantSpeaking = false;
+        console.log('[VOICE] response.done status=', event.response?.status,
+          'audioDeltas=', dbgAudioDeltas,
+          'detail=', JSON.stringify(event.response?.status_details || {}).slice(0, 300));
         break;
       }
 
       // Queue AI audio, transcoded to mu-law and paced to Twilio in 20ms frames.
       case 'response.output_audio.delta': {
         if (event.delta) {
+          dbgAudioDeltas++;
           try { playQueue = Buffer.concat([playQueue, pcmDeltaToMulaw(event.delta)]); } catch {}
         }
         break;
       }
+
+      case 'input_audio_buffer.speech_started':
+        console.log('[VOICE] caller speech_started');
+        break;
+      case 'input_audio_buffer.speech_stopped':
+        console.log('[VOICE] caller speech_stopped');
+        break;
+      case 'input_audio_buffer.committed':
+        console.log('[VOICE] input committed');
+        break;
 
       // AI wants to call a function.
       case 'response.function_call_arguments.done': {
@@ -214,6 +231,7 @@ function handleMediaStream(twilioWs, req) {
 
       // Caller speech transcription (requires input_audio_transcription in session).
       case 'conversation.item.input_audio_transcription.completed': {
+        console.log('[VOICE] caller said:', (event.transcript || '').trim().slice(0, 120));
         if (event.transcript) transcript.push({ role: 'caller', text: event.transcript.trim() });
         break;
       }
@@ -225,6 +243,7 @@ function handleMediaStream(twilioWs, req) {
       }
 
       case 'error': {
+        console.log('[VOICE] OAI_ERROR', JSON.stringify(event.error || {}).slice(0, 400));
         logger.error('voice.realtime.openai_error', { error: event.error });
         break;
       }
