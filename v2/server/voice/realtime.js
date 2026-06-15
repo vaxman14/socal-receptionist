@@ -248,7 +248,7 @@ function handleMediaStream(twilioWs, req) {
 
   function configureSession() {
     if (!openaiWs || openaiWs.readyState !== WebSocket.OPEN) return;
-    const realtimeVoice = POLLY_TO_REALTIME[tenant.voice_id] || 'marin';
+    const realtimeVoice = POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
     const instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber });
     openaiWs.send(JSON.stringify({
       type: 'session.update',
