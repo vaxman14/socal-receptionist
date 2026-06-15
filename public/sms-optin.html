@@ -23,8 +23,7 @@
   .consent label{font-size:.86rem;color:#444;line-height:1.5}
   .consent a{font-weight:600}
   .consent a{color:#7b2fbe;text-decoration:underline}
-  button{width:100%;padding:14px;border:none;border-radius:100px;background:var(--grad);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;opacity:.55;pointer-events:none;transition:opacity .15s}
-  button.on{opacity:1;pointer-events:auto}
+  button{width:100%;padding:14px;border:none;border-radius:100px;background:var(--grad);color:#fff;font-weight:700;font-size:1rem;cursor:pointer}
   .fine{font-size:.78rem;color:var(--muted);text-align:center;margin-top:16px;line-height:1.5}
   .fine a{color:var(--muted)}
   .ok{display:none;text-align:center;padding:10px 0}
@@ -48,7 +47,7 @@
         <input type="tel" id="phone" name="phone" autocomplete="tel" placeholder="(951) 555-0199" required>
 
         <div class="consent">
-          <input type="checkbox" id="consent" onchange="toggleBtn()">
+          <input type="checkbox" id="consent">
           <label for="consent">I agree to receive recurring SMS text messages from SoCal Receptionist about appointments, scheduling, confirmations, reminders, and my inquiries. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, HELP for help. See our <a href="/privacy">Privacy Policy</a>, <a href="/terms">Terms</a>, and <a href="/sms-terms">SMS Terms</a>.</label>
         </div>
 
@@ -64,13 +63,9 @@
   </div>
 
 <script>
-  function toggleBtn(){
-    var c=document.getElementById('consent').checked;
-    document.getElementById('btn').classList.toggle('on', c);
-  }
   function submitForm(e){
     e.preventDefault();
-    if(!document.getElementById('consent').checked) return false;
+    // The SMS consent checkbox is optional and is NOT required to submit (A2P rule).
     // Opt-in capture is wired to the messaging backend on activation.
     document.getElementById('form').style.display='none';
     document.getElementById('ok').style.display='block';
