@@ -274,7 +274,10 @@ function handleMediaStream(twilioWs, req) {
 
   function configureSession() {
     if (!openaiWs || openaiWs.readyState !== WebSocket.OPEN) return;
-    const realtimeVoice = POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
+    // Live-tunable voice settings from the DB (tenants.voice_settings jsonb) — no redeploy.
+    const vs = tenant.voice_settings || {};
+    const realtimeVoice = vs.voice || POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
+    const vadEagerness = vs.eagerness || 'low';
     const instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber });
     openaiWs.send(JSON.stringify({
       type: 'session.update',
@@ -284,14 +287,14 @@ function handleMediaStream(twilioWs, req) {
         audio: {
           input: {
             format: { type: 'audio/pcmu' },
-            turn_detection: { type: 'semantic_vad', eagerness: 'low', create_response: true },
+            turn_detection: { type: 'semantic_vad', eagerness: vadEagerness, create_response: true },
             // Caller speech transcription. GA API: lives under input, not output —
             // output transcripts arrive automatically via response.output_audio_transcript.*
             transcription: { model: 'gpt-4o-mini-transcribe' },
           },
           output: {
             // PCM16@24kHz — we transcode to mu-law 8kHz ourselves (pcmDeltaToMulaw).
-            format: { type: 'audio/pcm' },
+            format: { type: 'audio/pcm', rate: 24000 },
             voice: realtimeVoice,
           },
         },
