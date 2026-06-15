@@ -194,20 +194,8 @@ function handleMediaStream(twilioWs, req) {
         break;
       }
 
-      // Caller barged in — stop current playback + cancel the in-progress
-      // response so old and new audio never interleave into a garble.
-      case 'input_audio_buffer.speech_started': {
-        flushPlayback();
-        if (assistantSpeaking && openaiWs && openaiWs.readyState === WebSocket.OPEN) {
-          try { openaiWs.send(JSON.stringify({ type: 'response.cancel' })); } catch {}
-          assistantSpeaking = false;
-        }
-        break;
-      }
-
-      // Queue AI audio (paced to Twilio in 20ms frames); drop stale-response audio.
+      // Queue AI audio, transcoded to mu-law and paced to Twilio in 20ms frames.
       case 'response.output_audio.delta': {
-        if (event.response_id && currentResponseId && event.response_id !== currentResponseId) break;
         if (event.delta) {
           try { playQueue = Buffer.concat([playQueue, pcmDeltaToMulaw(event.delta)]); } catch {}
         }
