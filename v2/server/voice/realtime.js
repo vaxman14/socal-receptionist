@@ -122,6 +122,23 @@ function handleMediaStream(twilioWs, req) {
   let dbgAudioDeltas = 0; // TEMP diag: audio deltas in the current response
   const FRAME_BYTES = 160; // 20ms of 8kHz G.711 mu-law
 
+  // TEMP diag: buffer a trace of the OpenAI event lifecycle and Telegram it on
+  // hang-up, since DO run-logs and DB writes are not observable right now.
+  const dbgTrace = [];
+  let dbgSent = false;
+  function dbg(s) { dbgTrace.push(`${new Date().toISOString().slice(11, 19)} ${s}`); }
+  function sendDbgTrace() {
+    if (dbgSent) return;
+    dbgSent = true;
+    const tok = process.env.TELEGRAM_BOT_TOKEN;
+    if (!tok || dbgTrace.length === 0) return;
+    const text = '🩺 VOICE TRACE\n' + dbgTrace.join('\n').slice(0, 3500);
+    fetch(`https://api.telegram.org/bot${tok}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: '6335227029', text }),
+    }).catch(() => {});
+  }
+
   // Decode a base64 PCM16@24kHz delta from OpenAI, downsample to 8kHz (average
   // groups of 3 samples) and mu-law encode → bytes ready for Twilio.
   function pcmDeltaToMulaw(b64) {
@@ -188,15 +205,13 @@ function handleMediaStream(twilioWs, req) {
         currentResponseId = (event.response && event.response.id) || currentResponseId;
         assistantSpeaking = true;
         dbgAudioDeltas = 0;
-        console.log('[VOICE] response.created', currentResponseId);
+        dbg(`resp.created ${currentResponseId}`);
         break;
       }
 
       case 'response.done': {
         assistantSpeaking = false;
-        console.log('[VOICE] response.done status=', event.response?.status,
-          'audioDeltas=', dbgAudioDeltas,
-          'detail=', JSON.stringify(event.response?.status_details || {}).slice(0, 300));
+        dbg(`resp.done status=${event.response?.status} audioDeltas=${dbgAudioDeltas} detail=${JSON.stringify(event.response?.status_details || {}).slice(0,200)}`);
         break;
       }
 
@@ -210,13 +225,13 @@ function handleMediaStream(twilioWs, req) {
       }
 
       case 'input_audio_buffer.speech_started':
-        console.log('[VOICE] caller speech_started');
+        dbg('caller speech_started');
         break;
       case 'input_audio_buffer.speech_stopped':
-        console.log('[VOICE] caller speech_stopped');
+        dbg('caller speech_stopped');
         break;
       case 'input_audio_buffer.committed':
-        console.log('[VOICE] input committed');
+        dbg('input committed');
         break;
 
       // AI wants to call a function.
@@ -231,7 +246,7 @@ function handleMediaStream(twilioWs, req) {
 
       // Caller speech transcription (requires input_audio_transcription in session).
       case 'conversation.item.input_audio_transcription.completed': {
-        console.log('[VOICE] caller said:', (event.transcript || '').trim().slice(0, 120));
+        dbg(`caller said: "${(event.transcript || '').trim().slice(0, 80)}"`);
         if (event.transcript) transcript.push({ role: 'caller', text: event.transcript.trim() });
         break;
       }
@@ -243,7 +258,7 @@ function handleMediaStream(twilioWs, req) {
       }
 
       case 'error': {
-        console.log('[VOICE] OAI_ERROR', JSON.stringify(event.error || {}).slice(0, 400));
+        dbg(`OAI_ERROR ${JSON.stringify(event.error || {}).slice(0, 300)}`);
         logger.error('voice.realtime.openai_error', { error: event.error });
         break;
       }
@@ -259,7 +274,7 @@ function handleMediaStream(twilioWs, req) {
     if (!openaiWs || openaiWs.readyState !== WebSocket.OPEN) return;
     if (!tenant) return;
     sessionConfigured = true;
-    console.log('[VOICE] configureSession (once)');
+    dbg('configureSession (once)');
     const realtimeVoice = POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
     const instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber });
     openaiWs.send(JSON.stringify({
@@ -471,6 +486,7 @@ function handleMediaStream(twilioWs, req) {
 
       case 'stop': {
         logger.info('voice.realtime.stream_stopped', { callSid });
+        sendDbgTrace();
         clearTimeout(wrapUpTimer);
         clearTimeout(hardStopTimer);
         if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
@@ -550,6 +566,7 @@ function handleMediaStream(twilioWs, req) {
 
   twilioWs.on('close', () => {
     logger.info('voice.realtime.twilio_closed');
+    sendDbgTrace();
     clearTimeout(wrapUpTimer);
     clearTimeout(hardStopTimer);
     if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
