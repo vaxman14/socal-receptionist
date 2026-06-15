@@ -161,7 +161,7 @@ function handleRealtimeCall(twilioWs, opts = {}) {
             },
             output: {
               format: { type: 'audio/pcmu' },
-              voice: 'marin',
+              voice: 'alloy',
             },
           },
           instructions: isCallback ? CALLBACK_SYSTEM_PROMPT : SYSTEM_PROMPT,
