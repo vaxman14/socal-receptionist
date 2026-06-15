@@ -277,7 +277,11 @@ function handleMediaStream(twilioWs, req) {
     if (!startReady) return; // wait until recordingEnabled is known, else the disclosure gets dropped
     sessionConfigured = true;
     dbg('configureSession (once)');
-    const realtimeVoice = POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
+    // Live-tunable voice settings from the DB (tenants.voice_settings jsonb) — change
+    // these with a SQL update, no redeploy. Falls back to sensible defaults.
+    const vs = tenant.voice_settings || {};
+    const realtimeVoice = vs.voice || POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
+    const vadEagerness = vs.eagerness || 'low';
     const instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber });
     openaiWs.send(JSON.stringify({
       type: 'session.update',
@@ -290,7 +294,7 @@ function handleMediaStream(twilioWs, req) {
             // semantic_vad handles turn-taking. interrupt_response stays default (true)
             // so real follow-up questions are heard; interrupt_response:false broke that
             // by discarding the caller's speech during/after the AI's reply.
-            turn_detection: { type: 'semantic_vad', eagerness: 'low', create_response: true },
+            turn_detection: { type: 'semantic_vad', eagerness: vadEagerness, create_response: true },
             // Caller speech transcription. GA API: belongs under input, NOT output.
             // (It was under output, which made OpenAI reject the whole session.update
             // -> turn_detection never applied -> AI went silent after the greeting.)
