@@ -523,7 +523,9 @@ function handleMediaStream(twilioWs, req) {
           }
 
           // Schedule callback if no lead was captured and this was not already a callback.
-          if (!leadCaptured && !isCallback && fromNumber && fromNumber !== 'anonymous') {
+          // Gated by CALLBACK_ENABLED (set to 'false' to disable, e.g. during testing
+          // so hang-up test calls don't trigger ghost callbacks).
+          if (process.env.CALLBACK_ENABLED === 'true' && !leadCaptured && !isCallback && fromNumber && fromNumber !== 'anonymous') {
             const baseUrl = (process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
             const callbackFrom = ourNumber || '+19513958776';
             setTimeout(() => {
