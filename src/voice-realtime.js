@@ -7,7 +7,9 @@ const { getAvailableTimes, getSchedulingUrl } = require('./calendly');
 const { createDemoEvent } = require('./gcal');
 const { makeOutboundCall } = require('./twilio');
 
-const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-realtime-2';
+// Pinned to dated-stable model. The rolling `gpt-realtime-2` alias shifted under us
+// and produced garbled ("garbage disposal") audio with no code change (2026-06-14).
+const REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-realtime-2025-08-28';
 
 const SYSTEM_PROMPT = `You are Josi, the AI sales agent for SoCal Receptionist — an AI-powered 24/7 receptionist for small businesses in Southern California (Murrieta, Temecula, Riverside County area).
 
