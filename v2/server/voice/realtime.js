@@ -285,9 +285,10 @@ function handleMediaStream(twilioWs, req) {
         audio: {
           input: {
             format: { type: 'audio/pcmu' },
-            // interrupt_response:false → a cough/noise mid-answer no longer cancels the
-            // AI's response (it was getting chopped with reason "turn_detected").
-            turn_detection: { type: 'semantic_vad', eagerness: 'low', create_response: true, interrupt_response: false },
+            // semantic_vad handles turn-taking. interrupt_response stays default (true)
+            // so real follow-up questions are heard; interrupt_response:false broke that
+            // by discarding the caller's speech during/after the AI's reply.
+            turn_detection: { type: 'semantic_vad', eagerness: 'low', create_response: true },
             // Caller speech transcription. GA API: belongs under input, NOT output.
             // (It was under output, which made OpenAI reject the whole session.update
             // -> turn_detection never applied -> AI went silent after the greeting.)
