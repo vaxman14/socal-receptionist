@@ -16,6 +16,8 @@ const { recordCallStart, updateCall } = require('../lib/calls');
 const { recordUsage, estimateRealtimeCostCents } = require('../lib/usage');
 const { sendEmail } = require('../lib/email');
 const { fireWebhooks } = require('../lib/public-api');
+const { computeSlots } = require('../lib/booking');
+const googleCalendar = require('../integrations/google-calendar');
 const logger = require('../lib/logger');
 
 const twilioClient = twilio(
@@ -91,6 +93,30 @@ function buildTools(tenant) {
       },
     },
   ];
+
+  // Appointment booking — only offered when the tenant enabled it.
+  if (tenant && tenant.booking_enabled) {
+    tools.push({
+      type: 'function',
+      name: 'check_availability',
+      description: 'Get the next available appointment times. Call this when the caller wants to book or asks what times are open. Returns a numbered list of slots; read them to the caller and ask which one they want.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    });
+    tools.push({
+      type: 'function',
+      name: 'book_appointment',
+      description: 'Book an appointment after the caller picks a time from check_availability. Requires the slot number they chose plus their name; email is optional (used to send a calendar invite).',
+      parameters: {
+        type: 'object',
+        properties: {
+          slot_index: { type: 'number', description: 'The slot number the caller chose (1, 2, 3...) from check_availability' },
+          name:       { type: 'string', description: "Caller's name" },
+          email:      { type: 'string', description: "Caller's email for the calendar invite (optional)" },
+        },
+        required: ['slot_index', 'name'],
+      },
+    });
+  }
   return tools;
 }
 
@@ -105,6 +131,7 @@ function handleMediaStream(twilioWs, req) {
   let conversationId = null;
   let pendingFunctionCalls = new Map();
   let leadCaptured = false;
+  let offeredSlots = []; // last slots read to the caller by check_availability
   let recordingEnabled = false;
   let isCallback = false;
   let ourNumber = null;
@@ -350,6 +377,58 @@ function handleMediaStream(twilioWs, req) {
       }
     }
 
+    if (fnName === 'check_availability') {
+      try {
+        const now = new Date();
+        const busy = await googleCalendar.getFreeBusy(
+          tenantId, now.toISOString(), new Date(now.getTime() + 14 * 86400000).toISOString()
+        );
+        offeredSlots = computeSlots(tenant, busy, { count: 3, now });
+        if (offeredSlots.length === 0) {
+          result = 'No open appointment times in the next two weeks. Offer to take their info for a callback instead.';
+        } else {
+          const list = offeredSlots.map((s, i) => `${i + 1}. ${s.label}`).join('; ');
+          result = `Available times: ${list}. Read these options to the caller, ask which number they want, then call book_appointment with that number and their name.`;
+        }
+      } catch (err) {
+        logger.error('voice.realtime.check_availability_failed', { error: err.message });
+        result = 'Could not reach the calendar right now. Offer to take their info so the team can call back to schedule.';
+      }
+    }
+
+    if (fnName === 'book_appointment') {
+      try {
+        const idx = (parseInt(args.slot_index, 10) || 1) - 1;
+        const slot = offeredSlots[idx];
+        if (!slot) {
+          result = 'That slot is no longer on the list. Call check_availability again and re-offer the times.';
+        } else {
+          await googleCalendar.createEvent(tenantId, {
+            title:        `Appointment — ${args.name || 'Caller'}${fromNumber ? ` (${fromNumber})` : ''}`,
+            startIso:     slot.start,
+            durationMins: tenant.slot_length_mins || 30,
+            attendeeEmail: args.email || undefined,
+            attendeeName:  args.name || undefined,
+            timezone:     tenant.timezone || 'America/Los_Angeles',
+          });
+          leadCaptured = true; // a booking is a successful outcome
+          result = `Booked for ${slot.label}. Confirm warmly to the caller${args.email ? ' and tell them a calendar invite is on the way' : ''}.`;
+          const notifyTo = tenant?.voicemail_email || tenant?.owner_email;
+          if (notifyTo) {
+            sendEmail({
+              to: notifyTo,
+              subject: `📅 New appointment — ${tenant.business_name}`,
+              html: `<p><strong>${args.name || 'Caller'}</strong> booked <strong>${slot.label}</strong>.</p><p>Phone: ${fromNumber || '—'}${args.email ? ` · Email: ${args.email}` : ''}</p>`,
+              text: `New appointment: ${args.name || 'Caller'} — ${slot.label}`,
+            }).catch(() => {});
+          }
+        }
+      } catch (err) {
+        logger.error('voice.realtime.book_appointment_failed', { error: err.message });
+        result = 'The booking did not go through. Apologize and offer to take their info for a callback.';
+      }
+    }
+
     // Send the function result back to OpenAI so it can respond.
     if (openaiWs && openaiWs.readyState === WebSocket.OPEN) {
       openaiWs.send(JSON.stringify({
@@ -552,6 +631,7 @@ function handleMediaStream(twilioWs, req) {
     logger.info('voice.realtime.twilio_closed');
     clearTimeout(wrapUpTimer);
     clearTimeout(hardStopTimer);
+    if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
     flushUsage();
     if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
   });

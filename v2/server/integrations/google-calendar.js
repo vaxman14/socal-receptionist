@@ -212,4 +212,20 @@ async function disconnect(tenantId) {
     .eq('tenant_id', tenantId).eq('provider', 'google_calendar');
 }
 
-module.exports = { buildAuthUrl, exchangeCode, saveTokens, getAccountInfo, getAccessToken, listUpcomingEvents, listUsers, createEvent, disconnect };
+// Return busy intervals [{start: Date, end: Date}] on the primary calendar
+// between timeMin and timeMax (ISO strings). Powers availability: any event
+// (including ones the owner creates to block time) makes that slot unbookable.
+async function getFreeBusy(tenantId, timeMinIso, timeMaxIso) {
+  const accessToken = await getAccessToken(tenantId);
+  const res = await fetch(`${CAL_BASE}/freeBusy`, {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ timeMin: timeMinIso, timeMax: timeMaxIso, items: [{ id: 'primary' }] }),
+  });
+  if (!res.ok) throw new Error(`Google freeBusy failed: ${res.status} ${await res.text()}`);
+  const body = await res.json();
+  const busy = body.calendars?.primary?.busy || [];
+  return busy.map(b => ({ start: new Date(b.start), end: new Date(b.end) }));
+}
+
+module.exports = { buildAuthUrl, exchangeCode, saveTokens, getAccountInfo, getAccessToken, listUpcomingEvents, listUsers, createEvent, getFreeBusy, disconnect };
