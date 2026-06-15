@@ -344,6 +344,7 @@ app.get('/terms', (req, res) => {
     <li>Attempt to manipulate, reverse-engineer, or disrupt the AI system</li>
     <li>Use the service to transmit spam or unsolicited commercial messages</li>
   </ul>
+  <p>All communication through the service must remain professional and lawful. Profanity, cursing, harassment, or other improper or unprofessional communication will result in termination of the SMS service after one (1) warning.</p>
 
   <h2>Usage Limits</h2>
   <p>To keep the service available for everyone, automated fair-use limits apply:</p>
@@ -359,6 +360,9 @@ app.get('/terms', (req, res) => {
 
   <h2>Opt-In Requirement</h2>
   <p>You must reply <strong>YES</strong> to the consent prompt before receiving AI messages. By doing so, you agree to receive automated text messages from the service. Reply <strong>STOP</strong> at any time to opt out.</p>
+
+  <h2>Text Messaging Registration (Business Clients)</h2>
+  <p>For business clients, US text messaging requires carrier registration (A2P 10DLC). SoCal Receptionist prepares and submits this registration on the client's behalf, as the client's messaging agent, using the business information the client provides (legal business name, EIN or sole-proprietor details, address, and contact). The client authorizes this and is solely responsible for the accuracy of that information and for obtaining lawful opt-in consent from their own customers. Voice service is active immediately; text messaging is enabled only after the client's campaign is registered and approved by the carriers, which is outside our control and is not guaranteed by any particular date or at all. If a registration is rejected for a reason attributable to the client (for example, an EIN or legal-name mismatch), the first two (2) resubmissions are at no charge and each resubmission after the second costs fifteen US dollars ($15). Plans include one thousand (1,000) text messages per month at no additional charge. Carriers may reject, suspend, or revoke a campaign at any time, which may suspend the client's text service; voice service is unaffected.</p>
 
   <h2>No Warranties</h2>
   <p>The service is provided "as is" without warranty of any kind. We do not guarantee uninterrupted service, accuracy of AI responses, or that the service will meet your specific needs.</p>
