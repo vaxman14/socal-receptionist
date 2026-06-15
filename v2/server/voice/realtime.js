@@ -294,7 +294,9 @@ function handleMediaStream(twilioWs, req) {
             // semantic_vad handles turn-taking. interrupt_response stays default (true)
             // so real follow-up questions are heard; interrupt_response:false broke that
             // by discarding the caller's speech during/after the AI's reply.
-            turn_detection: { type: 'semantic_vad', eagerness: vadEagerness, create_response: true },
+            // Full turn-detection is DB-overridable (voice_settings.turn_detection) so noise
+            // rejection (e.g. server_vad with a threshold) can be tuned via SQL, no redeploy.
+            turn_detection: vs.turn_detection || { type: 'semantic_vad', eagerness: vadEagerness, create_response: true },
             // Caller speech transcription. GA API: belongs under input, NOT output.
             // (It was under output, which made OpenAI reject the whole session.update
             // -> turn_detection never applied -> AI went silent after the greeting.)
