@@ -286,12 +286,15 @@ function handleMediaStream(twilioWs, req) {
           input: {
             format: { type: 'audio/pcmu' },
             turn_detection: { type: 'semantic_vad', eagerness: 'low', create_response: true },
+            // Caller speech transcription. GA API: belongs under input, NOT output.
+            // (It was under output, which made OpenAI reject the whole session.update
+            // -> turn_detection never applied -> AI went silent after the greeting.)
+            transcription: { model: 'gpt-4o-mini-transcribe' },
           },
           output: {
             // PCM16@24kHz — we transcode to mu-law 8kHz ourselves (pcmDeltaToMulaw).
             format: { type: 'audio/pcm' },
             voice: realtimeVoice,
-            transcription: { model: 'gpt-4o-mini-transcribe' },
           },
         },
         instructions,
