@@ -253,8 +253,13 @@ function handleMediaStream(twilioWs, req) {
   openaiWs.on('close', () => logger.info('voice.realtime.openai_closed'));
   openaiWs.on('error', (err) => logger.error('voice.realtime.openai_ws_error', { error: err.message }));
 
+  let sessionConfigured = false;
   function configureSession() {
+    if (sessionConfigured) return; // run once — double-config fired two greetings and wedged turn-taking
     if (!openaiWs || openaiWs.readyState !== WebSocket.OPEN) return;
+    if (!tenant) return;
+    sessionConfigured = true;
+    console.log('[VOICE] configureSession (once)');
     const realtimeVoice = POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
     const instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber });
     openaiWs.send(JSON.stringify({
