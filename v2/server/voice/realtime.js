@@ -26,6 +26,14 @@ const twilioClient = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
+// Pretty-print a phone number for notifications: +19515149294 -> (951) 514-9294.
+// Falls back to the raw value for anything that isn't a US +1 E.164 number.
+function formatPhone(num) {
+  if (!num) return 'unknown';
+  const m = String(num).match(/^\+1(\d{3})(\d{3})(\d{4})$/);
+  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : num;
+}
+
 // Lazily-built client for the post-call lead-rescue extraction.
 let _oai;
 function oaiClient() {
@@ -322,7 +330,7 @@ function handleMediaStream(twilioWs, req) {
             turn_detection: { type: 'semantic_vad', eagerness: vadEagerness, create_response: true },
             // Caller speech transcription. GA API: lives under input, not output —
             // output transcripts arrive automatically via response.output_audio_transcript.*
-            transcription: { model: 'gpt-4o-mini-transcribe' },
+            transcription: { model: 'gpt-4o-transcribe' },
           },
           output: {
             // PCM16@24kHz — we transcode to mu-law 8kHz ourselves (pcmDeltaToMulaw).
@@ -527,8 +535,8 @@ function handleMediaStream(twilioWs, req) {
             sendEmail({
               to: notifyTo,
               subject: `📞 Incoming call — ${tenant.business_name}`,
-              html: `<p>Someone just called <strong>${tenant.business_name}</strong>.</p><p><strong>From:</strong> ${fromNumber || 'unknown'}<br/><strong>Time:</strong> ${ts}</p>`,
-              text: `Incoming call to ${tenant.business_name}\nFrom: ${fromNumber || 'unknown'}\nTime: ${ts}`,
+              html: `<p>Someone just called <strong>${tenant.business_name}</strong>.</p><p><strong>From:</strong> ${formatPhone(fromNumber)}<br/><strong>Time:</strong> ${ts}</p>`,
+              text: `Incoming call to ${tenant.business_name}\nFrom: ${formatPhone(fromNumber)}\nTime: ${ts}`,
             }).catch(() => {});
           }
         }
@@ -629,8 +637,8 @@ function handleMediaStream(twilioWs, req) {
               ? `<hr/><h3>Transcript</h3><pre style="font-family:monospace;font-size:13px;line-height:1.5">${transcript.map(l => `${l.role === 'ai' ? '🤖 AI' : '👤 Caller'}: ${l.text}`).join('\n')}</pre>`
               : '';
             const html = leadCaptured
-              ? `<p>The caller from <strong>${fromNumber || 'unknown'}</strong> completed the conversation and their info was captured.</p><p><strong>Time:</strong> ${ts}</p>${transcriptHtml}`
-              : `<p>The caller from <strong>${fromNumber || 'unknown'}</strong> hung up mid-conversation before leaving their info.</p><p><strong>Time:</strong> ${ts}</p>${transcriptHtml}`;
+              ? `<p>The caller from <strong>${formatPhone(fromNumber)}</strong> completed the conversation and their info was captured.</p><p><strong>Time:</strong> ${ts}</p>${transcriptHtml}`
+              : `<p>The caller from <strong>${formatPhone(fromNumber)}</strong> hung up mid-conversation before leaving their info.</p><p><strong>Time:</strong> ${ts}</p>${transcriptHtml}`;
             sendEmail({ to: notifyTo, subject, html }).catch(() => {});
 
             // Save transcript to DB.
@@ -647,7 +655,7 @@ function handleMediaStream(twilioWs, req) {
           if (tgToken) {
             const header = leadCaptured ? '✅ Lead captured' : '⚠️ Call ended — no lead';
             const callType = isCallback ? ' (callback)' : '';
-            const lines = [`📞 ${header}${callType}`, `From: ${fromNumber || 'unknown'}`, `Business: ${tenant.business_name}`];
+            const lines = [`📞 ${header}${callType}`, `From: ${formatPhone(fromNumber)}`, `Business: ${tenant.business_name}`];
             if (transcript.length) {
               lines.push('', 'Transcript:');
               lines.push(...transcript.map(l => `${l.role === 'ai' ? '🤖' : '👤'} ${l.text}`));
