@@ -37,8 +37,24 @@ const POLLY_TO_REALTIME = {
   'Polly.Brian-Neural':   'verse',
 };
 
-const REALTIME_MODEL = 'gpt-realtime-2';
+const REALTIME_MODEL = 'gpt-realtime-2025-08-28';
 const OPENAI_WS_URL = `wss://api.openai.com/v1/realtime?model=${REALTIME_MODEL}`;
+
+// We request PCM16 (24kHz) from OpenAI and transcode to G.711 mu-law (8kHz)
+// ourselves, then feed Twilio. Asking OpenAI for audio/pcmu directly produced
+// garbled "wind/roar" audio (PCM bytes played as mu-law). This is bulletproof.
+function linearToMulaw(sample) {
+  const BIAS = 0x84;
+  const CLIP = 32635;
+  let sign = (sample >> 8) & 0x80;
+  if (sign) sample = -sample;
+  if (sample > CLIP) sample = CLIP;
+  sample += BIAS;
+  let exponent = 7;
+  for (let expMask = 0x4000; (sample & expMask) === 0 && exponent > 0; exponent--, expMask >>= 1) {}
+  const mantissa = (sample >> (exponent + 3)) & 0x0F;
+  return (~(sign | (exponent << 4) | mantissa)) & 0xFF;
+}
 
 // Hard per-call duration ceiling. A real receptionist call wraps inside 10
 // minutes; anything longer is either a stuck stream or someone freeloading.
@@ -98,6 +114,50 @@ function handleMediaStream(twilioWs, req) {
   let wrapUpTimer = null;
   let hardStopTimer = null;
 
+  // --- Outbound audio pacing + barge-in (fixes garbled/overlapping playback) ---
+  let playQueue = Buffer.alloc(0);
+  let drainTimer = null;
+  let currentResponseId = null;
+  let assistantSpeaking = false;
+  let pcmRemainder = Buffer.alloc(0); // leftover PCM16 bytes between deltas
+  const FRAME_BYTES = 160; // 20ms of 8kHz G.711 mu-law
+
+  // Decode base64 PCM16@24kHz from OpenAI → downsample to 8kHz (avg 3 samples)
+  // → mu-law encode. We own the telephony audio format end to end.
+  function pcmDeltaToMulaw(b64) {
+    const buf = Buffer.concat([pcmRemainder, Buffer.from(b64, 'base64')]);
+    const samples = Math.floor(buf.length / 2);
+    const groups = Math.floor(samples / 3);
+    const out = Buffer.alloc(groups);
+    for (let g = 0; g < groups; g++) {
+      const i = g * 6;
+      const avg = ((buf.readInt16LE(i) + buf.readInt16LE(i + 2) + buf.readInt16LE(i + 4)) / 3) | 0;
+      out[g] = linearToMulaw(avg);
+    }
+    pcmRemainder = buf.subarray(groups * 6);
+    return out;
+  }
+
+  function startDrain() {
+    if (drainTimer) return;
+    drainTimer = setInterval(() => {
+      if (!streamSid || playQueue.length === 0) return;
+      const frame = playQueue.subarray(0, FRAME_BYTES);
+      playQueue = playQueue.subarray(frame.length);
+      try {
+        twilioWs.send(JSON.stringify({ event: 'media', streamSid, media: { payload: frame.toString('base64') } }));
+      } catch {}
+    }, 20);
+  }
+
+  function flushPlayback() {
+    playQueue = Buffer.alloc(0);
+    pcmRemainder = Buffer.alloc(0);
+    if (streamSid) {
+      try { twilioWs.send(JSON.stringify({ event: 'clear', streamSid })); } catch {}
+    }
+  }
+
   // Record accumulated OpenAI cost against the tenant exactly once per call,
   // whether the stream ends via Twilio 'stop' or an abrupt socket close.
   function flushUsage() {
@@ -132,13 +192,27 @@ function handleMediaStream(twilioWs, req) {
       }
 
       // Forward AI audio deltas back to Twilio.
+      case 'response.created': {
+        currentResponseId = (event.response && event.response.id) || currentResponseId;
+        assistantSpeaking = true;
+        break;
+      }
+
+      // Caller barged in — stop playback + cancel in-progress response.
+      case 'input_audio_buffer.speech_started': {
+        flushPlayback();
+        if (assistantSpeaking && openaiWs && openaiWs.readyState === WebSocket.OPEN) {
+          try { openaiWs.send(JSON.stringify({ type: 'response.cancel' })); } catch {}
+          assistantSpeaking = false;
+        }
+        break;
+      }
+
+      // Queue AI audio (transcoded + paced); drop stale-response audio.
       case 'response.output_audio.delta': {
-        if (streamSid && event.delta) {
-          twilioWs.send(JSON.stringify({
-            event: 'media',
-            streamSid,
-            media: { payload: event.delta },
-          }));
+        if (event.response_id && currentResponseId && event.response_id !== currentResponseId) break;
+        if (event.delta) {
+          try { playQueue = Buffer.concat([playQueue, pcmDeltaToMulaw(event.delta)]); } catch {}
         }
         break;
       }
@@ -167,6 +241,7 @@ function handleMediaStream(twilioWs, req) {
 
       // Each completed response reports token usage — accumulate the cost.
       case 'response.done': {
+        assistantSpeaking = false;
         realtimeCostCents += estimateRealtimeCostCents(event.response?.usage);
         break;
       }
@@ -183,7 +258,7 @@ function handleMediaStream(twilioWs, req) {
 
   function configureSession() {
     if (!openaiWs || openaiWs.readyState !== WebSocket.OPEN) return;
-    const realtimeVoice = POLLY_TO_REALTIME[tenant.voice_id] || 'marin';
+    const realtimeVoice = POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
     const instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber });
     openaiWs.send(JSON.stringify({
       type: 'session.update',
@@ -199,7 +274,8 @@ function handleMediaStream(twilioWs, req) {
             transcription: { model: 'gpt-4o-mini-transcribe' },
           },
           output: {
-            format: { type: 'audio/pcmu' },
+            // PCM16@24kHz — we transcode to mu-law 8kHz ourselves (pcmDeltaToMulaw).
+            format: { type: 'audio/pcm' },
             voice: realtimeVoice,
           },
         },
@@ -296,6 +372,7 @@ function handleMediaStream(twilioWs, req) {
 
       case 'start': {
         streamSid = msg.start.streamSid;
+        startDrain(); // begin paced 20ms outbound audio frames
         callSid   = msg.start.callSid;
         // Custom parameters passed from the TwiML <Stream>.
         const params = msg.start.customParameters || {};
@@ -377,6 +454,7 @@ function handleMediaStream(twilioWs, req) {
           logger.warn('voice.realtime.max_duration', { callSid });
           try { if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close(); } catch {}
           try { if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close(); } catch {}
+          if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
         }, MAX_CALL_MS);
         break;
       }
@@ -396,6 +474,7 @@ function handleMediaStream(twilioWs, req) {
         logger.info('voice.realtime.stream_stopped', { callSid });
         clearTimeout(wrapUpTimer);
         clearTimeout(hardStopTimer);
+        if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
         flushUsage();
         if (callSid) await updateCall(callSid, { outcome: 'ai_handled' }).catch(() => {});
         if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
