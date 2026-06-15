@@ -12,38 +12,36 @@
   <meta property="og:type" content="video.other" />
   <meta property="og:url" content="https://www.socalreceptionist.com/video" />
   <meta property="og:video" content="https://fxjbxeckzeplixdgwbqk.supabase.co/storage/v1/object/public/demos/socal-receptionist-demo.mp4" />
-  <meta property="og:image" content="https://www.socalreceptionist.com/images/logo-dark.png" />
+  <meta property="og:image" content="https://www.socalreceptionist.com/images/logo-clean.png" />
   <meta name="twitter:card" content="player" />
 
   <link rel="icon" href="/images/favicon.png" />
   <style>
-    :root { --bg:#0b1020; --panel:#121a33; --text:#eef2ff; --muted:#9fb0d6; --accent:#5b8cff; }
+    :root { --bg:#ffffff; --panel:#ffffff; --text:#0b1430; --muted:#5b6680; --accent:#ff5a36; --border:#e7eaf1; }
     * { box-sizing: border-box; }
     body {
-      margin:0; min-height:100vh; background:radial-gradient(1200px 600px at 50% -10%, #1a2547 0%, var(--bg) 60%);
+      margin:0; min-height:100vh; background:var(--bg);
       color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-      display:flex; flex-direction:column; align-items:center; padding:32px 20px 48px;
+      display:flex; flex-direction:column; align-items:center; padding:40px 20px 56px;
     }
-    .logo { height:42px; margin-bottom:22px; }
-    h1 { font-size:1.5rem; font-weight:700; margin:0 0 6px; text-align:center; }
-    p.sub { color:var(--muted); margin:0 0 26px; text-align:center; max-width:620px; line-height:1.5; }
+    .logo { width:min(520px, 90%); height:auto; margin-bottom:30px; }
+    h1 { font-size:1.6rem; font-weight:700; margin:0 0 8px; text-align:center; }
+    p.sub { color:var(--muted); margin:0 0 30px; text-align:center; max-width:640px; line-height:1.55; }
     .frame {
-      width:100%; max-width:920px; background:var(--panel); border:1px solid #25325c;
-      border-radius:16px; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.45);
+      width:100%; max-width:940px; background:var(--panel); border:1px solid var(--border);
+      border-radius:16px; overflow:hidden; box-shadow:0 20px 50px rgba(20,30,60,.12);
     }
     video { width:100%; display:block; background:#000; aspect-ratio:16/9; }
-    .cta { margin-top:28px; display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
-    .btn {
-      text-decoration:none; padding:12px 22px; border-radius:999px; font-weight:600; font-size:.95rem;
-    }
+    .cta { margin-top:30px; display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+    .btn { text-decoration:none; padding:13px 24px; border-radius:999px; font-weight:600; font-size:.95rem; }
     .btn.primary { background:var(--accent); color:#fff; }
-    .btn.ghost { border:1px solid #2c3a66; color:var(--text); }
-    .foot { margin-top:34px; color:var(--muted); font-size:.85rem; text-align:center; }
+    .btn.ghost { border:1px solid var(--border); color:var(--text); }
+    .foot { margin-top:36px; color:var(--muted); font-size:.85rem; text-align:center; }
     .foot a { color:var(--accent); text-decoration:none; }
   </style>
 </head>
 <body>
-  <img class="logo" src="/images/logo-white.png" alt="SoCal Receptionist" onerror="this.style.display='none'" />
+  <img class="logo" src="/images/logo-clean.png" alt="SoCal Receptionist" onerror="this.style.display='none'" />
   <h1>Watch SoCal Receptionist in action</h1>
   <p class="sub">An AI phone receptionist that answers every call 24/7, holds a natural conversation, captures leads, and books appointments.</p>
 
