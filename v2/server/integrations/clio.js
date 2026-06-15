@@ -36,8 +36,8 @@ function buildAuthUrl(baseUrl, state) {
 async function exchangeCode(code, baseUrl) {
   const res = await fetch(CLIO_TOKEN_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
       grant_type: 'authorization_code',
       code,
       client_id: CLIENT_ID,
@@ -63,8 +63,8 @@ async function refreshAccessToken(tenantId) {
 
   const res = await fetch(CLIO_TOKEN_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: decryptToken(integration.refresh_token),
       client_id: CLIENT_ID,
