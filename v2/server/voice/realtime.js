@@ -35,7 +35,7 @@ const POLLY_TO_REALTIME = {
   'Polly.Brian-Neural':   'verse',
 };
 
-const REALTIME_MODEL = 'gpt-realtime-2';
+const REALTIME_MODEL = 'gpt-realtime-2025-08-28';
 const OPENAI_WS_URL = `wss://api.openai.com/v1/realtime?model=${REALTIME_MODEL}`;
 
 // Hard per-call duration ceiling. A real receptionist call wraps inside 10
@@ -94,6 +94,39 @@ function handleMediaStream(twilioWs, req) {
   let wrapUpTimer = null;
   let hardStopTimer = null;
 
+  // --- Outbound audio pacing + barge-in (fixes garbled/overlapping playback) ---
+  // OpenAI emits audio faster than real time and in bursts; queue the raw mu-law
+  // bytes and feed Twilio steady 20ms (160-byte) frames. Drop audio from stale/
+  // cancelled responses so two streams never interleave into a grinding sound.
+  let playQueue = Buffer.alloc(0);
+  let drainTimer = null;
+  let currentResponseId = null;
+  let assistantSpeaking = false;
+  const FRAME_BYTES = 160; // 20ms of 8kHz G.711 mu-law
+
+  function startDrain() {
+    if (drainTimer) return;
+    drainTimer = setInterval(() => {
+      if (!streamSid || playQueue.length === 0) return;
+      const frame = playQueue.subarray(0, FRAME_BYTES);
+      playQueue = playQueue.subarray(frame.length);
+      try {
+        twilioWs.send(JSON.stringify({
+          event: 'media',
+          streamSid,
+          media: { payload: frame.toString('base64') },
+        }));
+      } catch {}
+    }, 20);
+  }
+
+  function flushPlayback() {
+    playQueue = Buffer.alloc(0);
+    if (streamSid) {
+      try { twilioWs.send(JSON.stringify({ event: 'clear', streamSid })); } catch {}
+    }
+  }
+
   logger.info('voice.realtime.stream_connected');
 
   // Open the OpenAI Realtime WebSocket immediately.
@@ -116,14 +149,33 @@ function handleMediaStream(twilioWs, req) {
         break;
       }
 
-      // Forward AI audio deltas back to Twilio.
+      case 'response.created': {
+        currentResponseId = (event.response && event.response.id) || currentResponseId;
+        assistantSpeaking = true;
+        break;
+      }
+
+      case 'response.done': {
+        assistantSpeaking = false;
+        break;
+      }
+
+      // Caller barged in — stop current playback + cancel the in-progress
+      // response so old and new audio never interleave into a garble.
+      case 'input_audio_buffer.speech_started': {
+        flushPlayback();
+        if (assistantSpeaking && openaiWs && openaiWs.readyState === WebSocket.OPEN) {
+          try { openaiWs.send(JSON.stringify({ type: 'response.cancel' })); } catch {}
+          assistantSpeaking = false;
+        }
+        break;
+      }
+
+      // Queue AI audio (paced to Twilio in 20ms frames); drop stale-response audio.
       case 'response.output_audio.delta': {
-        if (streamSid && event.delta) {
-          twilioWs.send(JSON.stringify({
-            event: 'media',
-            streamSid,
-            media: { payload: event.delta },
-          }));
+        if (event.response_id && currentResponseId && event.response_id !== currentResponseId) break;
+        if (event.delta) {
+          try { playQueue = Buffer.concat([playQueue, Buffer.from(event.delta, 'base64')]); } catch {}
         }
         break;
       }
@@ -272,6 +324,7 @@ function handleMediaStream(twilioWs, req) {
 
       case 'start': {
         streamSid = msg.start.streamSid;
+        startDrain(); // begin paced 20ms outbound audio frames
         callSid   = msg.start.callSid;
         // Custom parameters passed from the TwiML <Stream>.
         const params = msg.start.customParameters || {};
@@ -353,6 +406,7 @@ function handleMediaStream(twilioWs, req) {
           logger.warn('voice.realtime.max_duration', { callSid });
           try { if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close(); } catch {}
           try { if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close(); } catch {}
+          if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
         }, MAX_CALL_MS);
         break;
       }
@@ -372,6 +426,7 @@ function handleMediaStream(twilioWs, req) {
         logger.info('voice.realtime.stream_stopped', { callSid });
         clearTimeout(wrapUpTimer);
         clearTimeout(hardStopTimer);
+        if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
         if (callSid) await updateCall(callSid, { outcome: 'ai_handled' }).catch(() => {});
         if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
 
