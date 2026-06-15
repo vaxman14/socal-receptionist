@@ -269,10 +269,12 @@ function handleMediaStream(twilioWs, req) {
   openaiWs.on('error', (err) => logger.error('voice.realtime.openai_ws_error', { error: err.message }));
 
   let sessionConfigured = false;
+  let startReady = false; // set once Twilio 'start' has loaded tenant + set recordingEnabled
   function configureSession() {
     if (sessionConfigured) return; // run once — double-config fired two greetings and wedged turn-taking
     if (!openaiWs || openaiWs.readyState !== WebSocket.OPEN) return;
     if (!tenant) return;
+    if (!startReady) return; // wait until recordingEnabled is known, else the disclosure gets dropped
     sessionConfigured = true;
     dbg('configureSession (once)');
     const realtimeVoice = POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
@@ -450,6 +452,8 @@ function handleMediaStream(twilioWs, req) {
           }
         }
 
+        // Everything the session config needs (tenant, recordingEnabled) is set now.
+        startReady = true;
         // If openaiWs is already open, configure now; otherwise the open handler will.
         if (openaiWs && openaiWs.readyState === WebSocket.OPEN) {
           configureSession();
