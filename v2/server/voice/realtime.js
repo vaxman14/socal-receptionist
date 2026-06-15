@@ -293,7 +293,7 @@ function handleMediaStream(twilioWs, req) {
           },
           output: {
             // PCM16@24kHz — we transcode to mu-law 8kHz ourselves (pcmDeltaToMulaw).
-            format: { type: 'audio/pcm' },
+            format: { type: 'audio/pcm', rate: 24000 },
             voice: realtimeVoice,
           },
         },
