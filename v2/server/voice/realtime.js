@@ -38,6 +38,22 @@ const POLLY_TO_REALTIME = {
 const REALTIME_MODEL = 'gpt-realtime-2025-08-28';
 const OPENAI_WS_URL = `wss://api.openai.com/v1/realtime?model=${REALTIME_MODEL}`;
 
+// We request PCM16 (24kHz) from OpenAI and transcode to G.711 mu-law (8kHz)
+// ourselves, then feed Twilio. Asking OpenAI for audio/pcmu directly produced
+// garbled "wind/roar" audio (PCM bytes played as mu-law). This is bulletproof.
+function linearToMulaw(sample) {
+  const BIAS = 0x84;
+  const CLIP = 32635;
+  let sign = (sample >> 8) & 0x80;
+  if (sign) sample = -sample;
+  if (sample > CLIP) sample = CLIP;
+  sample += BIAS;
+  let exponent = 7;
+  for (let expMask = 0x4000; (sample & expMask) === 0 && exponent > 0; exponent--, expMask >>= 1) {}
+  const mantissa = (sample >> (exponent + 3)) & 0x0F;
+  return (~(sign | (exponent << 4) | mantissa)) & 0xFF;
+}
+
 // Hard per-call duration ceiling. A real receptionist call wraps inside 10
 // minutes; anything longer is either a stuck stream or someone freeloading.
 const MAX_CALL_MS = 10 * 60 * 1000;
@@ -102,7 +118,24 @@ function handleMediaStream(twilioWs, req) {
   let drainTimer = null;
   let currentResponseId = null;
   let assistantSpeaking = false;
+  let pcmRemainder = Buffer.alloc(0); // leftover PCM16 bytes between deltas
   const FRAME_BYTES = 160; // 20ms of 8kHz G.711 mu-law
+
+  // Decode a base64 PCM16@24kHz delta from OpenAI, downsample to 8kHz (average
+  // groups of 3 samples) and mu-law encode → bytes ready for Twilio.
+  function pcmDeltaToMulaw(b64) {
+    const buf = Buffer.concat([pcmRemainder, Buffer.from(b64, 'base64')]);
+    const samples = Math.floor(buf.length / 2);
+    const groups = Math.floor(samples / 3);
+    const out = Buffer.alloc(groups);
+    for (let g = 0; g < groups; g++) {
+      const i = g * 6;
+      const avg = ((buf.readInt16LE(i) + buf.readInt16LE(i + 2) + buf.readInt16LE(i + 4)) / 3) | 0;
+      out[g] = linearToMulaw(avg);
+    }
+    pcmRemainder = buf.subarray(groups * 6); // carry leftover samples/bytes
+    return out;
+  }
 
   function startDrain() {
     if (drainTimer) return;
@@ -122,6 +155,7 @@ function handleMediaStream(twilioWs, req) {
 
   function flushPlayback() {
     playQueue = Buffer.alloc(0);
+    pcmRemainder = Buffer.alloc(0);
     if (streamSid) {
       try { twilioWs.send(JSON.stringify({ event: 'clear', streamSid })); } catch {}
     }
@@ -175,7 +209,7 @@ function handleMediaStream(twilioWs, req) {
       case 'response.output_audio.delta': {
         if (event.response_id && currentResponseId && event.response_id !== currentResponseId) break;
         if (event.delta) {
-          try { playQueue = Buffer.concat([playQueue, Buffer.from(event.delta, 'base64')]); } catch {}
+          try { playQueue = Buffer.concat([playQueue, pcmDeltaToMulaw(event.delta)]); } catch {}
         }
         break;
       }
@@ -227,7 +261,8 @@ function handleMediaStream(twilioWs, req) {
             turn_detection: { type: 'semantic_vad', eagerness: 'low', create_response: true },
           },
           output: {
-            format: { type: 'audio/pcmu' },
+            // PCM16@24kHz — we transcode to mu-law 8kHz ourselves (pcmDeltaToMulaw).
+            format: { type: 'audio/pcm' },
             voice: realtimeVoice,
             transcription: { model: 'gpt-4o-mini-transcribe' },
           },
