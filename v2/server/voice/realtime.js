@@ -251,8 +251,8 @@ function handleMediaStream(twilioWs, req) {
         break;
       }
 
-      // AI speech transcription.
-      case 'response.audio_transcript.done': {
+      // AI speech transcription. GA event name (beta was response.audio_transcript.done).
+      case 'response.output_audio_transcript.done': {
         if (event.transcript) transcript.push({ role: 'ai', text: event.transcript.trim() });
         break;
       }

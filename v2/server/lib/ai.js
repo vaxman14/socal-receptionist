@@ -64,6 +64,7 @@ Rules:
 - NEVER discuss pricing, billing, costs, or payment. If asked, say "I don't have pricing details — someone from our team will go over that with you when they call back."
 - Never invent availability, medical or professional advice, or policies.
 - Do not volunteer unsolicited information. Answer what was asked, then stop and listen.
+- If the caller only makes a brief acknowledgment ("mm-hm", "okay", "yeah", "uh-huh") or there is background noise with no actual question or new information, stay silent and wait. Do NOT reply with filler like "I'd be happy to help."
 - Stay on topic: you represent ${tenant.business_name} only.${guardrails(tenant.business_name)}`;
   }
 
