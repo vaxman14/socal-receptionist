@@ -116,6 +116,8 @@ function handleMediaStream(twilioWs, req) {
   // cancelled responses so two streams never interleave into a grinding sound.
   let playQueue = Buffer.alloc(0);
   let drainTimer = null;
+  let drainClock = 0;   // wall-clock ms when the current playout run started
+  let framesSent = 0;   // 20ms frames sent since drainClock (jitter correction)
   let currentResponseId = null;
   let assistantSpeaking = false;
   let pcmRemainder = Buffer.alloc(0); // leftover PCM16 bytes between deltas
@@ -155,25 +157,45 @@ function handleMediaStream(twilioWs, req) {
     return out;
   }
 
+  // Wall-clock-corrected pacing. Node setInterval fires late and bunches under
+  // load, which made delivery bursty (clump-then-gap) and the audio "wavy" —
+  // volume swelling up and down a few times a second. Instead of sending exactly
+  // one frame per tick, send as many 20ms frames as real elapsed time calls for,
+  // so the average rate stays locked to 8kHz regardless of timer jitter.
   function startDrain() {
     if (drainTimer) return;
+    drainClock = Date.now();
+    framesSent = 0;
     drainTimer = setInterval(() => {
-      if (!streamSid || playQueue.length === 0) return;
-      const frame = playQueue.subarray(0, FRAME_BYTES);
-      playQueue = playQueue.subarray(frame.length);
-      try {
-        twilioWs.send(JSON.stringify({
-          event: 'media',
-          streamSid,
-          media: { payload: frame.toString('base64') },
-        }));
-      } catch {}
+      if (!streamSid) return;
+      if (playQueue.length === 0) {
+        // Idle between turns — reset the clock so resumed audio doesn't trigger
+        // a catch-up burst (which would re-create the bursty/wavy delivery).
+        drainClock = Date.now();
+        framesSent = 0;
+        return;
+      }
+      const due = Math.floor((Date.now() - drainClock) / 20);
+      while (framesSent < due && playQueue.length > 0) {
+        const frame = playQueue.subarray(0, FRAME_BYTES);
+        playQueue = playQueue.subarray(frame.length);
+        try {
+          twilioWs.send(JSON.stringify({
+            event: 'media',
+            streamSid,
+            media: { payload: frame.toString('base64') },
+          }));
+        } catch {}
+        framesSent++;
+      }
     }, 20);
   }
 
   function flushPlayback() {
     playQueue = Buffer.alloc(0);
     pcmRemainder = Buffer.alloc(0);
+    drainClock = Date.now();
+    framesSent = 0;
     if (streamSid) {
       try { twilioWs.send(JSON.stringify({ event: 'clear', streamSid })); } catch {}
     }
