@@ -61,7 +61,22 @@
   <!-- Google Analytics GA4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-EDTQ463YEQ"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-EDTQ463YEQ');</script>
-  <script>if(location.hostname==="www.socalreceptionist.com"){!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init("phc_pixxDTMUmkokq6ujRTfhYH7xKhVKGvnQDMZbW5rXZf8u",{api_host:"https://us.i.posthog.com",defaults:"2026-01-30"});}</script>
+  <script>if(location.hostname==="www.socalreceptionist.com"){!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init("phc_pixxDTMUmkokq6ujRTfhYH7xKhVKGvnQDMZbW5rXZf8u",{api_host:"https://us.i.posthog.com",defaults:"2026-01-30",autocapture:true,capture_pageleave:true,enable_heatmaps:true,session_recording:{maskAllInputs:true}});}</script>
+  <script>
+  // Global, host-safe tracking helper (no-op when PostHog isn't loaded).
+  window.track=function(n,p){try{if(window.posthog&&posthog.capture)posthog.capture(n,p||{});}catch(e){}};
+  // Delegated tracking for call/video/pricing CTAs (capture phase so it fires before navigation).
+  document.addEventListener('click',function(e){
+    try{
+      var a=e.target.closest?e.target.closest('a,button'):null; if(!a) return;
+      var href=(a.getAttribute&&a.getAttribute('href'))||'';
+      var txt=(a.textContent||'').trim().slice(0,40);
+      if(href.indexOf('tel:')===0) track('cta_call_click',{label:txt});
+      else if(href==='/video') track('cta_video_click');
+      else if(a.classList&&a.classList.contains('price-cta')&&a.id!=='submit-btn') track('pricing_cta_click',{label:txt,href:href});
+    }catch(_){}
+  },true);
+  </script>
 
   <!-- Facebook Pixel — set FB_PIXEL_ID env var to activate -->
   <script id="fb-pixel-snippet"></script>
@@ -234,6 +249,7 @@
           });
           var data = await res.json().catch(function () { return {}; });
           if (res.ok) {
+            if (window.track) track('callback_requested');
             msg.textContent = '📞 Calling you now — answer your phone!';
             msg.style.color = '#22c55e';
             f.reset();
@@ -403,6 +419,7 @@
 </section>
 <script>
 function setBilling(mode) {
+  if (window.track) track('billing_toggle', { mode: mode });
   var isAnnual = mode === 'annual';
   document.getElementById('btn-monthly').classList.toggle('active', !isAnnual);
   document.getElementById('btn-annual').classList.toggle('active', isAnnual);
@@ -494,6 +511,14 @@ function setBilling(mode) {
 
   wageSlider.addEventListener('input', updateCalc);
   hoursSlider.addEventListener('input', updateCalc);
+  // Track first interaction with the savings calculator (once).
+  var calcTracked = false;
+  function trackCalc() { if (!calcTracked) { calcTracked = true; if (window.track) track('calculator_used'); } }
+  wageSlider.addEventListener('input', trackCalc);
+  hoursSlider.addEventListener('input', trackCalc);
+  // Track first focus into the demo form (lets us see start-vs-submit drop-off).
+  (function(){ var df=document.getElementById('demo-form'); var started=false;
+    if(df) df.addEventListener('focusin', function(){ if(!started){ started=true; if(window.track) track('demo_form_started'); } }); })();
   updateCalc();
 
   // Demo form
@@ -530,6 +555,7 @@ function setBilling(mode) {
         body: JSON.stringify(data),
       });
       if (res.ok) {
+        if (window.track) track('demo_lead_submitted', { industry: data.type || '', sms_consent: !!data.smsConsent });
         document.getElementById('form-success').style.display = 'block';
         document.getElementById('demo-form').reset();
       } else {
@@ -788,6 +814,7 @@ function setBilling(mode) {
   function showTyping(){return addMsg('bot typing','...');}
 
   function openChat(){
+    if(window.track) track('chat_opened');
     panel.classList.add('open');
     opened=true;
     btn.style.display='none';
@@ -817,6 +844,7 @@ function setBilling(mode) {
   function doSend(){
     var text=input.value.trim();
     if(!text||sending) return;
+    if(window.track) track('chat_message_sent');
     sending=true;
     send.disabled=true;
     addMsg('user',text);
@@ -852,10 +880,11 @@ function setBilling(mode) {
     try{if(localStorage.getItem(TEASER_KEY))return;}catch(e){}
     if(teaser)teaser.classList.add('show');
     btn.classList.add('sc-pulse');
+    if(window.track) track('chat_teaser_shown');
     try{localStorage.setItem(TEASER_KEY,'1');}catch(e){}
   }
   if(teaser){
-    teaser.addEventListener('click',function(){hideTeaser();openChat();});
+    teaser.addEventListener('click',function(){if(window.track)track('chat_teaser_clicked');hideTeaser();openChat();});
     teaser.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();hideTeaser();openChat();}});
   }
   if(teaserX)teaserX.addEventListener('click',function(e){e.stopPropagation();hideTeaser();});
