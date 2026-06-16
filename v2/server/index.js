@@ -27,6 +27,7 @@ const onboardingRegisterRouter = require('./onboarding/register');
 const onboardingNumbersRouter = require('./onboarding/numbers');
 const onboardingChatRouter = require('./onboarding/chat');
 const mfaRouter = require('./auth/mfa');
+const { verifyRecaptcha } = require('./lib/recaptcha');
 
 const app = express();
 expressWs(app); // enable app.ws() for WebSocket routes
@@ -69,6 +70,13 @@ app.post('/demo', async (req, res) => {
     const smsConsent = b.smsConsent === true || b.smsConsent === 'true';
     if (!name || !phone) {
       return res.status(400).json({ error: 'name and phone are required' });
+    }
+    // reCAPTCHA v3 — block bot spam. Gracefully skipped if RECAPTCHA_SECRET_KEY
+    // is unset (so a missing key never blocks real leads, just disables filtering).
+    const captcha = await verifyRecaptcha(b.recaptcha_token);
+    if (!captcha.ok) {
+      console.log(`[demo-lead] reCAPTCHA blocked ${name} | ${business} | ${phone} — ${captcha.reason || ''}${captcha.score != null ? ` score=${captcha.score}` : ''}`);
+      return res.status(422).json({ error: 'Verification failed. Please try again, or call us at (951) 395-8776.' });
     }
     const ts = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
     const text = `New demo request from socalreceptionist.com\n\n`

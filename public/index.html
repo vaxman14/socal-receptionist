@@ -10,6 +10,8 @@
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://www.socalreceptionist.com/">
   <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- reCAPTCHA v3 (invisible bot filter for the demo lead form) -->
+  <script src="https://www.google.com/recaptcha/api.js?render=6Lcy4hgtAAAAAMx7aSIGoDUloWYXKTGJuvnbi_sP"></script>
 
   <!-- Open Graph (Facebook, LinkedIn) -->
   <meta property="og:type" content="website">
@@ -495,12 +497,24 @@ function setBilling(mode) {
     btn.textContent = 'Sending...';
     btn.disabled = true;
 
+    // reCAPTCHA v3 — fetch a score token (best-effort; backend verifies it).
+    let recaptchaToken = '';
+    try {
+      recaptchaToken = await new Promise(function (resolve, reject) {
+        grecaptcha.ready(function () {
+          grecaptcha.execute('6Lcy4hgtAAAAAMx7aSIGoDUloWYXKTGJuvnbi_sP', { action: 'demo' })
+            .then(resolve).catch(reject);
+        });
+      });
+    } catch (err) { recaptchaToken = ''; }
+
     const data = {
       name: document.getElementById('f-name').value,
       business: document.getElementById('f-business').value,
       phone: document.getElementById('f-phone').value,
       type: document.getElementById('f-type').value,
       smsConsent: document.getElementById('sms-consent').checked,
+      recaptcha_token: recaptchaToken,
     };
 
     try {
