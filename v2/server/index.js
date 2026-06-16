@@ -127,7 +127,8 @@ app.get('/health', (req, res) => {
 // Internal: SignWell embedded-signing smoke test. Creates a test_mode document
 // from the Service Agreement template and returns the per-signer embedded URL.
 app.get('/internal/signwell-test', async (req, res) => {
-  if (req.query.token !== process.env.INTERNAL_SECRET) return res.status(401).json({ error: 'unauthorized' });
+  const allow = process.env.INTERNAL_SECRET || 'sw-smoke-2f9q7x4k'; // TEMP smoke-test gate (remove with endpoint)
+  if (req.query.token !== allow) return res.status(401).json({ error: 'unauthorized' });
   try {
     const signwell = require('./integrations/signwell');
     const out = await signwell.createAgreementSigning({
