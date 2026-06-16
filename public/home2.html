@@ -81,6 +81,9 @@
   .band{background:var(--navy);color:#fff;text-align:center;padding:74px 0}
   .band h2{color:#fff}
   .band p{color:#c7cede;max-width:620px;margin:14px auto 28px}
+  /* lead form fields */
+  .fld{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:1rem;font-family:inherit;color:var(--text);background:#fff}
+  .fld:focus{outline:none;border-color:var(--purple)}
   /* footer */
   footer{padding:44px 0;border-top:1px solid var(--border);color:var(--muted);font-size:.9rem}
   footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px}
@@ -147,7 +150,7 @@
     </div>
     <div class="grid g4" style="margin-top:30px">
       <div class="card"><div class="ic">🎙️</div><h3>Natural voice AI</h3><p>Callers talk to her like a person, not a phone tree.</p></div>
-      <div class="card"><div class="ic">📝</div><h3>Transcripts and recordings</h3><p>Every call captured, searchable, in your dashboard.</p></div>
+      <div class="card"><div class="ic">📋</div><h3>Call log and lead details</h3><p>Every caller's name, number, and reason for calling, captured in your dashboard.</p></div>
       <div class="card"><div class="ic">🔔</div><h3>Reminders</h3><p>Automatic appointment reminders so fewer no-shows.</p></div>
       <div class="card"><div class="ic">🔢</div><h3>Your own number</h3><p>A dedicated line and a voice tuned to your brand.</p></div>
     </div>
@@ -197,7 +200,7 @@
           <li>Dedicated phone number</li>
           <li>Lead capture and alerts</li>
           <li>Appointment booking</li>
-          <li>Calls, transcripts, and dashboard</li>
+          <li>Call log and dashboard</li>
         </ul>
         <a class="btn btn-ghost" href="https://app2.socalreceptionist.com/signup">Get Started</a>
       </div>
@@ -231,24 +234,86 @@
   </div>
 </section>
 
-<!-- CTA BAND -->
-<section class="band">
-  <div class="wrap">
+<!-- CTA + LEAD FORM -->
+<section class="band" id="contact">
+  <div class="wrap" style="max-width:620px">
     <h2>Stop missing calls today.</h2>
-    <p>Meet Josi. She answers every call and works inside the software you already run. Hear her yourself in 60 seconds.</p>
-    <div class="hero row" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
-      <a class="btn btn-primary" href="https://app2.socalreceptionist.com/signup">Get Started</a>
-      <a class="btn btn-ghost" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.3)" href="tel:+19513958776">Call the live demo</a>
-    </div>
+    <p>Leave your info and we'll reach out within a few hours to set up your demo. A real person follows up, not a bot. Or talk to Josi live at <a class="grad" href="tel:+19513958776">(951) 395-8776</a>.</p>
+    <form id="demo-form" style="background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;text-align:left;margin:6px auto 0;max-width:480px">
+      <input class="fld" type="text" id="f-name" name="name" placeholder="Your name" required>
+      <input class="fld" type="text" id="f-business" name="business" placeholder="Business name" required>
+      <input class="fld" type="tel" id="f-phone" name="phone" placeholder="Phone number" required>
+      <select class="fld" id="f-type" name="type">
+        <option value="">Type of business...</option>
+        <option>Legal</option>
+        <option>Medical / Dental</option>
+        <option>Home Services (HVAC, Plumbing, etc.)</option>
+        <option>Real Estate</option>
+        <option>Accounting</option>
+        <option>Salon / Spa</option>
+        <option>Auto Repair</option>
+        <option>Restaurant / Food</option>
+        <option>Other</option>
+      </select>
+      <button class="btn btn-primary" type="submit" id="submit-btn" style="width:100%">Book my free demo</button>
+      <label style="display:flex;gap:9px;align-items:flex-start;font-size:.74rem;color:var(--muted);line-height:1.5">
+        <input type="checkbox" id="sms-consent" style="margin-top:3px;flex:none;width:16px;height:16px">
+        <span>I agree to receive recurring automated marketing and informational text messages (offers, updates, appointment and scheduling messages, and responses to my inquiry) from SoCal Receptionist at the number provided. Consent is not a condition of purchase. Message frequency varies. Msg and data rates may apply. Reply STOP to opt out, HELP for help.</span>
+      </label>
+      <p style="font-size:.7rem;color:var(--muted);line-height:1.5;margin:0">We never sell or share your mobile information. See our <a href="/sms-terms" style="color:var(--purple)">SMS Terms</a>, <a href="/privacy" style="color:var(--purple)">Privacy Policy</a>, and <a href="/terms" style="color:var(--purple)">Terms</a>.</p>
+      <p id="form-success" style="display:none;color:#16a34a;font-weight:700;margin:0">🎉 Got it. We'll reach out within a few hours.</p>
+      <p id="form-error" style="display:none;color:#dc2626;font-weight:700;margin:0">Something went wrong. Please try again or call us.</p>
+    </form>
   </div>
 </section>
 
 <footer>
-  <div class="wrap">
+  <div class="wrap" style="flex-direction:column;align-items:center;text-align:center;gap:10px">
     <div>© 2026 SOCAL RECEPTIONIST LLC · Murrieta, CA</div>
+    <div style="display:flex;gap:8px 16px;flex-wrap:wrap;justify-content:center">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms of Use</a>
+      <a href="/sms-terms">SMS Terms</a>
+      <a href="/cookies">Cookie Policy</a>
+      <a href="/accessibility">Accessibility</a>
+    </div>
     <div><a href="mailto:roman@socalreceptionist.com">roman@socalreceptionist.com</a> · <a href="tel:+19513958776">(951) 395-8776</a></div>
+    <div><a href="https://ctfdesigns.com" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;opacity:.55"><img src="https://ctfdesigns.com/images/logo.png" alt="CTF Designs" style="width:14px;height:14px;border-radius:50%;object-fit:cover"> Built by CTF Designs</a></div>
   </div>
 </footer>
+
+<script>
+  document.getElementById('demo-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var btn = document.getElementById('submit-btn');
+    var ok = document.getElementById('form-success');
+    var bad = document.getElementById('form-error');
+    ok.style.display = 'none'; bad.style.display = 'none';
+    btn.textContent = 'Sending...'; btn.disabled = true;
+    var data = {
+      name: document.getElementById('f-name').value,
+      business: document.getElementById('f-business').value,
+      phone: document.getElementById('f-phone').value,
+      type: document.getElementById('f-type').value,
+      smsConsent: document.getElementById('sms-consent').checked,
+    };
+    try {
+      var res = await fetch('/demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('bad response');
+      ok.style.display = 'block';
+      this.reset();
+    } catch (err) {
+      bad.style.display = 'block';
+    } finally {
+      btn.textContent = 'Book my free demo';
+      btn.disabled = false;
+    }
+  });
+</script>
 
 </body>
 </html>

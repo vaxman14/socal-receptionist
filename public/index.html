@@ -404,7 +404,11 @@ function setBilling(mode) {
       </select>
     </div>
     <button type="submit" class="btn-primary price-cta" id="submit-btn">Book My Free Demo →</button>
-    <p style="font-size:0.75rem;color:#6b7280;margin-top:8px;line-height:1.5">By submitting this form, you consent to receive SMS messages from SoCal Receptionist about your inquiry. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe. View our <a href="/sms-terms" style="color:#4f46e5">SMS Terms</a> and <a href="/privacy" style="color:#4f46e5">Privacy Policy</a>.</p>
+    <label style="display:flex;gap:9px;align-items:flex-start;font-size:0.75rem;color:#6b7280;line-height:1.5;margin-top:10px;text-align:left">
+      <input type="checkbox" id="sms-consent" style="margin-top:3px;flex:none;width:16px;height:16px">
+      <span>I agree to receive recurring automated marketing and informational text messages (offers, updates, appointment and scheduling messages, and responses to my inquiry) from SoCal Receptionist at the number provided. Consent is not a condition of purchase. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help.</span>
+    </label>
+    <p style="font-size:0.72rem;color:#6b7280;margin-top:6px;line-height:1.5">We never sell or share your mobile information. View our <a href="/sms-terms" style="color:#4f46e5">SMS Terms</a>, <a href="/privacy" style="color:#4f46e5">Privacy Policy</a>, and <a href="/terms" style="color:#4f46e5">Terms</a>.</p>
     <div class="form-success" id="form-success">🎉 Got it! We'll reach out within a few hours to schedule your demo.</div>
     <div class="form-error" id="form-error">Something went wrong. Please try again or text us directly.</div>
   </form>
@@ -458,6 +462,7 @@ function setBilling(mode) {
       business: document.getElementById('f-business').value,
       phone: document.getElementById('f-phone').value,
       type: document.getElementById('f-type').value,
+      smsConsent: document.getElementById('sms-consent').checked,
     };
 
     try {

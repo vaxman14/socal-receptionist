@@ -54,6 +54,57 @@ app.use('/', billingWebhookRouter);
 app.use(express.urlencoded({ extended: false })); // Twilio posts form-encoded
 app.use(express.json());
 
+// POST /demo — marketing site "Book My Free Demo" lead form.
+// The homepage form posted here for months with no handler (404), silently
+// dropping every lead. This captures the lead, emails it to Roman via Resend,
+// and logs it. Does not touch the voice stack.
+app.post('/demo', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const name = String(b.name || '').trim();
+    const business = String(b.business || '').trim();
+    const phone = String(b.phone || '').trim();
+    const type = String(b.type || '').trim();
+    const email = String(b.email || '').trim();
+    const smsConsent = b.smsConsent === true || b.smsConsent === 'true';
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'name and phone are required' });
+    }
+    const ts = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+    const text = `New demo request from socalreceptionist.com\n\n`
+      + `Name: ${name}\nBusiness: ${business || '(not provided)'}\n`
+      + `Phone: ${phone}\nType: ${type || '(not provided)'}\n`
+      + `Email: ${email || '(not provided)'}\n`
+      + `SMS marketing consent: ${smsConsent ? 'YES (opted in)' : 'no'}\n`
+      + `Time: ${ts} PT`;
+    console.log(`[demo-lead] ${name} | ${business} | ${phone} | ${type}`);
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if (RESEND_API_KEY) {
+      try {
+        const r = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'SoCal Receptionist <hello@noreply.socalreceptionist.com>',
+            to: ['roman@socalreceptionist.com'],
+            subject: `🔔 New demo request — ${name}${business ? ` (${business})` : ''}`,
+            text,
+          }),
+        });
+        if (!r.ok) console.error('[demo-lead] Resend error:', await r.text());
+      } catch (e) {
+        console.error('[demo-lead] email failed:', e.message);
+      }
+    } else {
+      console.error('[demo-lead] RESEND_API_KEY missing — lead only logged, not emailed');
+    }
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[demo-lead] handler error:', e.message);
+    return res.status(500).json({ error: 'failed' });
+  }
+});
+
 app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'socal-receptionist-v2', ts: new Date().toISOString() });
 });
