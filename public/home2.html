@@ -1,319 +1,907 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SoCal Receptionist — Meet Josi, your AI receptionist</title>
-<meta name="description" content="Josi is the AI receptionist that answers every call 24/7, captures every lead, books appointments, and files them into the software your business already runs. She never calls in sick.">
-<meta name="robots" content="noindex">
-<meta property="og:title" content="Meet Josi — your AI receptionist">
-<meta property="og:description" content="Answers every call 24/7, captures leads, books appointments, and works inside the software you already run.">
-<meta property="og:image" content="https://www.socalreceptionist.com/images/logo-clean.png">
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-  *{margin:0;padding:0;box-sizing:border-box}
-  :root{
-    --navy:#0b1430;--bg:#fff;--bg2:#f7f8fc;--orange:#ff5a1f;--pink:#e91e8c;--purple:#7b2fbe;
-    --grad:linear-gradient(135deg,#ff5a1f,#e91e8c,#7b2fbe);--muted:#6b7280;--card:#f4f5f9;--border:rgba(0,0,0,.08);--text:#0b1430;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- SEO -->
+  <title>SoCal Receptionist — AI Receptionist for Temecula Valley Businesses</title>
+  <meta name="description" content="SoCal Receptionist is an AI-powered virtual receptionist for small businesses in the Temecula Valley. Never miss a call or text. 24/7 AI answering, lead qualification, and appointment booking — starting at $500/mo.">
+  <meta name="keywords" content="AI receptionist, virtual receptionist, Temecula Valley, small business, SMS answering service, automated receptionist, Murrieta, Menifee, SoCal">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://www.socalreceptionist.com/">
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- reCAPTCHA v3 (invisible bot filter for the demo lead form) -->
+  <script src="https://www.google.com/recaptcha/api.js?render=6Lcy4hgtAAAAAMx7aSIGoDUloWYXKTGJuvnbi_sP"></script>
+
+  <!-- Open Graph (Facebook, LinkedIn) -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.socalreceptionist.com/">
+  <meta property="og:title" content="SoCal Receptionist — AI Receptionist for Temecula Valley Businesses">
+  <meta property="og:description" content="Never miss a call or text. 24/7 AI receptionist for small businesses — qualifies leads, books appointments.">
+  <meta property="og:image" content="https://www.socalreceptionist.com/og-image.png">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:site_name" content="SoCal Receptionist">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://www.socalreceptionist.com/">
+  <meta name="twitter:title" content="SoCal Receptionist — AI Receptionist for Temecula Valley">
+  <meta name="twitter:description" content="Never miss a customer text. 24/7 AI receptionist for small businesses.">
+  <meta name="twitter:image" content="https://www.socalreceptionist.com/og-image.png">
+
+  <!-- Local Business Schema (JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "SoCal Receptionist",
+    "description": "AI-powered virtual receptionist providing 24/7 answering, lead qualification, and appointment booking for small businesses in the Temecula Valley.",
+    "url": "https://www.socalreceptionist.com",
+    "telephone": "+19513958776",
+    "email": "info@socalreceptionist.com",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Murrieta",
+      "addressRegion": "CA",
+      "postalCode": "92562",
+      "addressCountry": "US"
+    },
+    "areaServed": [
+      "Temecula, CA", "Murrieta, CA", "Menifee, CA", "Lake Elsinore, CA", "Wildomar, CA"
+    ],
+    "priceRange": "$$",
+    "openingHours": "Mo-Su 00:00-24:00",
+    "sameAs": []
   }
-  body{font-family:'Inter',-apple-system,sans-serif;color:var(--text);background:#fff;line-height:1.5;-webkit-font-smoothing:antialiased}
-  a{color:inherit;text-decoration:none}
-  .grad{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-  .wrap{max-width:1140px;margin:0 auto;padding:0 24px}
-  .btn{display:inline-block;padding:13px 26px;border-radius:100px;font-weight:700;font-size:.98rem;cursor:pointer;border:none;transition:transform .1s}
-  .btn:hover{transform:translateY(-1px)}
-  .btn-primary{background:var(--grad);color:#fff}
-  .btn-ghost{border:1px solid var(--border);color:var(--text);background:#fff}
-  /* nav */
-  nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
-  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:68px}
-  nav img{height:34px}
-  nav .links{display:flex;gap:26px;align-items:center}
-  nav .links a.t{font-weight:600;font-size:.92rem;color:#444}
-  @media(max-width:760px){nav .links a.t{display:none}}
-  /* hero */
-  .hero{text-align:center;padding:90px 0 70px;background:radial-gradient(900px 420px at 50% -8%,#fff4ef 0%,#fff 60%)}
-  .eyebrow{display:inline-block;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-size:.76rem;padding:6px 14px;border-radius:100px;border:1px solid rgba(255,90,31,.3);margin-bottom:22px}
-  .hero h1{font-size:clamp(2.4rem,6vw,4rem);font-weight:900;letter-spacing:-2px;line-height:1.04}
-  .hero p.sub{font-size:clamp(1.05rem,2vw,1.4rem);color:#444;max-width:680px;margin:22px auto 32px;line-height:1.55}
-  .hero .row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-  .hero .demo-note{margin-top:18px;color:var(--muted);font-size:.95rem}
-  .hero .demo-note a{font-weight:700}
-  .jingle{font-style:italic;color:#444;max-width:640px;margin:26px auto 0;font-size:1.04rem;line-height:1.65}
-  .jingle b{font-style:normal}
-  .hero-jingle{font-style:italic;color:#2a2a3a;max-width:680px;margin:20px auto 26px;font-size:clamp(1.1rem,2.1vw,1.4rem);line-height:1.6;font-weight:500}
-  /* sections */
-  section.s{padding:72px 0;border-top:1px solid var(--border)}
-  section.s.alt{background:var(--bg2)}
-  .label{font-size:.8rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;text-align:center}
-  h2{font-size:clamp(1.8rem,3.6vw,2.6rem);font-weight:800;letter-spacing:-1px;text-align:center;line-height:1.12}
-  .sec-sub{text-align:center;color:#555;max-width:680px;margin:14px auto 0;font-size:1.05rem}
-  .grid{display:grid;gap:18px;margin-top:40px}
-  .g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:repeat(2,1fr)}
-  @media(max-width:860px){.g3,.g4,.g2{grid-template-columns:1fr}}
-  .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:26px}
-  section.alt .card{background:#fff}
-  .card .ic{font-size:1.7rem;margin-bottom:10px}
-  .card h3{font-size:1.12rem;font-weight:700;margin-bottom:7px}
-  .card p{color:#555;font-size:.97rem}
-  .step{display:flex;gap:16px;align-items:flex-start;padding:18px 0}
-  .step .n{flex:none;width:38px;height:38px;border-radius:50%;background:var(--grad);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
-  /* integrations */
-  .vert{border:1px solid var(--border);border-radius:14px;padding:20px;background:#fff}
-  .vert h4{font-size:1rem;font-weight:800;margin-bottom:8px}
-  .vert span{display:inline-block;background:var(--card);border:1px solid var(--border);border-radius:100px;padding:4px 11px;font-size:.82rem;margin:3px 3px 0 0;color:#444}
-  .beta{font-size:.7rem;font-weight:700;color:#7b2fbe;border:1px solid rgba(123,47,190,.3);border-radius:100px;padding:2px 8px;margin-left:6px;text-transform:uppercase;letter-spacing:.5px}
-  /* pricing */
-  .price{background:#fff;border:1px solid var(--border);border-radius:18px;padding:30px;display:flex;flex-direction:column}
-  .price.feat{border:2px solid transparent;background:linear-gradient(#fff,#fff) padding-box,var(--grad) border-box;box-shadow:0 16px 40px rgba(20,30,60,.10)}
-  .price h3{font-size:1.2rem;font-weight:800}
-  .price .amt{font-size:2.1rem;font-weight:900;margin:10px 0 2px}
-  .price .amt small{font-size:.95rem;font-weight:600;color:var(--muted)}
-  .price ul{list-style:none;margin:16px 0 22px;display:flex;flex-direction:column;gap:9px}
-  .price li{font-size:.95rem;color:#444;padding-left:24px;position:relative}
-  .price li:before{content:"✓";position:absolute;left:0;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-  .price .who{color:var(--muted);font-size:.85rem;margin-bottom:14px}
-  .anchor{text-align:center;color:#555;max-width:680px;margin:0 auto 8px;font-size:1.02rem}
-  /* brand strip */
-  .brand{text-align:center}
-  .brand .big{font-size:clamp(2rem,5vw,3.2rem);font-weight:900;letter-spacing:-1.5px}
-  /* cta band */
-  .band{background:var(--navy);color:#fff;text-align:center;padding:74px 0}
-  .band h2{color:#fff}
-  .band p{color:#c7cede;max-width:620px;margin:14px auto 28px}
-  /* lead form fields */
-  .fld{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:1rem;font-family:inherit;color:var(--text);background:#fff}
-  .fld:focus{outline:none;border-color:var(--purple)}
-  /* footer */
-  footer{padding:44px 0;border-top:1px solid var(--border);color:var(--muted);font-size:.9rem}
-  footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px}
-  footer a{color:var(--muted)}
-</style>
+  </script>
+
+  <!-- Google Tag Manager — set GTM_ID env var to activate -->
+  <script id="gtm-head-snippet"></script>
+
+  <!-- Google Analytics GA4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-EDTQ463YEQ"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-EDTQ463YEQ');</script>
+  <script>if(location.hostname==="www.socalreceptionist.com"){!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init("phc_pixxDTMUmkokq6ujRTfhYH7xKhVKGvnQDMZbW5rXZf8u",{api_host:"https://us.i.posthog.com",defaults:"2026-01-30"});}</script>
+
+  <!-- Facebook Pixel — set FB_PIXEL_ID env var to activate -->
+  <script id="fb-pixel-snippet"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #0f1f3d;
+      --blue: #1a3a6e;
+      --orange: #f47c20;
+      --orange-dark: #d96a10;
+      --light: #f5f7fa;
+      --text: #1a1a2e;
+      --muted: #6b7280;
+      --white: #ffffff;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text); background: var(--white); }
+
+    /* NAV */
+    nav { background: #031637; padding: 8px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .nav-logo { color: var(--white); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.3px; }
+    .nav-logo span { color: var(--orange); }
+    .btn-nav { background: var(--orange); color: var(--white); border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; text-decoration: none; }
+    .btn-nav:hover { background: var(--orange-dark); }
+
+    /* HERO */
+    .hero { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%); color: var(--white); padding: 80px 24px 90px; text-align: center; }
+    .hero-badge { display: inline-block; background: rgba(244,124,32,0.2); border: 1px solid var(--orange); color: var(--orange); padding: 6px 16px; border-radius: 100px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 24px; text-transform: uppercase; }
+    .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.15; max-width: 760px; margin: 0 auto 20px; }
+    .hero h1 span { color: var(--orange); }
+    .hero p { font-size: 1.15rem; color: rgba(255,255,255,0.8); max-width: 560px; margin: 0 auto 36px; line-height: 1.6; }
+    .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary { background: var(--orange); color: var(--white); border: none; padding: 16px 32px; border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.2s, transform 0.1s; }
+    .btn-primary:hover { background: var(--orange-dark); transform: translateY(-1px); }
+    .btn-secondary { background: transparent; color: var(--white); border: 2px solid rgba(255,255,255,0.4); padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; transition: border-color 0.2s; }
+    .btn-secondary:hover { border-color: var(--white); }
+    .hero-note { margin-top: 20px; font-size: 0.85rem; color: rgba(255,255,255,0.5); }
+
+    /* PAIN */
+    .pain { background: var(--light); padding: 64px 24px; text-align: center; }
+    .pain h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 16px; }
+    .pain p { font-size: 1.05rem; color: var(--muted); max-width: 580px; margin: 0 auto 40px; line-height: 1.6; }
+    .pain-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 960px; margin: 0 auto; }
+    .pain-card { background: var(--white); border-radius: 10px; padding: 24px; border-left: 4px solid var(--orange); box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: left; flex: 0 1 280px; }
+    .pain-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .pain-card p { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+    /* Hero jingle (Josi poem) */
+    .hero-jingle { font-style: italic; font-size: 1.15rem; line-height: 1.6; max-width: 600px; margin: -18px auto 30px; color: rgba(255,255,255,0.9); }
+    .hero-jingle strong { display: inline-block; margin-top: 8px; font-style: normal; color: var(--orange); font-size: 1.25rem; }
+    /* INTEGRATIONS */
+    .integrations { background: var(--light); padding: 72px 24px; text-align: center; }
+    .integrations h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 16px; }
+    .int-sub { font-size: 1.05rem; color: var(--muted); max-width: 620px; margin: 0 auto 44px; line-height: 1.6; }
+    .int-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 960px; margin: 0 auto; }
+    .int-card { background: var(--white); border-radius: 10px; padding: 24px; border-top: 3px solid var(--orange); box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: left; }
+    .int-card h4 { font-size: 1.05rem; font-weight: 800; margin-bottom: 12px; }
+    .int-card span { display: inline-block; background: #eef1f6; color: var(--text); font-size: 0.82rem; font-weight: 600; padding: 4px 10px; border-radius: 6px; margin: 0 6px 6px 0; }
+    @media (max-width: 760px) { .int-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 440px) { .int-grid { grid-template-columns: 1fr; } }
+
+    /* HOW IT WORKS */
+    .how { padding: 72px 24px; text-align: center; }
+    .section-label { font-size: 0.8rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--orange); margin-bottom: 12px; }
+    .how h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 48px; }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; max-width: 1040px; margin: 0 auto; }
+    @media (max-width: 760px) { .steps { grid-template-columns: repeat(2, 1fr); gap: 32px; } }
+    @media (max-width: 440px) { .steps { grid-template-columns: 1fr; } }
+    .step { text-align: center; }
+    .step-num { width: 52px; height: 52px; background: var(--navy); color: var(--white); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; margin: 0 auto 16px; }
+    .step h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .step p { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+
+    /* CALCULATOR */
+    .calc-section { background: var(--navy); color: var(--white); padding: 72px 24px; }
+    .calc-section .section-label { color: var(--orange); }
+    .calc-section h2 { font-size: 1.8rem; font-weight: 800; text-align: center; margin-bottom: 8px; }
+    .calc-section > p { text-align: center; color: rgba(255,255,255,0.7); margin-bottom: 48px; }
+    .calc-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; max-width: 860px; margin: 0 auto; align-items: center; }
+    @media (max-width: 640px) { .calc-wrapper { grid-template-columns: 1fr; } }
+    .calc-inputs { display: flex; flex-direction: column; gap: 24px; }
+    .calc-field label { display: block; font-size: 0.85rem; font-weight: 600; color: rgba(255,255,255,0.7); margin-bottom: 8px; }
+    .calc-field input[type=range] { width: 100%; accent-color: var(--orange); cursor: pointer; }
+    .calc-field .range-val { font-size: 1.3rem; font-weight: 700; color: var(--orange); margin-top: 4px; }
+    .calc-result { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 32px; text-align: center; }
+    .calc-result .their-cost { margin-bottom: 24px; }
+    .calc-result .their-cost .label { font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+    .calc-result .their-cost .amount { font-size: 2.2rem; font-weight: 800; color: #ff6b6b; }
+    .calc-result .our-cost { margin-bottom: 24px; }
+    .calc-result .our-cost .label { font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+    .calc-result .our-cost .amount { font-size: 2.2rem; font-weight: 800; color: #4ade80; }
+    .savings-banner { background: var(--orange); border-radius: 8px; padding: 16px; }
+    .savings-banner .label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.85; margin-bottom: 4px; }
+    .savings-banner .amount { font-size: 1.8rem; font-weight: 800; }
+    .calc-note { font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 12px; }
+
+    /* PRICING */
+    .pricing { padding: 72px 24px; text-align: center; background: var(--light); }
+    .pricing h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
+    .pricing > p { color: var(--muted); margin-bottom: 32px; }
+    .billing-toggle { display: inline-flex; background: #e5e7eb; border-radius: 100px; padding: 4px; margin-bottom: 40px; gap: 2px; }
+    .billing-toggle button { border: none; background: transparent; padding: 8px 22px; border-radius: 100px; font-size: 0.9rem; font-weight: 600; cursor: pointer; color: var(--muted); transition: all 0.2s; }
+    .billing-toggle button.active { background: var(--white); color: var(--navy); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .annual-badge { display: inline-block; background: #dcfce7; color: #15803d; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 100px; margin-left: 6px; vertical-align: middle; }
+    .price-card { background: var(--white); border-radius: 14px; padding: 40px; max-width: 440px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 2px solid var(--orange); position: relative; }
+    .price-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--orange); color: var(--white); font-size: 0.78rem; font-weight: 700; padding: 6px 18px; border-radius: 100px; white-space: nowrap; }
+    .price-name { font-size: 1.1rem; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+    .price-amount { font-size: 3.2rem; font-weight: 800; color: var(--navy); line-height: 1; }
+    .price-amount span { font-size: 1.2rem; font-weight: 600; color: var(--muted); vertical-align: super; }
+    .price-period { font-size: 0.9rem; color: var(--muted); margin-bottom: 8px; }
+    .price-setup { font-size: 0.85rem; color: var(--muted); margin-bottom: 28px; }
+    .price-features { list-style: none; text-align: left; margin-bottom: 32px; display: flex; flex-direction: column; gap: 10px; }
+    .price-features li { display: flex; align-items: flex-start; gap: 10px; font-size: 0.95rem; }
+    .price-features li::before { content: "✓"; color: var(--orange); font-weight: 800; flex-shrink: 0; margin-top: 1px; }
+    .price-cta { width: 100%; padding: 16px; font-size: 1rem; }
+
+    /* DEMO FORM */
+    .demo { padding: 72px 24px; text-align: center; }
+    .demo h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
+    .demo > p { color: var(--muted); margin-bottom: 40px; }
+    .demo-form { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; text-align: left; }
+    .demo-form input, .demo-form select { width: 100%; padding: 14px 16px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.95rem; color: var(--text); outline: none; transition: border-color 0.2s; }
+    .demo-form input:focus, .demo-form select:focus { border-color: var(--orange); }
+    .demo-form label { font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 4px; display: block; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-success { display: none; background: #d1fae5; border: 1px solid #34d399; color: #065f46; padding: 16px; border-radius: 8px; text-align: center; font-weight: 600; }
+    /* Hide the floating reCAPTCHA badge (it overlapped the chat button); the
+       required attribution is shown as text under the demo form instead. */
+    .grecaptcha-badge { visibility: hidden; }
+    .form-error { display: none; background: #fee2e2; border: 1px solid #f87171; color: #991b1b; padding: 16px; border-radius: 8px; text-align: center; }
+
+    /* FOOTER */
+    footer { background: var(--navy); color: rgba(255,255,255,0.5); text-align: center; padding: 24px; font-size: 0.85rem; }
+    footer a { color: rgba(255,255,255,0.5); text-decoration: none; }
+    footer a:hover { color: var(--white); }
+  </style>
 </head>
 <body>
 
+<!-- Google Tag Manager (noscript) -->
+<noscript id="gtm-body-snippet"></noscript>
+
 <nav>
-  <div class="wrap">
-    <a href="/home2"><img src="/images/logo-clean.png" alt="SoCal Receptionist"></a>
-    <div class="links">
-      <a class="t" href="#features">Features</a>
-      <a class="t" href="#integrations">Integrations</a>
-      <a class="t" href="#pricing">Pricing</a>
-      <a class="t" href="https://app2.socalreceptionist.com/login">Log in</a>
-      <a class="btn btn-primary" href="https://app2.socalreceptionist.com/signup">Get Started</a>
-    </div>
+  <div class="nav-logo"><img src="/images/logo-nav.png" alt="SoCal Receptionist" style="height:125px;vertical-align:middle;"></div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <a href="/login" class="btn-nav" style="background:transparent;border:2px solid rgba(255,255,255,0.35);color:#fff;">Login</a>
+    <a href="tel:+19513958776" class="btn-nav">📞 (951) 395-8776</a>
   </div>
 </nav>
 
 <!-- HERO -->
-<header class="hero">
-  <div class="wrap">
-    <p class="hero-jingle">"She never calls in sick, she never talks back. Cool under pressure, always on track. When you need her the most, she's got your back."</p>
-    <h1 class="grad">Meet Josi.</h1>
-    <p class="sub">Josi answers every call 24/7, captures every lead, books appointments, and files them straight into the software your business already runs. The front desk that never takes a day off.</p>
-    <div class="row">
-      <a class="btn btn-primary" href="https://app2.socalreceptionist.com/signup">Get Started</a>
-      <a class="btn btn-ghost" href="/video">Watch the 2-minute demo</a>
-    </div>
-    <p class="demo-note">Or talk to her right now: <a class="grad" href="tel:+19513958776">(951) 395-8776</a></p>
+<section class="hero">
+  <div class="hero-badge">Try It Live — Right Now</div>
+  <h1>Don't Read About Our AI. <span>Talk to It.</span></h1>
+  <p>Call the number below. You'll reach our AI receptionist — the same one that could be answering your business 24/7. Ask it anything. It'll tell you what it does.</p>
+  <p class="hero-jingle">"She never calls in sick, she never talks back. Cool under pressure, always on track. When you need her the most, she's got your back."<br><strong>Meet Josi.</strong></p>
+  <div class="hero-cta">
+    <a href="tel:+19513958776" class="btn-primary">📞 Call (951) 395-8776</a>
+    <a href="/video" class="btn-primary">▶️ Watch the 2-minute demo</a>
   </div>
-</header>
+  <p class="hero-note">The AI <em>is</em> the demo. No human will pick up.</p>
+  <div class="callback-widget" style="max-width:430px;margin:24px auto 0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);border-radius:14px;padding:18px">
+    <p style="font-weight:700;margin-bottom:10px">On a desktop? Have Josi call you in 10 seconds:</p>
+    <form id="cb-form" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <input id="cb-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(951) 555-0100" required style="flex:1;min-width:170px;padding:13px 14px;border-radius:10px;border:none;font-size:1rem;color:#111">
+      <button id="cb-btn" type="submit" class="btn-primary" style="white-space:nowrap">📞 Call me now</button>
+    </form>
+    <p id="cb-msg" style="margin-top:10px;font-size:0.88rem;display:none"></p>
+    <p style="margin-top:8px;font-size:0.7rem;opacity:0.7">We place one call to connect you with the AI demo. Standard carrier rates may apply.</p>
+  </div>
+  <script>
+    (function () {
+      var f = document.getElementById('cb-form');
+      if (!f) return;
+      f.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var btn = document.getElementById('cb-btn');
+        var msg = document.getElementById('cb-msg');
+        btn.disabled = true; btn.textContent = 'Calling...'; msg.style.display = 'none';
+        try {
+          var res = await fetch('/callback-demo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: document.getElementById('cb-phone').value }),
+          });
+          var data = await res.json().catch(function () { return {}; });
+          if (res.ok) {
+            msg.textContent = '📞 Calling you now — answer your phone!';
+            msg.style.color = '#22c55e';
+            f.reset();
+          } else {
+            msg.textContent = data.error || 'Something went wrong. Please call (951) 395-8776.';
+            msg.style.color = '#fca5a5';
+          }
+        } catch (err) {
+          msg.textContent = 'Something went wrong. Please call (951) 395-8776.';
+          msg.style.color = '#fca5a5';
+        } finally {
+          msg.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = '📞 Call me now';
+        }
+      });
+    })();
+  </script>
+</section>
 
-<!-- PROBLEM -->
-<section class="s">
-  <div class="wrap">
-    <div class="label grad">The Problem</div>
-    <h2>A missed call is a lost customer.</h2>
-    <p class="sec-sub">When someone calls your business and gets voicemail, they hang up and call the next name on the list. Hiring a receptionist is expensive, covers one shift, and they call in sick or quit.</p>
-    <div class="grid g3">
-      <div class="card"><div class="ic">📵</div><h3>Calls go unanswered</h3><p>After hours, lunch, and overflow calls fall to voicemail. The lead is gone for good.</p></div>
-      <div class="card"><div class="ic">💸</div><h3>Receptionists are costly</h3><p>A front-desk hire runs $3,300+ a month, covers one shift, and turns over constantly.</p></div>
-      <div class="card"><div class="ic">📞</div><h3>The phone owns you</h3><p>No vacation, no date night, no off switch. You are chained to the ring.</p></div>
+<!-- PAIN -->
+<section class="pain">
+  <h2>Every Missed Call Is a Lost Customer</h2>
+  <p>Small businesses in the Temecula Valley lose thousands of dollars a month to missed calls. Hiring help is expensive. Doing it yourself isn't sustainable.</p>
+  <div class="pain-grid">
+    <div class="pain-card">
+      <h3>Customers call, you're busy</h3>
+      <p>You're with a client, on a job, or finally eating lunch. The lead calls once, gets voicemail, and moves on to your competitor.</p>
+    </div>
+    <div class="pain-card">
+      <h3>After-hours calls go cold</h3>
+      <p>Plenty of customers call after 5pm. With no one to answer, that warm lead is ice cold by morning.</p>
+    </div>
+    <div class="pain-card">
+      <h3>Hiring is expensive and risky</h3>
+      <p>A part-time receptionist at $20/hr costs $4,500+ per month after taxes — before any benefits.</p>
+    </div>
+    <div class="pain-card">
+      <h3>You're the bottleneck</h3>
+      <p>When every call requires your personal attention, you can't scale. Your phone becomes your second job.</p>
+    </div>
+    <div class="pain-card">
+      <h3>They called, then hung up</h3>
+      <p>Someone called your number, got spooked, and hung up. Without a callback, that customer is gone for good.</p>
     </div>
   </div>
 </section>
 
 <!-- HOW IT WORKS -->
-<section class="s alt" id="features">
-  <div class="wrap">
-    <div class="label grad">How Josi Works</div>
-    <h2>She does the whole job, not just the hello.</h2>
-    <div class="grid g2" style="margin-top:34px">
-      <div>
-        <div class="step"><div class="n">1</div><div><h3>Answers instantly, 24/7</h3><p>Every call, every hour, in a natural voice. No overflow, no voicemail, no hold music.</p></div></div>
-        <div class="step"><div class="n">2</div><div><h3>Captures the lead</h3><p>Name, number, and reason for calling, every single time, and alerts you immediately.</p></div></div>
-      </div>
-      <div>
-        <div class="step"><div class="n">3</div><div><h3>Books the appointment</h3><p>Reads your real calendar availability and schedules the caller on the spot.</p></div></div>
-        <div class="step"><div class="n">4</div><div><h3>Files it into your software <span class="beta">Coming soon</span></h3><p>Will push the new client and appointment straight into the system you already use.</p></div></div>
-      </div>
+<section class="how">
+  <div class="section-label">How It Works</div>
+  <h2>Set It Up Once. It Works Forever.</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Customer Calls In</h3>
+      <p>Your customer reaches your business number any time, day or night, and the AI picks up on the first ring.</p>
     </div>
-    <div class="grid g4" style="margin-top:30px">
-      <div class="card"><div class="ic">🎙️</div><h3>Natural voice AI</h3><p>Callers talk to her like a person, not a phone tree.</p></div>
-      <div class="card"><div class="ic">📋</div><h3>Call log and lead details</h3><p>Every caller's name, number, and reason for calling, captured in your dashboard.</p></div>
-      <div class="card"><div class="ic">🔔</div><h3>Instant lead alerts</h3><p>Get notified the moment a new caller and lead comes in.</p></div>
-      <div class="card"><div class="ic">🔢</div><h3>Your own number</h3><p>A dedicated line and a voice tuned to your brand.</p></div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>AI Handles the Conversation</h3>
+      <p>The AI answers questions, collects their name and contact info, and learns what they need.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Auto-Callback if They Hang Up</h3>
+      <p>If a caller hangs up before leaving their info, our AI calls them back within 30 seconds, automatically.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <h3>You Get a Qualified Lead</h3>
+      <p>You receive an alert with the lead's details. You just show up.</p>
     </div>
   </div>
 </section>
 
+<!-- CALCULATOR -->
 <!-- INTEGRATIONS -->
-<section class="s" id="integrations">
-  <div class="wrap">
-    <div class="label grad">Works With Your Software</div>
-    <h2>Built for your profession, not a generic bot.</h2>
-    <p class="sec-sub">Josi connects to the tools your industry already runs, so a captured call becomes a real client in your system. <span class="beta">Beta</span> connectors are rolling out now.</p>
-    <div class="grid g3" style="margin-top:34px">
-      <div class="vert"><h4>⚖️ Legal</h4><span>Clio</span><span>MyCase</span><span>PracticePanther</span></div>
-      <div class="vert"><h4>🩺 Medical</h4><span>DrChrono</span><span>athenahealth</span><span>SimplePractice</span></div>
-      <div class="vert"><h4>🦷 Dental</h4><span>Open Dental</span><span>Dentrix</span><span>Eaglesoft</span></div>
-      <div class="vert"><h4>💵 Accounting</h4><span>QuickBooks</span><span>Karbon</span><span>TaxDome</span></div>
-      <div class="vert"><h4>🔧 Home Services</h4><span>Jobber</span><span>Housecall Pro</span><span>ServiceTitan</span></div>
-      <div class="vert"><h4>🗓️ Calendar & CRM</h4><span>Google</span><span>Microsoft</span><span>HubSpot</span><span>Salesforce</span></div>
-    </div>
+<section class="integrations" id="integrations">
+  <div class="section-label">Works With Your Software</div>
+  <h2>Built for your profession, not a generic bot.</h2>
+  <p class="int-sub">Josi connects to the tools your industry already runs, so a captured call becomes a real client in the system you already use.</p>
+  <div class="int-grid">
+    <div class="int-card"><h4>⚖️ Legal</h4><span>Clio</span><span>MyCase</span><span>PracticePanther</span></div>
+    <div class="int-card"><h4>🩺 Medical</h4><span>DrChrono</span><span>athenahealth</span><span>SimplePractice</span></div>
+    <div class="int-card"><h4>🦷 Dental</h4><span>Open Dental</span><span>Dentrix</span><span>Eaglesoft</span></div>
+    <div class="int-card"><h4>💵 Accounting</h4><span>QuickBooks</span><span>Karbon</span><span>TaxDome</span></div>
+    <div class="int-card"><h4>🔧 Home Services</h4><span>Jobber</span><span>Housecall Pro</span><span>ServiceTitan</span></div>
+    <div class="int-card"><h4>🗓️ Calendar &amp; CRM</h4><span>Google</span><span>Microsoft</span><span>HubSpot</span><span>Salesforce</span></div>
   </div>
 </section>
 
-<!-- BRAND / EMOTIONAL -->
-<section class="s alt">
-  <div class="wrap brand">
-    <div class="label grad">Get Your Life Back</div>
-    <div class="big">While you live your life,<br><span class="grad">Josi runs the front desk.</span></div>
-    <p class="sec-sub">Be at dinner, on a job site, or on vacation. Josi is calmly answering every call, booking every appointment, and never asking for a day off.</p>
-    <p class="jingle" style="font-size:1.18rem;margin-top:28px">"She never calls in sick, she never talks back. Cool under pressure, always on track. When you need her the most, she's got your back."<br><b class="grad">Meet Josi, your AI receptionist.</b></p>
+<section class="calc-section" id="calculator">
+  <div class="section-label" style="text-align:center">Savings Calculator</div>
+  <h2>See What a Human Receptionist Really Costs</h2>
+  <p>Slide to match your situation — see what you'd actually save.</p>
+  <div class="calc-wrapper">
+    <div class="calc-inputs">
+      <div class="calc-field">
+        <label>Receptionist hourly wage</label>
+        <input type="range" id="wage" min="16" max="35" value="20" step="1">
+        <div class="range-val" id="wage-val">$20 / hour</div>
+      </div>
+      <div class="calc-field">
+        <label>Hours per week needed</label>
+        <input type="range" id="hours" min="10" max="50" value="40" step="5">
+        <div class="range-val" id="hours-val">40 hrs / week</div>
+      </div>
+    </div>
+    <div class="calc-result">
+      <div class="their-cost">
+        <div class="label">Human receptionist cost / month</div>
+        <div class="amount" id="human-cost">$4,347</div>
+      </div>
+      <div class="our-cost">
+        <div class="label">SoCal Receptionist cost / month</div>
+        <div class="amount">$500</div>
+      </div>
+      <div class="savings-banner">
+        <div class="label">You save every month</div>
+        <div class="amount" id="savings">$3,847</div>
+      </div>
+      <div class="calc-note">* Human cost includes 7.65% employer payroll tax. Does not include health insurance, PTO, or training.</div>
+    </div>
   </div>
 </section>
 
 <!-- PRICING -->
-<section class="s" id="pricing">
-  <div class="wrap">
-    <div class="label grad">Pricing</div>
-    <h2>Priced against a hire, not a $49 bot.</h2>
-    <p class="anchor" style="margin-top:14px">A human front-desk receptionist costs $3,300 or more a month and still calls in sick. Josi is a fraction of that and never does.</p>
-    <div class="grid g3" style="margin-top:36px">
-      <div class="price">
-        <h3>Essentials</h3>
-        <div class="amt">$500<small> / month</small></div>
-        <div class="who">For trades and general small businesses</div>
-        <ul>
-          <li>24/7 AI receptionist</li>
-          <li>Dedicated phone number</li>
-          <li>Lead capture and alerts</li>
-          <li>Appointment booking</li>
-          <li>Call log and dashboard</li>
-        </ul>
-        <a class="btn btn-ghost" href="https://app2.socalreceptionist.com/signup">Get Started</a>
-      </div>
-      <div class="price feat">
-        <h3>Professional</h3>
-        <div class="amt">$900<small> to $1,200 / month</small></div>
-        <div class="who">For legal, medical, dental, and accounting</div>
-        <ul>
-          <li>Everything in Essentials</li>
-          <li>Native integration into your software</li>
-          <li>Clio, Dentrix, QuickBooks, and more</li>
-          <li>New clients filed automatically</li>
-          <li>Priority support</li>
-        </ul>
-        <a class="btn btn-primary" href="https://app2.socalreceptionist.com/signup">Get Started</a>
-      </div>
-      <div class="price">
-        <h3>Concierge Setup</h3>
-        <div class="amt">$1,500<small> one-time</small></div>
-        <div class="who">Done-for-you onboarding</div>
-        <ul>
-          <li>White-glove setup</li>
-          <li>Number provisioning</li>
-          <li>Voice tuned to your brand</li>
-          <li>Integration configuration</li>
-          <li>You do nothing</li>
-        </ul>
-        <a class="btn btn-ghost" href="tel:+19513958776">Talk to us</a>
-      </div>
+<section class="pricing" id="pricing">
+  <div class="section-label">Pricing</div>
+  <h2>Simple, Transparent Pricing</h2>
+  <p>Two ways to get started. No long-term contracts on either.</p>
+  <div class="billing-toggle">
+    <button id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
+    <button class="active" id="btn-annual" onclick="setBilling('annual')">Annual <span class="annual-badge">Save $1,200</span></button>
+  </div>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;max-width:780px;margin:0 auto;">
+  <div class="price-card" style="flex:1;min-width:280px;">
+    <div class="price-name">Essentials</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0;">
+      <span id="ess-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:inline;">$500/mo</span>
     </div>
+    <div class="price-amount"><span>$</span><span id="ess-price">400</span></div>
+    <div class="price-period" id="ess-period">per month, billed as $4,800/yr</div>
+    <div class="price-setup" style="color:#22c55e;font-weight:600;">No setup fee</div>
+    <ul class="price-features">
+      <li>24/7 AI receptionist</li>
+      <li>Instant lead qualification & capture</li>
+      <li>Email alerts for every new lead</li>
+      <li>Appointment booking integration</li>
+      <li>Auto-callback for missed calls</li>
+      <li>Custom AI trained on your business</li>
+      <li>TCPA-compliant opt-in flow</li>
+      <li>Self-guided setup</li>
+      <li>No contracts — cancel anytime</li>
+    </ul>
+    <a href="https://app.socalreceptionist.com/register" class="btn-primary price-cta">Get Started →</a>
+  </div>
+  <div class="price-card" style="flex:1;min-width:280px;position:relative;">
+    <div class="price-badge">White-Glove Setup</div>
+    <div class="price-name">Concierge</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0;">
+      <span id="con-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:inline;">$500/mo</span>
+    </div>
+    <div class="price-amount"><span>$</span><span id="con-price">400</span></div>
+    <div class="price-period" id="con-period">per month, billed as $4,800/yr</div>
+    <div class="price-setup">+ $1,500 one-time setup fee</div>
+    <ul class="price-features">
+      <li>24/7 AI receptionist</li>
+      <li>Instant lead qualification & capture</li>
+      <li>Email alerts for every new lead</li>
+      <li>Appointment booking integration</li>
+      <li>Auto-callback for missed calls</li>
+      <li>Custom AI trained on your business</li>
+      <li>TCPA-compliant opt-in flow</li>
+      <li>Full setup & configuration done for you</li>
+      <li>No contracts — cancel anytime</li>
+    </ul>
+    <a href="#demo" class="btn-primary price-cta">Contact Us →</a>
+  </div>
   </div>
 </section>
+<script>
+function setBilling(mode) {
+  var isAnnual = mode === 'annual';
+  document.getElementById('btn-monthly').classList.toggle('active', !isAnnual);
+  document.getElementById('btn-annual').classList.toggle('active', isAnnual);
+  document.getElementById('ess-price').textContent = isAnnual ? '400' : '500';
+  document.getElementById('con-price').textContent = isAnnual ? '400' : '500';
+  document.getElementById('ess-period').textContent = isAnnual ? 'per month, billed as $4,800/yr' : 'per month';
+  document.getElementById('con-period').textContent = isAnnual ? 'per month, billed as $4,800/yr' : 'per month';
+  document.getElementById('ess-strike').style.display = isAnnual ? 'inline' : 'none';
+  document.getElementById('con-strike').style.display = isAnnual ? 'inline' : 'none';
+}
+</script>
 
-<!-- CTA + LEAD FORM -->
-<section class="band" id="contact">
-  <div class="wrap" style="max-width:620px">
-    <h2>Stop missing calls today.</h2>
-    <p>Leave your info and we'll reach out within a few hours to set up your demo. A real person follows up, not a bot. Or talk to Josi live at <a class="grad" href="tel:+19513958776">(951) 395-8776</a>.</p>
-    <form id="demo-form" style="background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;text-align:left;margin:6px auto 0;max-width:480px">
-      <input class="fld" type="text" id="f-name" name="name" placeholder="Your name" required>
-      <input class="fld" type="text" id="f-business" name="business" placeholder="Business name" required>
-      <input class="fld" type="tel" id="f-phone" name="phone" placeholder="Phone number" required>
-      <select class="fld" id="f-type" name="type">
-        <option value="">Type of business...</option>
-        <option>Legal</option>
-        <option>Medical / Dental</option>
-        <option>Home Services (HVAC, Plumbing, etc.)</option>
-        <option>Real Estate</option>
-        <option>Accounting</option>
+<!-- DEMO FORM -->
+<section class="demo" id="demo">
+  <div class="section-label">Prefer Text?</div>
+  <h2>Or Send Us a Note</h2>
+  <p>Not a phone person? Leave your info and we'll reach out within a few hours. (Yes — a real human will follow up, not the AI. We split the work.)</p>
+  <form class="demo-form" id="demo-form">
+    <div class="form-group">
+      <label for="f-name">Your Name</label>
+      <input type="text" id="f-name" name="name" placeholder="Jane Smith" required>
+    </div>
+    <div class="form-group">
+      <label for="f-business">Business Name</label>
+      <input type="text" id="f-business" name="business" placeholder="Smith's Salon" required>
+    </div>
+    <div class="form-group">
+      <label for="f-phone">Phone Number</label>
+      <input type="tel" id="f-phone" name="phone" placeholder="(951) 555-0100" required>
+    </div>
+    <div class="form-group">
+      <label for="f-type">Type of Business</label>
+      <select id="f-type" name="type">
+        <option value="">Select your industry...</option>
         <option>Salon / Spa</option>
         <option>Auto Repair</option>
+        <option>Landscaping / Pest Control</option>
+        <option>Real Estate</option>
+        <option>Medical / Dental</option>
         <option>Restaurant / Food</option>
+        <option>Home Services (HVAC, Plumbing, etc.)</option>
+        <option>Fitness / Yoga</option>
         <option>Other</option>
       </select>
-      <button class="btn btn-primary" type="submit" id="submit-btn" style="width:100%">Book my free demo</button>
-      <label style="display:flex;gap:9px;align-items:flex-start;font-size:.74rem;color:var(--muted);line-height:1.5">
-        <input type="checkbox" id="sms-consent" style="margin-top:3px;flex:none;width:16px;height:16px">
-        <span>I agree to receive recurring automated marketing and informational text messages (offers, updates, appointment and scheduling messages, and responses to my inquiry) from SoCal Receptionist at the number provided. Consent is not a condition of purchase. Message frequency varies. Msg and data rates may apply. Reply STOP to opt out, HELP for help.</span>
-      </label>
-      <p style="font-size:.7rem;color:var(--muted);line-height:1.5;margin:0">We never sell or share your mobile information. See our <a href="/sms-terms" style="color:var(--purple)">SMS Terms</a>, <a href="/privacy" style="color:var(--purple)">Privacy Policy</a>, and <a href="/terms" style="color:var(--purple)">Terms</a>.</p>
-      <p id="form-success" style="display:none;color:#16a34a;font-weight:700;margin:0">🎉 Got it. We'll reach out within a few hours.</p>
-      <p id="form-error" style="display:none;color:#dc2626;font-weight:700;margin:0">Something went wrong. Please try again or call us.</p>
-    </form>
-  </div>
+    </div>
+    <button type="submit" class="btn-primary price-cta" id="submit-btn">Book My Free Demo →</button>
+    <label style="display:flex;gap:9px;align-items:flex-start;font-size:0.75rem;color:#6b7280;line-height:1.5;margin-top:10px;text-align:left">
+      <input type="checkbox" id="sms-consent" style="margin-top:3px;flex:none;width:16px;height:16px">
+      <span>I agree to receive recurring automated marketing and informational text messages (offers, updates, appointment and scheduling messages, and responses to my inquiry) from SoCal Receptionist at the number provided. Consent is not a condition of purchase. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help.</span>
+    </label>
+    <p style="font-size:0.72rem;color:#6b7280;margin-top:6px;line-height:1.5">We never sell or share your mobile information. View our <a href="/sms-terms" style="color:#4f46e5">SMS Terms</a>, <a href="/privacy" style="color:#4f46e5">Privacy Policy</a>, and <a href="/terms" style="color:#4f46e5">Terms</a>.</p>
+    <p style="font-size:0.68rem;color:#9ca3af;margin-top:6px;line-height:1.5">Protected by reCAPTCHA. The Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#9ca3af;text-decoration:underline">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener" style="color:#9ca3af;text-decoration:underline">Terms of Service</a> apply.</p>
+    <div class="form-success" id="form-success">🎉 Got it! We'll reach out within a few hours to schedule your demo.</div>
+    <div class="form-error" id="form-error">Something went wrong. Please try again or text us directly.</div>
+  </form>
 </section>
 
 <footer>
-  <div class="wrap" style="flex-direction:column;align-items:center;text-align:center;gap:10px">
-    <div>© 2026 SOCAL RECEPTIONIST LLC · Murrieta, CA</div>
-    <div style="display:flex;gap:8px 16px;flex-wrap:wrap;justify-content:center">
-      <a href="/privacy">Privacy</a>
-      <a href="/terms">Terms of Use</a>
-      <a href="/sms-terms">SMS Terms</a>
-      <a href="/cookies">Cookie Policy</a>
-      <a href="/accessibility">Accessibility</a>
-    </div>
-    <div><a href="mailto:roman@socalreceptionist.com">roman@socalreceptionist.com</a> · <a href="tel:+19513958776">(951) 395-8776</a></div>
-    <div><a href="https://ctfdesigns.com" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;opacity:.55"><img src="https://ctfdesigns.com/images/logo.png" alt="CTF Designs" style="width:14px;height:14px;border-radius:50%;object-fit:cover"> Built by CTF Designs</a></div>
-  </div>
+  <p>© 2026 SoCal Receptionist, LLC · Murrieta, CA</p>
+  <p style="margin-top:8px"><a href="/faq">FAQ</a> · <a href="/support">Support</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Use</a> · <a href="/sms-terms">SMS Terms</a> · <a href="/cookies">Cookie Policy</a> · <a href="/accessibility">Accessibility</a></p>
+  <p style="margin-top:8px;font-size:0.75rem">By texting (951) 395-8776 you consent to receive automated SMS replies from SoCal Receptionist. Msg &amp; data rates may apply. Message frequency varies. Reply STOP to opt out, HELP for help. See our <a href="/sms-terms" style="color:rgba(255,255,255,0.6)">SMS Terms</a>.</p>
+  <p style="margin-top:12px">
+    <a href="https://ctfdesigns.com" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;text-decoration:none;color:rgba(255,255,255,0.4);font-size:0.78rem;transition:color 0.2s" onmouseover="this.style.color='rgba(255,255,255,0.8)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">
+      <img src="https://ctfdesigns.com/images/logo.png" alt="CTF Designs" style="width:15px;height:15px;border-radius:50%;object-fit:cover;vertical-align:middle">
+      Built by CTF Designs
+    </a>
+  </p>
 </footer>
 
 <script>
-  document.getElementById('demo-form').addEventListener('submit', async function (e) {
+  // Calculator
+  const wageSlider = document.getElementById('wage');
+  const hoursSlider = document.getElementById('hours');
+  const wageVal = document.getElementById('wage-val');
+  const hoursVal = document.getElementById('hours-val');
+  const humanCost = document.getElementById('human-cost');
+  const savings = document.getElementById('savings');
+
+  function updateCalc() {
+    const wage = parseInt(wageSlider.value);
+    const hours = parseInt(hoursSlider.value);
+    wageVal.textContent = '$' + wage + ' / hour';
+    hoursVal.textContent = hours + ' hrs / week';
+    const monthly = wage * hours * 4.333 * 1.0765;
+    const save = monthly - 500;
+    humanCost.textContent = '$' + Math.round(monthly).toLocaleString();
+    savings.textContent = '$' + Math.round(save).toLocaleString();
+  }
+
+  wageSlider.addEventListener('input', updateCalc);
+  hoursSlider.addEventListener('input', updateCalc);
+  updateCalc();
+
+  // Demo form
+  document.getElementById('demo-form').addEventListener('submit', async function(e) {
     e.preventDefault();
-    var btn = document.getElementById('submit-btn');
-    var ok = document.getElementById('form-success');
-    var bad = document.getElementById('form-error');
-    ok.style.display = 'none'; bad.style.display = 'none';
-    btn.textContent = 'Sending...'; btn.disabled = true;
-    var data = {
+    const btn = document.getElementById('submit-btn');
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+
+    // reCAPTCHA v3 — fetch a score token (best-effort; backend verifies it).
+    let recaptchaToken = '';
+    try {
+      recaptchaToken = await new Promise(function (resolve, reject) {
+        grecaptcha.ready(function () {
+          grecaptcha.execute('6Lcy4hgtAAAAAMx7aSIGoDUloWYXKTGJuvnbi_sP', { action: 'demo' })
+            .then(resolve).catch(reject);
+        });
+      });
+    } catch (err) { recaptchaToken = ''; }
+
+    const data = {
       name: document.getElementById('f-name').value,
       business: document.getElementById('f-business').value,
       phone: document.getElementById('f-phone').value,
       type: document.getElementById('f-type').value,
       smsConsent: document.getElementById('sms-consent').checked,
+      recaptcha_token: recaptchaToken,
     };
+
     try {
-      var res = await fetch('/demo', {
+      const res = await fetch('/demo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('bad response');
-      ok.style.display = 'block';
-      this.reset();
+      if (res.ok) {
+        document.getElementById('form-success').style.display = 'block';
+        document.getElementById('demo-form').reset();
+      } else {
+        throw new Error('bad response');
+      }
     } catch (err) {
-      bad.style.display = 'block';
+      document.getElementById('form-error').style.display = 'block';
     } finally {
-      btn.textContent = 'Book my free demo';
+      btn.textContent = 'Book My Free Demo →';
       btn.disabled = false;
     }
   });
 </script>
 
+<!-- Accessibility Widget -->
+<style>
+  #a11y-btn {
+    position: fixed; bottom: 24px; left: 24px; z-index: 9999;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: #1a3a6e; color: #fff; border: none; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    font-size: 22px; display: flex; align-items: center; justify-content: center;
+    transition: background .2s;
+  }
+  #a11y-btn:hover { background: #f47c20; }
+  #a11y-btn:focus-visible { outline: 3px solid #f47c20; outline-offset: 3px; }
+  #a11y-panel {
+    position: fixed; bottom: 82px; left: 24px; z-index: 9999;
+    background: #fff; border: 2px solid #1a3a6e; border-radius: 12px;
+    padding: 16px; width: 220px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    display: none; flex-direction: column; gap: 10px;
+  }
+  #a11y-panel.open { display: flex; }
+  #a11y-panel h3 { font-size: .85rem; font-weight: 700; color: #1a3a6e; margin: 0 0 4px; }
+  .a11y-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .a11y-label { font-size: .8rem; color: #374151; flex: 1; }
+  .a11y-controls { display: flex; gap: 4px; }
+  .a11y-controls button, #a11y-reset {
+    background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px;
+    cursor: pointer; font-size: .8rem; padding: 3px 8px; color: #1a1a2e;
+    transition: background .15s;
+  }
+  .a11y-controls button:hover, #a11y-reset:hover { background: #e5e7eb; }
+  .a11y-toggle {
+    position: relative; width: 40px; height: 22px; flex-shrink: 0;
+  }
+  .a11y-toggle input { opacity: 0; width: 0; height: 0; }
+  .a11y-toggle .slider {
+    position: absolute; inset: 0; background: #d1d5db; border-radius: 22px;
+    cursor: pointer; transition: background .2s;
+  }
+  .a11y-toggle .slider:before {
+    content: ''; position: absolute; width: 16px; height: 16px;
+    left: 3px; bottom: 3px; background: #fff; border-radius: 50%;
+    transition: transform .2s;
+  }
+  .a11y-toggle input:checked + .slider { background: #1a3a6e; }
+  .a11y-toggle input:checked + .slider:before { transform: translateX(18px); }
+  #a11y-reset { width: 100%; margin-top: 4px; }
+  body.a11y-high-contrast { filter: contrast(1.5) saturate(0); }
+  body.a11y-large-text { font-size: 120% !important; }
+  body.a11y-reduce-motion *, body.a11y-reduce-motion *::before, body.a11y-reduce-motion *::after {
+    animation-duration: 0.01ms !important; transition-duration: 0.01ms !important;
+  }
+  body.a11y-dyslexia { font-family: Arial, Helvetica, sans-serif !important; letter-spacing: .05em; word-spacing: .1em; line-height: 1.9 !important; }
+</style>
+
+<button id="a11y-btn" aria-label="Accessibility options" aria-expanded="false" aria-controls="a11y-panel">
+  ♿
+</button>
+
+<div id="a11y-panel" role="dialog" aria-label="Accessibility options" aria-modal="false">
+  <h3>Accessibility</h3>
+
+  <div class="a11y-row">
+    <span class="a11y-label">Text size</span>
+    <div class="a11y-controls">
+      <button id="a11y-dec" aria-label="Decrease text size">A−</button>
+      <button id="a11y-inc" aria-label="Increase text size">A+</button>
+    </div>
+  </div>
+
+  <div class="a11y-row">
+    <label class="a11y-label" for="a11y-contrast">High contrast</label>
+    <label class="a11y-toggle">
+      <input type="checkbox" id="a11y-contrast" />
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="a11y-row">
+    <label class="a11y-label" for="a11y-motion">Reduce motion</label>
+    <label class="a11y-toggle">
+      <input type="checkbox" id="a11y-motion" />
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="a11y-row">
+    <label class="a11y-label" for="a11y-dyslexia">Dyslexia-friendly</label>
+    <label class="a11y-toggle">
+      <input type="checkbox" id="a11y-dyslexia" />
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <button id="a11y-reset">Reset all</button>
+</div>
+
+<script>
+  (function () {
+    const btn = document.getElementById('a11y-btn');
+    const panel = document.getElementById('a11y-panel');
+    const body = document.body;
+    const PREFS_KEY = 'a11y_prefs';
+    let fontSize = 100;
+
+    function save() {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({
+        fontSize,
+        contrast: document.getElementById('a11y-contrast').checked,
+        motion: document.getElementById('a11y-motion').checked,
+        dyslexia: document.getElementById('a11y-dyslexia').checked,
+      }));
+    }
+
+    function applyFontSize() { body.style.fontSize = fontSize === 100 ? '' : fontSize + '%'; }
+
+    function load() {
+      try {
+        const p = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+        if (p.fontSize) { fontSize = p.fontSize; applyFontSize(); }
+        if (p.contrast) { document.getElementById('a11y-contrast').checked = true; body.classList.add('a11y-high-contrast'); }
+        if (p.motion) { document.getElementById('a11y-motion').checked = true; body.classList.add('a11y-reduce-motion'); }
+        if (p.dyslexia) { document.getElementById('a11y-dyslexia').checked = true; body.classList.add('a11y-dyslexia'); }
+      } catch (e) {}
+    }
+
+    btn.addEventListener('click', function () {
+      const open = panel.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open);
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!panel.contains(e.target) && e.target !== btn) {
+        panel.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { panel.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); btn.focus(); }
+    });
+
+    document.getElementById('a11y-inc').addEventListener('click', function () {
+      fontSize = Math.min(fontSize + 10, 150); applyFontSize(); save();
+    });
+    document.getElementById('a11y-dec').addEventListener('click', function () {
+      fontSize = Math.max(fontSize - 10, 80); applyFontSize(); save();
+    });
+
+    ['contrast','motion','dyslexia'].forEach(function (id) {
+      document.getElementById('a11y-' + id).addEventListener('change', function () {
+        body.classList.toggle('a11y-' + (id === 'contrast' ? 'high-contrast' : id === 'motion' ? 'reduce-motion' : 'dyslexia'), this.checked);
+        save();
+      });
+    });
+
+    document.getElementById('a11y-reset').addEventListener('click', function () {
+      fontSize = 100; applyFontSize();
+      ['contrast','motion','dyslexia'].forEach(function (id) {
+        document.getElementById('a11y-' + id).checked = false;
+      });
+      body.classList.remove('a11y-high-contrast','a11y-reduce-motion','a11y-dyslexia');
+      localStorage.removeItem(PREFS_KEY);
+    });
+
+    load();
+  })();
+</script>
+
+<!-- Support Chat Widget -->
+<style>
+  #sc-btn{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#f47c20,#e040a0);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.35);z-index:9998;transition:transform .15s}
+  #sc-btn:hover{transform:scale(1.08)}
+  #sc-btn svg{width:26px;height:26px;fill:#fff}
+  #sc-panel{position:fixed;bottom:90px;right:24px;width:340px;max-height:520px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.25);z-index:9999;display:none;flex-direction:column;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  #sc-panel.open{display:flex}
+  #sc-head{background:linear-gradient(135deg,#f47c20,#e040a0);padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+  #sc-head .sc-title{color:#fff;font-weight:700;font-size:.95rem}
+  #sc-head .sc-sub{color:rgba(255,255,255,.8);font-size:.75rem;margin-top:1px}
+  #sc-close{background:none;border:none;cursor:pointer;color:#fff;opacity:.85;font-size:1.3rem;line-height:1;padding:0}
+  #sc-close:hover{opacity:1}
+  #sc-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f9f9fc;min-height:0}
+  .sc-msg{max-width:82%;padding:9px 13px;border-radius:12px;font-size:.875rem;line-height:1.5;word-break:break-word}
+  .sc-msg.bot{background:#fff;color:#1a1a2e;align-self:flex-start;box-shadow:0 1px 4px rgba(0,0,0,.08);border-bottom-left-radius:4px}
+  .sc-msg.user{background:linear-gradient(135deg,#f47c20,#e040a0);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+  .sc-msg.typing{color:#9ca3af;font-style:italic}
+  #sc-foot{padding:10px 12px;border-top:1px solid #f0f0f5;background:#fff;display:flex;gap:8px}
+  #sc-input{flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-size:.875rem;font-family:inherit;resize:none;outline:none;transition:border-color .15s;max-height:90px}
+  #sc-input:focus{border-color:#e040a0}
+  #sc-send{background:linear-gradient(135deg,#f47c20,#e040a0);border:none;border-radius:8px;width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:flex-end;transition:opacity .15s}
+  #sc-send:disabled{opacity:.45;cursor:default}
+  #sc-send svg{width:18px;height:18px;fill:#fff}
+  @media(max-width:400px){#sc-panel{width:calc(100vw - 32px);right:16px}}
+  /* Proactive teaser bubble + attention pulse (desktop only, once per visitor) */
+  #sc-teaser{position:fixed;bottom:34px;right:92px;max-width:236px;background:#fff;color:#1a1a2e;padding:11px 30px 11px 14px;border-radius:14px;border-bottom-right-radius:4px;box-shadow:0 6px 24px rgba(0,0,0,.22);font-size:.85rem;line-height:1.4;z-index:9998;cursor:pointer;display:none;opacity:0;transform:translateY(8px);transition:opacity .35s,transform .35s}
+  #sc-teaser.show{display:block;opacity:1;transform:translateY(0)}
+  #sc-teaser strong{color:#e040a0}
+  #sc-teaser-x{position:absolute;top:3px;right:6px;background:none;border:none;color:#9ca3af;font-size:1rem;line-height:1;cursor:pointer;padding:2px}
+  #sc-teaser-x:hover{color:#1a1a2e}
+  @keyframes sc-pulse{0%{box-shadow:0 4px 20px rgba(0,0,0,.35),0 0 0 0 rgba(224,64,160,.5)}70%{box-shadow:0 4px 20px rgba(0,0,0,.35),0 0 0 16px rgba(224,64,160,0)}100%{box-shadow:0 4px 20px rgba(0,0,0,.35),0 0 0 0 rgba(224,64,160,0)}}
+  #sc-btn.sc-pulse{animation:sc-pulse 1.8s ease-out infinite}
+  body.a11y-reduce-motion #sc-btn.sc-pulse{animation:none}
+  @media(max-width:768px){#sc-teaser{display:none!important}}
+</style>
+
+<button id="sc-btn" title="Chat with support" aria-label="Open support chat">
+  <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+</button>
+
+<div id="sc-teaser" role="button" tabindex="0" aria-label="Ask Josi a question">
+  <button id="sc-teaser-x" aria-label="Dismiss">&times;</button>
+  <span>👋 Got a question? <strong>Ask Josi anything.</strong></span>
+</div>
+
+<div id="sc-panel" role="dialog" aria-label="Support chat">
+  <div id="sc-head">
+    <div><div class="sc-title">Support Chat</div><div class="sc-sub">Typically replies instantly</div></div>
+    <button id="sc-close" aria-label="Close chat">&times;</button>
+  </div>
+  <div id="sc-msgs"></div>
+  <div id="sc-foot">
+    <textarea id="sc-input" placeholder="Ask a question..." rows="1"></textarea>
+    <button id="sc-send" aria-label="Send">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var btn=document.getElementById('sc-btn'),panel=document.getElementById('sc-panel'),closeBtn=document.getElementById('sc-close'),msgs=document.getElementById('sc-msgs'),input=document.getElementById('sc-input'),send=document.getElementById('sc-send');
+  var history=[],opened=false,sending=false;
+
+  function addMsg(role,text){
+    var el=document.createElement('div');
+    el.className='sc-msg '+role;
+    el.textContent=text;
+    msgs.appendChild(el);
+    msgs.scrollTop=msgs.scrollHeight;
+    return el;
+  }
+
+  function showTyping(){return addMsg('bot typing','...');}
+
+  function openChat(){
+    panel.classList.add('open');
+    opened=true;
+    btn.style.display='none';
+    btn.classList.remove('sc-pulse');
+    var tz=document.getElementById('sc-teaser'); if(tz) tz.classList.remove('show');
+    if(!history.length) addMsg('bot','Hi! 👋 I\'m the SoCal Receptionist support bot. How can I help you today?');
+    setTimeout(function(){input.focus();},100);
+  }
+
+  function closeChat(){
+    panel.classList.remove('open');
+    btn.style.display='flex';
+    if(history.length) sendTranscript();
+  }
+
+  function sendTranscript(){
+    if(!history.length) return;
+    var data=JSON.stringify({history:history});
+    if(navigator.sendBeacon){
+      var blob=new Blob([data],{type:'application/json'});
+      navigator.sendBeacon('/api/support-chat/end',blob);
+    } else {
+      fetch('/api/support-chat/end',{method:'POST',headers:{'Content-Type':'application/json'},body:data,keepalive:true}).catch(function(){});
+    }
+  }
+
+  function doSend(){
+    var text=input.value.trim();
+    if(!text||sending) return;
+    sending=true;
+    send.disabled=true;
+    addMsg('user',text);
+    history.push({role:'user',content:text});
+    input.value='';
+    input.style.height='';
+    var typing=showTyping();
+    fetch('/api/support-chat/message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:history.slice(0,-1)})})
+      .then(function(r){return r.json();})
+      .then(function(j){
+        msgs.removeChild(typing);
+        var reply=j.reply||j.error||'Something went wrong. Please try again.';
+        addMsg('bot',reply);
+        history.push({role:'assistant',content:reply});
+      })
+      .catch(function(){
+        msgs.removeChild(typing);
+        addMsg('bot','Connection error. Please try again or email support@socalreceptionist.com.');
+      })
+      .finally(function(){sending=false;send.disabled=false;input.focus();});
+  }
+
+  btn.addEventListener('click',openChat);
+  closeBtn.addEventListener('click',closeChat);
+  send.addEventListener('click',doSend);
+
+  // Proactive teaser + pulse: nudge visitors to ask the AI. Desktop only, once per visitor.
+  var teaser=document.getElementById('sc-teaser'),teaserX=document.getElementById('sc-teaser-x');
+  var TEASER_KEY='sc_teaser_seen';
+  function hideTeaser(){if(teaser)teaser.classList.remove('show');btn.classList.remove('sc-pulse');}
+  function showTeaser(){
+    if(opened||window.innerWidth<=768)return;
+    try{if(localStorage.getItem(TEASER_KEY))return;}catch(e){}
+    if(teaser)teaser.classList.add('show');
+    btn.classList.add('sc-pulse');
+    try{localStorage.setItem(TEASER_KEY,'1');}catch(e){}
+  }
+  if(teaser){
+    teaser.addEventListener('click',function(){hideTeaser();openChat();});
+    teaser.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();hideTeaser();openChat();}});
+  }
+  if(teaserX)teaserX.addEventListener('click',function(e){e.stopPropagation();hideTeaser();});
+  setTimeout(showTeaser,4500);
+  setTimeout(function(){if(teaser&&teaser.classList.contains('show'))hideTeaser();},18000);
+  input.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend();}
+  });
+  input.addEventListener('input',function(){
+    this.style.height='auto';
+    this.style.height=Math.min(this.scrollHeight,90)+'px';
+  });
+  window.addEventListener('beforeunload',function(){if(history.length) sendTranscript();});
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='hidden'&&history.length) sendTranscript();
+  });
+})();
+</script>
 </body>
 </html>
