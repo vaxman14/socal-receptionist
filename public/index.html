@@ -172,6 +172,9 @@
     .demo-form label { font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 4px; display: block; }
     .form-group { display: flex; flex-direction: column; }
     .form-success { display: none; background: #d1fae5; border: 1px solid #34d399; color: #065f46; padding: 16px; border-radius: 8px; text-align: center; font-weight: 600; }
+    /* Hide the floating reCAPTCHA badge (it overlapped the chat button); the
+       required attribution is shown as text under the demo form instead. */
+    .grecaptcha-badge { visibility: hidden; }
     .form-error { display: none; background: #fee2e2; border: 1px solid #f87171; color: #991b1b; padding: 16px; border-radius: 8px; text-align: center; }
 
     /* FOOTER */
@@ -449,6 +452,7 @@ function setBilling(mode) {
       <span>I agree to receive recurring automated marketing and informational text messages (offers, updates, appointment and scheduling messages, and responses to my inquiry) from SoCal Receptionist at the number provided. Consent is not a condition of purchase. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help.</span>
     </label>
     <p style="font-size:0.72rem;color:#6b7280;margin-top:6px;line-height:1.5">We never sell or share your mobile information. View our <a href="/sms-terms" style="color:#4f46e5">SMS Terms</a>, <a href="/privacy" style="color:#4f46e5">Privacy Policy</a>, and <a href="/terms" style="color:#4f46e5">Terms</a>.</p>
+    <p style="font-size:0.68rem;color:#9ca3af;margin-top:6px;line-height:1.5">Protected by reCAPTCHA. The Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#9ca3af;text-decoration:underline">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener" style="color:#9ca3af;text-decoration:underline">Terms of Service</a> apply.</p>
     <div class="form-success" id="form-success">🎉 Got it! We'll reach out within a few hours to schedule your demo.</div>
     <div class="form-error" id="form-error">Something went wrong. Please try again or text us directly.</div>
   </form>
