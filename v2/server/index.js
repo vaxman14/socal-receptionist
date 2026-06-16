@@ -105,6 +105,84 @@ app.post('/demo', async (req, res) => {
   }
 });
 
+// --- Reverse-call demo widget: visitor enters number, Josi calls them back ----
+// Reuses the proven outbound bridge (/voice/callback, same plumbing as the live
+// hangup auto-callback). Fully isolated from the inbound call path. Gated by
+// CALLBACK_WIDGET_ENABLED (set 'false' to kill instantly) and rate-limited so it
+// cannot be weaponized to spam-dial numbers or run up Twilio cost.
+const cbDemoByPhone = new Map(); // e164 -> last ts (ms)
+const cbDemoByIp = new Map();    // ip -> { count, windowStart }
+let cbDemoGlobal = { count: 0, windowStart: 0 };
+const CB_HOUR_MS = 3600000;
+
+app.post('/callback-demo', async (req, res) => {
+  try {
+    if (process.env.CALLBACK_WIDGET_ENABLED === 'false') {
+      return res.status(503).json({ error: 'Demo callback is temporarily off. Please call (951) 395-8776.' });
+    }
+    let digits = String((req.body && req.body.phone) || '').replace(/\D/g, '');
+    if (digits.length === 11 && digits[0] === '1') digits = digits.slice(1);
+    if (digits.length !== 10) {
+      return res.status(400).json({ error: 'Enter a valid 10-digit US phone number.' });
+    }
+    const e164 = '+1' + digits;
+    const now = Date.now();
+    const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+
+    const lastPhone = cbDemoByPhone.get(e164) || 0;
+    if (now - lastPhone < 15 * 60000) {
+      return res.status(429).json({ error: 'We just called that number. Give it a minute and answer your phone.' });
+    }
+    const ipRec = cbDemoByIp.get(ip) || { count: 0, windowStart: now };
+    if (now - ipRec.windowStart > CB_HOUR_MS) { ipRec.count = 0; ipRec.windowStart = now; }
+    if (ipRec.count >= 5) {
+      return res.status(429).json({ error: 'Too many requests from your network. Try again later.' });
+    }
+    if (now - cbDemoGlobal.windowStart > CB_HOUR_MS) { cbDemoGlobal = { count: 0, windowStart: now }; }
+    if (cbDemoGlobal.count >= 30) {
+      return res.status(429).json({ error: 'Our demo line is busy. Please call (951) 395-8776 directly.' });
+    }
+
+    const SID = process.env.TWILIO_ACCOUNT_SID;
+    const TOKEN = process.env.TWILIO_AUTH_TOKEN;
+    if (!SID || !TOKEN) {
+      console.error('[callback-demo] Twilio creds missing');
+      return res.status(500).json({ error: 'Calling is temporarily unavailable. Please call (951) 395-8776.' });
+    }
+    const twilioLib = require('twilio');
+    const client = twilioLib(SID, TOKEN);
+    const baseUrl = (process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
+    const fromNum = process.env.TWILIO_PHONE_NUMBER || '+19513958776';
+
+    await client.calls.create({ to: e164, from: fromNum, url: `${baseUrl}/voice/callback` });
+
+    cbDemoByPhone.set(e164, now);
+    ipRec.count += 1; cbDemoByIp.set(ip, ipRec);
+    cbDemoGlobal.count += 1;
+    console.log(`[callback-demo] calling ${e164} (ip ${ip})`);
+
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if (RESEND_API_KEY) {
+      const ts = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'SoCal Receptionist <hello@noreply.socalreceptionist.com>',
+          to: ['roman@socalreceptionist.com'],
+          subject: `📞 Reverse-call demo requested — ${e164}`,
+          text: `Someone asked Josi to call them from the homepage widget.\n\nPhone: ${e164}\nTime: ${ts} PT`,
+        }),
+      }).catch(err => console.error('[callback-demo] lead email failed:', err.message));
+    }
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[callback-demo] error:', e.message);
+    return res.status(500).json({ error: 'Could not place the call. Please call (951) 395-8776 directly.' });
+  }
+});
+
 app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'socal-receptionist-v2', ts: new Date().toISOString() });
 });
