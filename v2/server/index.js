@@ -141,6 +141,29 @@ app.get('/internal/signwell-test', async (req, res) => {
   }
 });
 
+// TEMP diagnostic: list SignWell templates (id + placeholders) so we can wire
+// the right template_id and recipient placeholder. Remove with the smoke test.
+app.get('/internal/signwell-templates', async (req, res) => {
+  const allow = process.env.INTERNAL_SECRET || 'sw-smoke-2f9q7x4k';
+  if (req.query.token !== allow) return res.status(401).json({ error: 'unauthorized' });
+  try {
+    const r = await fetch('https://www.signwell.com/api/v1/document_templates?limit=25', {
+      headers: { 'X-Api-Key': process.env.SIGNWELL_API_KEY },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status).json({ ok: false, status: r.status, data });
+    const list = Array.isArray(data) ? data : (data.data || data.templates || []);
+    const summary = list.map((t) => ({
+      id: t.id,
+      name: t.name,
+      placeholders: (t.placeholders || t.recipients || []).map((p) => p.placeholder_name || p.name || p.id),
+    }));
+    res.json({ ok: true, count: summary.length, templates: summary });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // SignWell webhook — fires on document events (e.g., completed/signed).
 app.post('/webhooks/signwell', async (req, res) => {
   try {
