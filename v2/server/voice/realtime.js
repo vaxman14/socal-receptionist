@@ -124,22 +124,11 @@ function handleMediaStream(twilioWs, req) {
   let dbgAudioDeltas = 0; // TEMP diag: audio deltas in the current response
   const FRAME_BYTES = 160; // 20ms of 8kHz G.711 mu-law
 
-  // TEMP diag: buffer a trace of the OpenAI event lifecycle and Telegram it on
-  // hang-up, since DO run-logs and DB writes are not observable right now.
-  const dbgTrace = [];
-  let dbgSent = false;
-  function dbg(s) { dbgTrace.push(`${new Date().toISOString().slice(11, 19)} ${s}`); }
-  function sendDbgTrace() {
-    if (dbgSent) return;
-    dbgSent = true;
-    const tok = process.env.TELEGRAM_BOT_TOKEN;
-    if (!tok || dbgTrace.length === 0) return;
-    const text = '🩺 VOICE TRACE\n' + dbgTrace.join('\n').slice(0, 3500);
-    fetch(`https://api.telegram.org/bot${tok}/sendMessage`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: '6335227029', text }),
-    }).catch(() => {});
-  }
+  // VOICE TRACE diagnostic removed 2026-06-16 (previously buffered the OpenAI
+  // event lifecycle and Telegrammed it on hang-up). Kept as no-op stubs so the
+  // existing dbg()/sendDbgTrace() call sites stay valid with zero behavior.
+  function dbg() {}
+  function sendDbgTrace() {}
 
   // Decode a base64 PCM16@24kHz delta from OpenAI, downsample to 8kHz (average
   // groups of 3 samples) and mu-law encode → bytes ready for Twilio.
