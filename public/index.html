@@ -113,7 +113,9 @@
     .how { padding: 72px 24px; text-align: center; }
     .section-label { font-size: 0.8rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--orange); margin-bottom: 12px; }
     .how h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 48px; }
-    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; max-width: 900px; margin: 0 auto; }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; max-width: 1040px; margin: 0 auto; }
+    @media (max-width: 760px) { .steps { grid-template-columns: repeat(2, 1fr); gap: 32px; } }
+    @media (max-width: 440px) { .steps { grid-template-columns: 1fr; } }
     .step { text-align: center; }
     .step-num { width: 52px; height: 52px; background: var(--navy); color: var(--white); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; margin: 0 auto 16px; }
     .step h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
@@ -298,7 +300,7 @@
     <div class="step">
       <div class="step-num">3</div>
       <h3>Auto-Callback if They Hang Up</h3>
-      <p>If a caller hangs up before leaving their info, our AI calls them back within 30 seconds — automatically.</p>
+      <p>If a caller hangs up before leaving their info, our AI calls them back within 30 seconds, automatically.</p>
     </div>
     <div class="step">
       <div class="step-num">4</div>
