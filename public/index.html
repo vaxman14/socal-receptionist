@@ -102,8 +102,8 @@
     .pain { background: var(--light); padding: 64px 24px; text-align: center; }
     .pain h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 16px; }
     .pain p { font-size: 1.05rem; color: var(--muted); max-width: 580px; margin: 0 auto 40px; line-height: 1.6; }
-    .pain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; max-width: 900px; margin: 0 auto; }
-    .pain-card { background: var(--white); border-radius: 10px; padding: 24px; border-left: 4px solid var(--orange); box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: left; }
+    .pain-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 960px; margin: 0 auto; }
+    .pain-card { background: var(--white); border-radius: 10px; padding: 24px; border-left: 4px solid var(--orange); box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: left; flex: 0 1 280px; }
     .pain-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
     .pain-card p { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
 
@@ -249,16 +249,16 @@
 
 <!-- PAIN -->
 <section class="pain">
-  <h2>Every Unanswered Text Is a Lost Customer</h2>
-  <p>Small businesses in the Temecula Valley lose thousands of dollars a month to missed inquiries. Hiring help is expensive. Doing it yourself isn't sustainable.</p>
+  <h2>Every Missed Call Is a Lost Customer</h2>
+  <p>Small businesses in the Temecula Valley lose thousands of dollars a month to missed calls. Hiring help is expensive. Doing it yourself isn't sustainable.</p>
   <div class="pain-grid">
     <div class="pain-card">
-      <h3>Customers text, you're busy</h3>
-      <p>You're with a client, on a job, or finally eating lunch. The lead texts once and moves on to your competitor.</p>
+      <h3>Customers call, you're busy</h3>
+      <p>You're with a client, on a job, or finally eating lunch. The lead calls once, gets voicemail, and moves on to your competitor.</p>
     </div>
     <div class="pain-card">
-      <h3>After-hours inquiries go cold</h3>
-      <p>Most people text after 5pm. Without an instant reply, that warm lead is ice cold by morning.</p>
+      <h3>After-hours calls go cold</h3>
+      <p>Plenty of customers call after 5pm. With no one to answer, that warm lead is ice cold by morning.</p>
     </div>
     <div class="pain-card">
       <h3>Hiring is expensive and risky</h3>
@@ -266,7 +266,7 @@
     </div>
     <div class="pain-card">
       <h3>You're the bottleneck</h3>
-      <p>When every message requires your personal attention, you can't scale. Your phone becomes your second job.</p>
+      <p>When every call requires your personal attention, you can't scale. Your phone becomes your second job.</p>
     </div>
     <div class="pain-card">
       <h3>They called, then hung up</h3>
@@ -282,8 +282,8 @@
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
-      <h3>Customer Calls or Texts</h3>
-      <p>Your customer reaches your business number any time, day or night — by call or text.</p>
+      <h3>Customer Calls In</h3>
+      <p>Your customer reaches your business number any time, day or night, and the AI picks up on the first ring.</p>
     </div>
     <div class="step">
       <div class="step-num">2</div>
