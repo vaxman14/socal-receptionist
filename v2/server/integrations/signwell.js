@@ -8,7 +8,7 @@
 //   SIGNWELL_LIVE=true    (charge real signatures; otherwise test_mode = no billing)
 
 const API_BASE = 'https://www.signwell.com/api/v1';
-const TEMPLATE_ID = process.env.SIGNWELL_TEMPLATE_ID || 'd6wzu7PzmLEDky1Q';
+const TEMPLATE_ID = process.env.SIGNWELL_TEMPLATE_ID || '42ac8eae-8ddb-43cd-9708-0bbf83bd0aa5';
 const isLive = process.env.SIGNWELL_LIVE === 'true';
 
 function apiKey() {
