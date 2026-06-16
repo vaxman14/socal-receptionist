@@ -169,6 +169,38 @@ router.post('/voice/callback', async (req, res) => {
   sendTwiml(res, vr);
 });
 
+// --- Reverse-call demo: AI calls a website visitor for a fresh demo ----------
+// Same bridge as /voice/callback but flags is_demo (fresh demo greeting, not the
+// "your call got disconnected" callback script). Used by the homepage widget.
+router.post('/voice/demo-connect', async (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    return res.status(403).send('Invalid Twilio signature');
+  }
+  const ourNum = req.body.From;       // our SoCal number
+  const customerNum = req.body.To;    // the website visitor being called
+  let tenant;
+  try {
+    tenant = await resolveTenantByNumber(ourNum);
+  } catch (err) {
+    logger.error('voice.demo.tenant_lookup_failed', { error: err.message });
+    return sayAndHangup(res, 'We are sorry, we cannot connect your demo right now.', null);
+  }
+  if (!tenant) {
+    logger.warn('voice.demo.unknown_number', { from: ourNum });
+    return sayAndHangup(res, 'This call could not be connected. Goodbye.', null);
+  }
+  const baseUrl = process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
+  const wsUrl = baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
+  const vr = new VoiceResponse();
+  const connect = vr.connect();
+  const stream = connect.stream({ url: wsUrl });
+  stream.parameter({ name: 'tenant_id',   value: tenant.id });
+  stream.parameter({ name: 'from_number', value: customerNum });
+  stream.parameter({ name: 'to_number',   value: ourNum });
+  stream.parameter({ name: 'is_demo',     value: 'true' });
+  sendTwiml(res, vr);
+});
+
 // --- IVR menu: the caller pressed a key (or timed out) ----------------------
 
 router.post('/voice/menu', async (req, res) => {

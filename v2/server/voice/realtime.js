@@ -105,6 +105,7 @@ function handleMediaStream(twilioWs, req) {
   let leadCaptured = false;
   let recordingEnabled = false;
   let isCallback = false;
+  let isDemo = false;
   let ourNumber = null;
   let transcript = []; // { role: 'caller'|'ai', text: string }
   let wrapUpTimer = null;
@@ -330,10 +331,13 @@ function handleMediaStream(twilioWs, req) {
       ? 'First say: "This call may be recorded for quality and training purposes." Then, '
       : '';
     const callbackGreeting = `Hi, I'm calling back from ${tenant.business_name} — looks like your call got disconnected. I just wanted to make sure I can help you. How can I assist you today?`;
+    const demoGreeting = `Hi, this is the AI receptionist for ${tenant.business_name}. You just requested a quick demo call from our website. I'm the same assistant that would answer your business phone, so go ahead and ask me anything.`;
     openaiWs.send(JSON.stringify({
       type: 'response.create',
       response: {
-        instructions: isCallback
+        instructions: isDemo
+          ? `${disclosurePrefix}Say this greeting exactly: "${demoGreeting}"`
+          : isCallback
           ? `${disclosurePrefix}Say this greeting exactly: "${callbackGreeting}"`
           : tenant.voice_greeting
             ? `${disclosurePrefix}Say this greeting exactly: "${tenant.voice_greeting}"`
@@ -418,6 +422,7 @@ function handleMediaStream(twilioWs, req) {
         tenantId   = params.tenant_id;
         fromNumber = params.from_number;
         isCallback = params.is_callback === 'true';
+        isDemo     = params.is_demo === 'true';
         ourNumber  = params.to_number || '+19513958776';
 
         // Load the tenant and set up the call record.

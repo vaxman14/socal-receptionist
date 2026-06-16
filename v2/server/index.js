@@ -154,7 +154,7 @@ app.post('/callback-demo', async (req, res) => {
     const baseUrl = (process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
     const fromNum = process.env.TWILIO_PHONE_NUMBER || '+19513958776';
 
-    await client.calls.create({ to: e164, from: fromNum, url: `${baseUrl}/voice/callback` });
+    await client.calls.create({ to: e164, from: fromNum, url: `${baseUrl}/voice/demo-connect` });
 
     cbDemoByPhone.set(e164, now);
     ipRec.count += 1; cbDemoByIp.set(ip, ipRec);
