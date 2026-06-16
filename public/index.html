@@ -734,11 +734,26 @@ function setBilling(mode) {
   #sc-send:disabled{opacity:.45;cursor:default}
   #sc-send svg{width:18px;height:18px;fill:#fff}
   @media(max-width:400px){#sc-panel{width:calc(100vw - 32px);right:16px}}
+  /* Proactive teaser bubble + attention pulse (desktop only, once per visitor) */
+  #sc-teaser{position:fixed;bottom:34px;right:92px;max-width:236px;background:#fff;color:#1a1a2e;padding:11px 30px 11px 14px;border-radius:14px;border-bottom-right-radius:4px;box-shadow:0 6px 24px rgba(0,0,0,.22);font-size:.85rem;line-height:1.4;z-index:9998;cursor:pointer;display:none;opacity:0;transform:translateY(8px);transition:opacity .35s,transform .35s}
+  #sc-teaser.show{display:block;opacity:1;transform:translateY(0)}
+  #sc-teaser strong{color:#e040a0}
+  #sc-teaser-x{position:absolute;top:3px;right:6px;background:none;border:none;color:#9ca3af;font-size:1rem;line-height:1;cursor:pointer;padding:2px}
+  #sc-teaser-x:hover{color:#1a1a2e}
+  @keyframes sc-pulse{0%{box-shadow:0 4px 20px rgba(0,0,0,.35),0 0 0 0 rgba(224,64,160,.5)}70%{box-shadow:0 4px 20px rgba(0,0,0,.35),0 0 0 16px rgba(224,64,160,0)}100%{box-shadow:0 4px 20px rgba(0,0,0,.35),0 0 0 0 rgba(224,64,160,0)}}
+  #sc-btn.sc-pulse{animation:sc-pulse 1.8s ease-out infinite}
+  body.a11y-reduce-motion #sc-btn.sc-pulse{animation:none}
+  @media(max-width:768px){#sc-teaser{display:none!important}}
 </style>
 
 <button id="sc-btn" title="Chat with support" aria-label="Open support chat">
   <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
 </button>
+
+<div id="sc-teaser" role="button" tabindex="0" aria-label="Ask Josi a question">
+  <button id="sc-teaser-x" aria-label="Dismiss">&times;</button>
+  <span>👋 Got a question? <strong>Ask Josi anything.</strong></span>
+</div>
 
 <div id="sc-panel" role="dialog" aria-label="Support chat">
   <div id="sc-head">
@@ -774,6 +789,8 @@ function setBilling(mode) {
     panel.classList.add('open');
     opened=true;
     btn.style.display='none';
+    btn.classList.remove('sc-pulse');
+    var tz=document.getElementById('sc-teaser'); if(tz) tz.classList.remove('show');
     if(!history.length) addMsg('bot','Hi! 👋 I\'m the SoCal Receptionist support bot. How can I help you today?');
     setTimeout(function(){input.focus();},100);
   }
@@ -823,6 +840,25 @@ function setBilling(mode) {
   btn.addEventListener('click',openChat);
   closeBtn.addEventListener('click',closeChat);
   send.addEventListener('click',doSend);
+
+  // Proactive teaser + pulse: nudge visitors to ask the AI. Desktop only, once per visitor.
+  var teaser=document.getElementById('sc-teaser'),teaserX=document.getElementById('sc-teaser-x');
+  var TEASER_KEY='sc_teaser_seen';
+  function hideTeaser(){if(teaser)teaser.classList.remove('show');btn.classList.remove('sc-pulse');}
+  function showTeaser(){
+    if(opened||window.innerWidth<=768)return;
+    try{if(localStorage.getItem(TEASER_KEY))return;}catch(e){}
+    if(teaser)teaser.classList.add('show');
+    btn.classList.add('sc-pulse');
+    try{localStorage.setItem(TEASER_KEY,'1');}catch(e){}
+  }
+  if(teaser){
+    teaser.addEventListener('click',function(){hideTeaser();openChat();});
+    teaser.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();hideTeaser();openChat();}});
+  }
+  if(teaserX)teaserX.addEventListener('click',function(e){e.stopPropagation();hideTeaser();});
+  setTimeout(showTeaser,4500);
+  setTimeout(function(){if(teaser&&teaser.classList.contains('show'))hideTeaser();},18000);
   input.addEventListener('keydown',function(e){
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend();}
   });
