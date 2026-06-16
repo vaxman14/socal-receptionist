@@ -124,6 +124,35 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'socal-receptionist-v2', ts: new Date().toISOString() });
 });
 
+// Internal: SignWell embedded-signing smoke test. Creates a test_mode document
+// from the Service Agreement template and returns the per-signer embedded URL.
+app.get('/internal/signwell-test', async (req, res) => {
+  if (req.query.token !== process.env.INTERNAL_SECRET) return res.status(401).json({ error: 'unauthorized' });
+  try {
+    const signwell = require('./integrations/signwell');
+    const out = await signwell.createAgreementSigning({
+      name: req.query.name || 'Test Client',
+      email: req.query.email || 'test@example.com',
+    });
+    res.json({ ok: true, template: signwell.TEMPLATE_ID, live: signwell.isLive, ...out });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// SignWell webhook — fires on document events (e.g., completed/signed).
+app.post('/webhooks/signwell', async (req, res) => {
+  try {
+    const ev = req.body || {};
+    const type = (ev.event && ev.event.type) || ev.type || 'unknown';
+    console.log('[signwell] webhook event:', type, JSON.stringify(ev).slice(0, 300));
+    // TODO: on completion, mark the tenant's agreement signed + gate provisioning.
+  } catch (e) {
+    console.error('[signwell] webhook error:', e.message);
+  }
+  res.json({ received: true });
+});
+
 // Internal: poll Gmail inboxes for new messages since ?since=<epochMs>
 // Used by Josi's gmail-monitor cron to alert Roman of new emails.
 app.get('/internal/gmail-check', async (req, res) => {
