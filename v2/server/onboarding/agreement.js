@@ -20,9 +20,62 @@ const {
   renderExecutedAgreementHtml,
 } = require('../lib/agreements');
 const { enqueue } = require('../lib/jobs');
+const { supabase } = require('../lib/supabase');
+const signwell = require('../integrations/signwell');
 
 const router = express.Router();
 router.use(requireAuth, requireTenant);
+
+// GET /onboarding/agreement/sign-url — start a SignWell embedded signing session
+// for this tenant and return the iframe URL. Maps the document to the tenant so
+// completion can be recorded.
+router.get('/agreement/sign-url', async (req, res) => {
+  try {
+    if (await hasSignedCurrent(req.tenant.id)) return res.json({ signed: true });
+    const out = await signwell.createAgreementSigning({
+      name: req.tenant.business_name || req.user.email,
+      email: req.user.email,
+    });
+    await supabase.from('tenants').update({ signwell_document_id: out.documentId }).eq('id', req.tenant.id);
+    res.json({ signed: false, url: out.embeddedSigningUrl, documentId: out.documentId });
+  } catch (err) {
+    console.error('[onboarding] signwell sign-url failed:', err.message);
+    res.status(500).json({ error: 'could not start signing' });
+  }
+});
+
+// GET /onboarding/agreement/signwell-complete — verify completion directly with
+// SignWell (authoritative) and record the signature so the Activate step can run.
+router.get('/agreement/signwell-complete', async (req, res) => {
+  try {
+    if (await hasSignedCurrent(req.tenant.id)) return res.json({ signed: true });
+    const docId = req.tenant.signwell_document_id;
+    if (!docId) return res.json({ signed: false, reason: 'no signing session' });
+    const doc = await signwell.getDocument(docId);
+    if (!doc.completed) return res.json({ signed: false, status: doc.status });
+    const recip = (doc.recipients || [])[0] || {};
+    await recordSignature({
+      tenantId: req.tenant.id,
+      signerName: recip.name || req.tenant.business_name || req.user.email,
+      signerEmail: recip.email || req.user.email,
+      signerTitle: 'Signed via SignWell',
+      signerUserId: req.user.id,
+      ip: req.ip,
+      userAgent: req.header('user-agent') || null,
+    });
+    res.json({ signed: true });
+  } catch (err) {
+    if (err instanceof AgreementError && /already signed/i.test(err.message)) return res.json({ signed: true });
+    console.error('[onboarding] signwell-complete failed:', err.message);
+    res.status(500).json({ error: 'could not verify signature' });
+  }
+});
+
+// GET /onboarding/agreement/status — has the tenant signed the current contract?
+router.get('/agreement/status', async (req, res) => {
+  try { res.json({ signed: await hasSignedCurrent(req.tenant.id) }); }
+  catch (err) { res.status(500).json({ error: 'status check failed' }); }
+});
 
 // GET /onboarding/agreement — the contract to present for signing.
 router.get('/agreement', async (req, res) => {

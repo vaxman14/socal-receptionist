@@ -48,4 +48,23 @@ async function createAgreementSigning({ name, email, redirectUrl } = {}) {
   };
 }
 
-module.exports = { createAgreementSigning, TEMPLATE_ID, isLive };
+// Fetch a document's current state — used to verify completion server-side
+// (authoritative, no dependence on webhook payload shape). Returns
+// { status, completed, signedPdfUrl, recipients }.
+async function getDocument(documentId) {
+  if (!documentId) throw new Error('documentId required');
+  const res = await fetch(`${API_BASE}/documents/${encodeURIComponent(documentId)}`, {
+    headers: { 'X-Api-Key': apiKey() },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`SignWell get failed: ${res.status} ${JSON.stringify(data).slice(0, 300)}`);
+  const status = data.status || '';
+  return {
+    status,
+    completed: /complete/i.test(status),
+    signedPdfUrl: data.file_url || data.pdf_url || null,
+    recipients: data.recipients || [],
+  };
+}
+
+module.exports = { createAgreementSigning, getDocument, TEMPLATE_ID, isLive };

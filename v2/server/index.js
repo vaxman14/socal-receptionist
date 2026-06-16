@@ -124,57 +124,39 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'socal-receptionist-v2', ts: new Date().toISOString() });
 });
 
-// Internal: SignWell embedded-signing smoke test. Creates a test_mode document
-// from the Service Agreement template and returns the per-signer embedded URL.
-app.get('/internal/signwell-test', async (req, res) => {
-  const allow = process.env.INTERNAL_SECRET || 'sw-smoke-2f9q7x4k'; // TEMP smoke-test gate (remove with endpoint)
-  if (req.query.token !== allow) return res.status(401).json({ error: 'unauthorized' });
-  try {
-    const signwell = require('./integrations/signwell');
-    const out = await signwell.createAgreementSigning({
-      name: req.query.name || 'Test Client',
-      email: req.query.email || 'test@example.com',
-    });
-    res.json({ ok: true, template: signwell.TEMPLATE_ID, live: signwell.isLive, ...out });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
-
-// TEMP diagnostic: list SignWell templates (id + placeholders) so we can wire
-// the right template_id and recipient placeholder. Remove with the smoke test.
-app.get('/internal/signwell-templates', async (req, res) => {
-  const allow = process.env.INTERNAL_SECRET || 'sw-smoke-2f9q7x4k';
-  if (req.query.token !== allow) return res.status(401).json({ error: 'unauthorized' });
-  try {
-    const r = await fetch('https://www.signwell.com/api/v1/document_templates?limit=25', {
-      headers: { 'X-Api-Key': process.env.SIGNWELL_API_KEY },
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(r.status).json({ ok: false, status: r.status, data });
-    const list = Array.isArray(data) ? data : (data.data || data.templates || []);
-    const summary = list.map((t) => ({
-      id: t.id,
-      name: t.name,
-      placeholders: (t.placeholders || t.recipients || []).map((p) => p.placeholder_name || p.name || p.id),
-    }));
-    res.json({ ok: true, count: summary.length, templates: summary });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
-
-// SignWell webhook — fires on document events (e.g., completed/signed).
+// SignWell webhook — backup path to record a signature when a client completes
+// the embedded agreement. The authoritative path is GET
+// /onboarding/agreement/signwell-complete (verifies with SignWell directly);
+// this catches the case where the client closes the tab before that fires.
 app.post('/webhooks/signwell', async (req, res) => {
+  res.json({ received: true }); // ack fast
   try {
     const ev = req.body || {};
-    const type = (ev.event && ev.event.type) || ev.type || 'unknown';
-    console.log('[signwell] webhook event:', type, JSON.stringify(ev).slice(0, 300));
-    // TODO: on completion, mark the tenant's agreement signed + gate provisioning.
+    const type = (ev.event && ev.event.type) || ev.type || '';
+    if (!/complet|signed/i.test(type)) return;
+    const doc = ev.data || ev.document || (ev.event && ev.event.related_object) || {};
+    const docId = doc.id || ev.document_id;
+    if (!docId) return;
+    const { supabase } = require('./lib/supabase');
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .select('id, owner_email, business_name')
+      .eq('signwell_document_id', docId)
+      .maybeSingle();
+    if (!tenant) return;
+    const { recordSignature, hasSignedCurrent } = require('./lib/agreements');
+    if (await hasSignedCurrent(tenant.id)) return;
+    const recip = (doc.recipients || [])[0] || {};
+    await recordSignature({
+      tenantId: tenant.id,
+      signerName: recip.name || tenant.business_name || tenant.owner_email,
+      signerEmail: recip.email || tenant.owner_email,
+      signerTitle: 'Signed via SignWell',
+    });
+    console.log('[signwell] webhook recorded signature for tenant', tenant.id);
   } catch (e) {
     console.error('[signwell] webhook error:', e.message);
   }
-  res.json({ received: true });
 });
 
 // Internal: poll Gmail inboxes for new messages since ?since=<epochMs>
