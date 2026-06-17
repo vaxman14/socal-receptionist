@@ -113,6 +113,99 @@ app.post('/demo', async (req, res) => {
   }
 });
 
+// POST /legal-survey — law-firm market-research survey (public page /legal-survey).
+// Saves to Supabase (RLS-locked table, backend-only) and emails Roman on each
+// submission. Research + warm-lead capture. Does not touch the voice stack.
+app.post('/legal-survey', async (req, res) => {
+  try {
+    const b = req.body || {};
+    // reCAPTCHA v3 — same gate as /demo. Gracefully skipped if key unset.
+    const captcha = await verifyRecaptcha(b.recaptcha_token);
+    if (!captcha.ok) {
+      console.log(`[legal-survey] reCAPTCHA blocked — ${captcha.reason || ''}${captcha.score != null ? ` score=${captcha.score}` : ''}`);
+      return res.status(422).json({ error: 'Verification failed. Please try again, or call us at (951) 395-8776.' });
+    }
+    const clean = (v, max = 300) => String(v == null ? '' : v).trim().slice(0, max);
+    const pains = Array.isArray(b.top_pains) ? b.top_pains.map((p) => clean(p, 80)).filter(Boolean).slice(0, 7) : [];
+    const ratingNum = parseInt(b.value_rating, 10);
+    const record = {
+      practice_area: clean(b.practice_area),
+      firm_size: clean(b.firm_size),
+      who_answers: clean(b.who_answers),
+      receptionist_cost: clean(b.receptionist_cost),
+      top_pains: pains,
+      callback_speed: clean(b.callback_speed),
+      pms_software: clean(b.pms_software),
+      pms_software_other: clean(b.pms_software_other),
+      email_calendar: clean(b.email_calendar),
+      phone_system: clean(b.phone_system),
+      value_rating: Number.isFinite(ratingNum) ? ratingNum : null,
+      willingness_to_pay: clean(b.willingness_to_pay),
+      wants_demo: b.wants_demo === true || b.wants_demo === 'true',
+      contact_name: clean(b.contact_name),
+      firm_name: clean(b.firm_name),
+      contact_email: clean(b.contact_email, 200),
+      user_agent: clean(req.headers['user-agent'], 400),
+      referrer: clean(req.headers['referer'] || req.headers['referrer'], 400),
+    };
+
+    // Save to Supabase (best-effort — a DB hiccup must not lose the email notify).
+    try {
+      const { supabase } = require('./lib/supabase');
+      const { error } = await supabase.from('legal_survey_responses').insert(record);
+      if (error) console.error('[legal-survey] supabase insert error:', error.message);
+    } catch (e) {
+      console.error('[legal-survey] supabase failed:', e.message);
+    }
+
+    console.log(`[legal-survey] ${record.practice_area} | ${record.firm_size} | PMS=${record.pms_software} | WTP=${record.willingness_to_pay} | demo=${record.wants_demo}`);
+
+    // Notify Roman via Resend (same channel as demo leads).
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if (RESEND_API_KEY) {
+      const ts = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+      const demoLine = record.wants_demo
+        ? `\n⭐ WANTS A DEMO / PILOT\nName: ${record.contact_name || '(none)'}\nFirm: ${record.firm_name || '(none)'}\nEmail: ${record.contact_email || '(none)'}\n`
+        : '\n(No demo requested)\n';
+      const text = `New law-firm survey response — socalreceptionist.com/legal-survey\n`
+        + `\nPractice area: ${record.practice_area || '—'}`
+        + `\nFirm size: ${record.firm_size || '—'}`
+        + `\nWho answers phones: ${record.who_answers || '—'}`
+        + `\nReceptionist cost/mo: ${record.receptionist_cost || '—'}`
+        + `\nTop pains: ${pains.join(', ') || '—'}`
+        + `\nCallback speed: ${record.callback_speed || '—'}`
+        + `\nPMS software: ${record.pms_software || '—'}${record.pms_software_other ? ` (${record.pms_software_other})` : ''}`
+        + `\nEmail/calendar: ${record.email_calendar || '—'}`
+        + `\nPhone system: ${record.phone_system || '—'}`
+        + `\nValue rating (1-5): ${record.value_rating != null ? record.value_rating : '—'}`
+        + `\nWilling to pay/mo: ${record.willingness_to_pay || '—'}`
+        + `\n${demoLine}`
+        + `\nTime: ${ts} PT`;
+      try {
+        const r = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'SoCal Receptionist <hello@noreply.socalreceptionist.com>',
+            to: ['roman@socalreceptionist.com'],
+            subject: `📋 Law-firm survey${record.wants_demo ? ' ⭐DEMO' : ''} — ${record.practice_area || 'response'}${record.pms_software ? ` / ${record.pms_software}` : ''}`,
+            text,
+          }),
+        });
+        if (!r.ok) console.error('[legal-survey] Resend error:', await r.text());
+      } catch (e) {
+        console.error('[legal-survey] email failed:', e.message);
+      }
+    } else {
+      console.error('[legal-survey] RESEND_API_KEY missing — response saved/logged, not emailed');
+    }
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[legal-survey] handler error:', e.message);
+    return res.status(500).json({ error: 'failed' });
+  }
+});
+
 // --- Reverse-call demo widget: visitor enters number, Josi calls them back ----
 // Reuses the proven outbound bridge (/voice/callback, same plumbing as the live
 // hangup auto-callback). Fully isolated from the inbound call path. Gated by
