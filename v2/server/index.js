@@ -130,6 +130,8 @@ app.post('/legal-survey', async (req, res) => {
     const ratingNum = parseInt(b.value_rating, 10);
     const record = {
       practice_area: clean(b.practice_area),
+      practice_area_other: clean(b.practice_area_other),
+      email_calendar_other: clean(b.email_calendar_other),
       firm_size: clean(b.firm_size),
       who_answers: clean(b.who_answers),
       receptionist_cost: clean(b.receptionist_cost),
@@ -168,14 +170,14 @@ app.post('/legal-survey', async (req, res) => {
         ? `\n⭐ WANTS A DEMO / PILOT\nName: ${record.contact_name || '(none)'}\nFirm: ${record.firm_name || '(none)'}\nEmail: ${record.contact_email || '(none)'}\n`
         : '\n(No demo requested)\n';
       const text = `New law-firm survey response — socalreceptionist.com/legal-survey\n`
-        + `\nPractice area: ${record.practice_area || '—'}`
+        + `\nPractice area: ${record.practice_area || '—'}${record.practice_area_other ? ` (${record.practice_area_other})` : ''}`
         + `\nFirm size: ${record.firm_size || '—'}`
         + `\nWho answers phones: ${record.who_answers || '—'}`
         + `\nReceptionist cost/mo: ${record.receptionist_cost || '—'}`
         + `\nTop pains: ${pains.join(', ') || '—'}`
         + `\nCallback speed: ${record.callback_speed || '—'}`
         + `\nPMS software: ${record.pms_software || '—'}${record.pms_software_other ? ` (${record.pms_software_other})` : ''}`
-        + `\nEmail/calendar: ${record.email_calendar || '—'}`
+        + `\nEmail/calendar: ${record.email_calendar || '—'}${record.email_calendar_other ? ` (${record.email_calendar_other})` : ''}`
         + `\nPhone system: ${record.phone_system || '—'}`
         + `\nValue rating (1-5): ${record.value_rating != null ? record.value_rating : '—'}`
         + `\nWilling to pay/mo: ${record.willingness_to_pay || '—'}`

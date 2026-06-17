@@ -38,6 +38,9 @@
       --line: #e5e7eb;
     }
     html { scroll-behavior: smooth; }
+    /* Hide the floating reCAPTCHA badge (it overlapped the chat bubble). Allowed
+       because the required attribution text is shown by the submit button. */
+    .grecaptcha-badge { visibility: hidden; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: var(--ink); background: var(--light); line-height: 1.6;
@@ -144,6 +147,7 @@
         <label class="opt"><input type="radio" name="practice_area" value="Business/Corporate"> Business / Corporate</label>
         <label class="opt"><input type="radio" name="practice_area" value="Other"> Other</label>
       </div>
+      <input type="text" id="practice_other" name="practice_area_other" placeholder="Which practice area?" style="display:none">
     </div>
 
     <div class="card">
@@ -185,7 +189,7 @@
     <div class="card">
       <div class="q-num">Question 5</div>
       <div class="q-text">What's your biggest phone &amp; intake headache?</div>
-      <div class="q-hint">Pick up to 2.</div>
+      <div class="q-hint">Pick up to 2 — or choose “All of the above.”</div>
       <div class="opts" data-multi="top_pains" data-max="2">
         <label class="opt"><input type="checkbox" name="top_pains" value="Missed calls"> Missed calls</label>
         <label class="opt"><input type="checkbox" name="top_pains" value="After-hours calls"> After-hours calls</label>
@@ -194,6 +198,7 @@
         <label class="opt"><input type="checkbox" name="top_pains" value="Staff reliability/turnover"> Staff reliability &amp; turnover</label>
         <label class="opt"><input type="checkbox" name="top_pains" value="Scheduling/confirmations"> Scheduling &amp; confirmations</label>
         <label class="opt"><input type="checkbox" name="top_pains" value="Follow-up"> Following up with leads</label>
+        <label class="opt"><input type="checkbox" name="top_pains" value="All of the above" data-all="1"> All of the above</label>
       </div>
     </div>
 
@@ -234,6 +239,7 @@
         <label class="opt"><input type="radio" name="email_calendar" value="Microsoft 365"> Microsoft 365 / Outlook</label>
         <label class="opt"><input type="radio" name="email_calendar" value="Other"> Other</label>
       </div>
+      <input type="text" id="email_other" name="email_calendar_other" placeholder="Which email / calendar?" style="display:none">
     </div>
 
     <div class="card">
@@ -423,26 +429,39 @@
 <script>
 (function(){
   // visual checked-state for option cards
+  function paint(group){ group.querySelectorAll('.opt').forEach(function(l){ var i=l.querySelector('input'); if(i) l.classList.toggle('checked', i.checked); }); }
   document.querySelectorAll('.opts, .scale').forEach(function(group){
-    group.addEventListener('change', function(){
+    group.addEventListener('change', function(e){
+      var t = e.target;
       if(group.classList.contains('scale')){
         group.querySelectorAll('label').forEach(function(l){ l.classList.toggle('checked', l.querySelector('input').checked); });
         return;
       }
-      var multi = group.hasAttribute('data-multi');
-      if(!multi){
-        group.querySelectorAll('.opt').forEach(function(l){ l.classList.toggle('checked', l.querySelector('input').checked); });
-      } else {
-        var max = parseInt(group.getAttribute('data-max')||'99',10);
-        var checked = group.querySelectorAll('input:checked');
-        if(checked.length > max){ event.target.checked = false; }
-        group.querySelectorAll('.opt').forEach(function(l){ l.classList.toggle('checked', l.querySelector('input').checked); });
+      if(group.hasAttribute('data-multi')){
+        var allBox = group.querySelector('input[data-all]');
+        if(t.hasAttribute('data-all') && t.checked){
+          // "All of the above" selected → clear the individual options
+          group.querySelectorAll('input[type=checkbox]').forEach(function(i){ if(i!==t) i.checked=false; });
+        } else if(t.checked && allBox){
+          // a specific option selected → turn off "all of the above"
+          allBox.checked=false;
+          // enforce the 2-pick cap among the non-"all" options
+          var max = parseInt(group.getAttribute('data-max')||'99',10);
+          var picked = group.querySelectorAll('input[type=checkbox]:checked:not([data-all])');
+          if(picked.length > max){ t.checked=false; }
+        }
       }
+      paint(group);
     });
   });
-  // PMS "Other" text reveal
-  document.querySelectorAll('input[name="pms_software"]').forEach(function(r){
-    r.addEventListener('change', function(){ document.getElementById('pms_other').style.display = (this.value==='Other' && this.checked) ? 'block' : 'none'; });
+  // "Other" text reveals — show a type-in box when "Other" is chosen.
+  [['pms_software','pms_other'],['practice_area','practice_other'],['email_calendar','email_other']].forEach(function(pair){
+    document.querySelectorAll('input[name="'+pair[0]+'"]').forEach(function(r){
+      r.addEventListener('change', function(){
+        var box=document.getElementById(pair[1]);
+        if(box) box.style.display = (this.value==='Other' && this.checked) ? 'block' : 'none';
+      });
+    });
   });
   // demo contact fields reveal
   document.querySelectorAll('input[name="wants_demo"]').forEach(function(r){
@@ -457,6 +476,8 @@
     var pains=fd.getAll('top_pains');
     var payload={
       practice_area: fd.get('practice_area')||'',
+      practice_area_other: fd.get('practice_area_other')||'',
+      email_calendar_other: fd.get('email_calendar_other')||'',
       firm_size: fd.get('firm_size')||'',
       who_answers: fd.get('who_answers')||'',
       receptionist_cost: fd.get('receptionist_cost')||'',
