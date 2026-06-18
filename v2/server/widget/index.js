@@ -131,6 +131,37 @@ router.post('/lead', async (req, res) => {
       text: `Hi${cleanName ? ' ' + cleanName : ''},\n\nThis confirms you requested a callback from ${firmName} and agreed to be contacted by phone about your request. Someone will reach out shortly at ${e164}.\n\nYou agreed to our Terms of Service and Privacy Policy on ${new Date().toISOString()}. If you didn't make this request, please ignore this email and you won't be contacted.`,
     }).catch((e) => logger.error('widget.confirm_email_failed', { error: e.message }));
 
+    // Component 2: trigger the AI to call the lead back from the firm's own number.
+    // Fired non-blocking so the widget response stays instant. Twilio places the
+    // call (caller ID = firm number) and hits /voice/callback, which resolves the
+    // tenant by that number and connects the lead to the AI (is_callback=true).
+    (async () => {
+      const apiBase = (process.env.API_PUBLIC_BASE_URL || process.env.APP_BASE_URL || '').replace(/\/+$/, '');
+      if (!apiBase || !process.env.TWILIO_ACCOUNT_SID) {
+        logger.warn('widget.callback_skipped', { tenant: tenant.id, reason: 'missing twilio/base config' });
+        return;
+      }
+      const { data: nums } = await supabase
+        .from('phone_numbers')
+        .select('phone_e164')
+        .eq('tenant_id', tenant.id)
+        .eq('status', 'active')
+        .limit(1);
+      const firmNumber = nums && nums[0] && nums[0].phone_e164;
+      if (!firmNumber) {
+        logger.warn('widget.callback_skipped', { tenant: tenant.id, reason: 'no active firm number' });
+        return;
+      }
+      const twilio = require('twilio');
+      await twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN).calls.create({
+        to: e164,
+        from: firmNumber,
+        url: `${apiBase}/voice/callback`,
+        method: 'POST',
+      });
+      logger.info('widget.callback_fired', { tenant: tenant.id, from: firmNumber });
+    })().catch((e) => logger.error('widget.callback_failed', { tenant: tenant.id, error: e.message }));
+
     logger.info('widget.lead', { tenant: tenant.id, hasName: !!cleanName });
     return res.json({ ok: true });
   } catch (err) {
