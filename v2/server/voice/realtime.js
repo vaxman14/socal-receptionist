@@ -344,16 +344,26 @@ function handleMediaStream(twilioWs, req) {
       },
     }));
 
+    // Outbound callback: the callee answers and usually says "hello" during the
+    // ~2s session setup. With auto-response VAD that speech would trigger a
+    // reactive reply and preempt our scripted greeting (caller heard a generic
+    // "how may I help you"). Discard that buffered audio so the greeting leads.
+    if (isCallback) {
+      try { openaiWs.send(JSON.stringify({ type: 'input_audio_buffer.clear' })); } catch {}
+    }
+
     // Trigger the AI to greet the caller.
     const disclosurePrefix = recordingEnabled
       ? 'First say: "This call may be recorded for quality and training purposes." Then, '
       : '';
-    const callbackGreeting = `Hi, I'm calling back from ${tenant.business_name} — looks like your call got disconnected. I just wanted to make sure I can help you. How can I assist you today?`;
+    // Outbound: WE called THEM because they requested a callback on the website.
+    const callbackGreeting = `Hi, this is ${tenant.business_name}. I'm calling because you just requested a callback on our website. Is now a good time to talk about how we can help?`;
+    logger.info('voice.realtime.greeting', { isCallback, hasVoiceGreeting: !!tenant.voice_greeting });
     openaiWs.send(JSON.stringify({
       type: 'response.create',
       response: {
         instructions: isCallback
-          ? `${disclosurePrefix}Say this greeting exactly: "${callbackGreeting}"`
+          ? `${disclosurePrefix}You are calling the person back. Say this greeting exactly, and do not wait for them to speak first: "${callbackGreeting}"`
           : tenant.voice_greeting
             ? `${disclosurePrefix}Say this greeting exactly: "${tenant.voice_greeting}"`
             : `${disclosurePrefix}greet the caller by saying "Thank you for calling ${tenant.business_name}," then ask how you can help. One sentence. Do not mention AI or virtual receptionist.`,
