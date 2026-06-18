@@ -30,6 +30,8 @@
   var navy = '#102a43';
   var title = script.getAttribute('data-title') || 'Request a callback';
   var buttonLabel = script.getAttribute('data-button') || 'Call me back';
+  var termsUrl = script.getAttribute('data-terms-url') || 'https://www.socalreceptionist.com/terms';
+  var privacyUrl = script.getAttribute('data-privacy-url') || 'https://www.socalreceptionist.com/privacy';
 
   // API base = origin the script was loaded from.
   var apiBase;
@@ -54,6 +56,9 @@
     '.' + NS + '-submit:disabled{opacity:.6;cursor:default}' +
     '.' + NS + '-msg{padding:18px;text-align:center;font-size:15px;color:#0f5132}' +
     '.' + NS + '-err{color:#b91c1c;font-size:13px;margin-top:8px;min-height:16px}' +
+    '.' + NS + '-consent{display:flex;align-items:flex-start;gap:8px;margin-top:14px;font-size:12px;color:#475569;line-height:1.45}' +
+    '.' + NS + '-consent input{width:auto;margin:2px 0 0;flex:0 0 auto}' +
+    '.' + NS + '-consent a{color:' + accent + ';text-decoration:underline}' +
     '.' + NS + '-foot{padding:0 18px 14px;font-size:11px;color:#94a3b8;text-align:center}' +
     '.' + NS + '-x{float:right;cursor:pointer;opacity:.7;font-weight:400}';
 
@@ -75,6 +80,10 @@
     '<div class="' + NS + '-body">' +
       '<label>Your name</label><input type="text" autocomplete="name" maxlength="80" placeholder="Jane Smith">' +
       '<label>Phone number</label><input type="tel" autocomplete="tel" maxlength="25" placeholder="(951) 555-0123">' +
+      '<label class="' + NS + '-consent"><input type="checkbox">' +
+        '<span>I agree to be contacted by phone about my request, and I accept the ' +
+        '<a href="' + esc(termsUrl) + '" target="_blank" rel="noopener">Terms of Service</a> and ' +
+        '<a href="' + esc(privacyUrl) + '" target="_blank" rel="noopener">Privacy Policy</a>.</span></label>' +
       '<div class="' + NS + '-err"></div>' +
       '<button class="' + NS + '-submit" type="button">' + esc(buttonLabel) + '</button>' +
     '</div>' +
@@ -85,6 +94,7 @@
 
   var nameEl = panel.querySelector('input[type=text]');
   var phoneEl = panel.querySelector('input[type=tel]');
+  var consentEl = panel.querySelector('input[type=checkbox]');
   var errEl = panel.querySelector('.' + NS + '-err');
   var submitEl = panel.querySelector('.' + NS + '-submit');
 
@@ -101,12 +111,13 @@
     var name = nameEl.value.trim();
     var phone = phoneEl.value.trim();
     if (!phone) { errEl.textContent = 'Please enter a phone number.'; return; }
+    if (!consentEl.checked) { errEl.textContent = 'Please agree to the terms to continue.'; return; }
     submitEl.disabled = true;
     submitEl.textContent = 'Sending…';
     fetch(apiBase + '/widget/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: key, name: name, phone: phone, source_url: location.href })
+      body: JSON.stringify({ key: key, name: name, phone: phone, consent: true, source_url: location.href })
     }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
         if (!res.ok || !res.j.ok) {

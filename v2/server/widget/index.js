@@ -53,7 +53,7 @@ router.get('/v1.js', (req, res) => {
 // Accept a lead from a firm's embedded widget.
 router.post('/lead', async (req, res) => {
   try {
-    const { key, name, phone, source_url } = req.body || {};
+    const { key, name, phone, consent, source_url } = req.body || {};
 
     if (!key || typeof key !== 'string') {
       return res.status(400).json({ ok: false, error: 'Missing key.' });
@@ -62,8 +62,14 @@ router.post('/lead', async (req, res) => {
     if (!e164) {
       return res.status(400).json({ ok: false, error: 'Please enter a valid phone number.' });
     }
+    // TCPA: explicit consent to be contacted is required and recorded server-side
+    // (never trust the client checkbox alone).
+    if (consent !== true) {
+      return res.status(400).json({ ok: false, error: 'Consent is required to be contacted.' });
+    }
     const cleanName = (typeof name === 'string' ? name.trim() : '').slice(0, 80) || null;
     const cleanUrl = (typeof source_url === 'string' ? source_url.trim() : '').slice(0, 300) || null;
+    const consentStamp = `Consent to contact: YES (Terms + Privacy) at ${new Date().toISOString()}`;
 
     // Resolve the firm by embed key (tenant id for now).
     const { data: tenant, error: tErr } = await supabase
@@ -85,7 +91,7 @@ router.post('/lead', async (req, res) => {
         customer_phone: e164,
         customer_name: cleanName,
         service_interest: 'Website widget',
-        notes: cleanUrl ? `Submitted from ${cleanUrl}` : 'Website callback widget',
+        notes: `${cleanUrl ? `Submitted from ${cleanUrl}` : 'Website callback widget'} — ${consentStamp}`,
         status: 'qualified',
       });
     } catch (insErr) {
@@ -101,8 +107,9 @@ router.post('/lead', async (req, res) => {
         html: `<p>A visitor requested a callback from your website widget.</p>`
             + `<p><strong>Name:</strong> ${cleanName || '—'}</p>`
             + `<p><strong>Phone:</strong> ${e164}</p>`
-            + `<p><strong>Page:</strong> ${cleanUrl || '—'}</p>`,
-        text: `New website lead for ${tenant.business_name}\nName: ${cleanName || '—'}\nPhone: ${e164}\nPage: ${cleanUrl || '—'}`,
+            + `<p><strong>Page:</strong> ${cleanUrl || '—'}</p>`
+            + `<p style="color:#64748b;font-size:13px">${consentStamp}</p>`,
+        text: `New website lead for ${tenant.business_name}\nName: ${cleanName || '—'}\nPhone: ${e164}\nPage: ${cleanUrl || '—'}\n${consentStamp}`,
       }).catch((e) => logger.error('widget.lead_email_failed', { error: e.message }));
     }
 
