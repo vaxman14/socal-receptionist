@@ -317,7 +317,18 @@ function handleMediaStream(twilioWs, req) {
     // Live-tunable voice settings from the DB (tenants.voice_settings jsonb) — no redeploy.
     const vs = tenant.voice_settings || {};
     const realtimeVoice = vs.voice || POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
-    const vadEagerness = vs.eagerness || 'low';
+    // Turn detection — ported from the Business Line known-good config: server_vad
+    // at threshold 0.75 resists barge-in on echo / notification dings / breaths
+    // far better than semantic_vad, which was cutting the AI off mid-greeting.
+    // DB-tunable per tenant via voice_settings.turn_detection (no redeploy).
+    const tdCfg = vs.turn_detection || {};
+    const turnDetection = {
+      type: tdCfg.type || 'server_vad',
+      threshold: tdCfg.threshold != null ? tdCfg.threshold : 0.75,
+      prefix_padding_ms: tdCfg.prefix_padding_ms != null ? tdCfg.prefix_padding_ms : 300,
+      silence_duration_ms: tdCfg.silence_duration_ms != null ? tdCfg.silence_duration_ms : 700,
+      create_response: tdCfg.create_response != null ? tdCfg.create_response : true,
+    };
     const instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber });
     openaiWs.send(JSON.stringify({
       type: 'session.update',
@@ -327,7 +338,7 @@ function handleMediaStream(twilioWs, req) {
         audio: {
           input: {
             format: { type: 'audio/pcmu' },
-            turn_detection: { type: 'semantic_vad', eagerness: vadEagerness, create_response: true },
+            turn_detection: turnDetection,
             // Caller speech transcription. GA API: lives under input, not output —
             // output transcripts arrive automatically via response.output_audio_transcript.*
             transcription: { model: 'gpt-4o-transcribe' },
