@@ -105,7 +105,7 @@ export default function StepBusiness({ onCreated }) {
             autoComplete="organization"
             value={form.business_name}
             onChange={set('business_name')}
-            placeholder="Temecula Valley Plumbing"
+            placeholder="Temecula Valley Family Law"
           />
         </label>
 
@@ -123,7 +123,7 @@ export default function StepBusiness({ onCreated }) {
             autoComplete="off"
             value={form.business_services}
             onChange={set('business_services')}
-            placeholder="Drain cleaning, water heater repair, leak detection, repiping…"
+            placeholder="Family law, divorce, custody, estate planning, consultations…"
           />
         </label>
 
@@ -195,7 +195,7 @@ export default function StepBusiness({ onCreated }) {
           <textarea
             value={form.voice_greeting}
             onChange={set('voice_greeting')}
-            placeholder="Thanks for calling Temecula Valley Plumbing. How can I help you today?"
+            placeholder="Thanks for calling Temecula Valley Family Law. How can I help you today?"
           />
           <span className="hint">Leave blank to use a generated default greeting.</span>
         </label>

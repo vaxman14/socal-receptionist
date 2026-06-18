@@ -72,7 +72,7 @@ function AddLeadModal({ onAdd, onClose }) {
           </div>
           <div className="field">
             <label>Business Type</label>
-            <input type="text" value={form.businessType} onChange={set('businessType')} placeholder="e.g. dental practice, law firm" />
+            <input type="text" value={form.businessType} onChange={set('businessType')} placeholder="e.g. family law, personal injury" />
           </div>
           <div className="field">
             <label>Reason / Context</label>
@@ -135,7 +135,7 @@ function BulkImportModal({ onImport, onClose }) {
             rows={10}
             value={csv}
             onChange={(e) => setCsv(e.target.value)}
-            placeholder={`+19515551234,John Smith,dental practice,Filled out contact form\n+19515559876,Jane Doe,law firm,Requested callback`}
+            placeholder={`+19515551234,John Smith,family law,Filled out contact form\n+19515559876,Jane Doe,personal injury,Requested callback`}
           />
           <div className="modal-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>

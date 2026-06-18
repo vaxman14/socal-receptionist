@@ -194,7 +194,7 @@ export default function Settings() {
 
           <label className="field">
             <span className="label">Business name *</span>
-            <input type="text" value={form.business_name} onChange={set('business_name')} placeholder="e.g. Temecula Valley Plumbing" />
+            <input type="text" value={form.business_name} onChange={set('business_name')} placeholder="e.g. Temecula Valley Family Law" />
             <span className="hint">The AI uses this name when greeting callers and introducing itself.</span>
           </label>
           <div className="field">
@@ -210,7 +210,7 @@ export default function Settings() {
             <textarea
               value={form.business_services}
               onChange={set('business_services')}
-              placeholder="e.g. Drain cleaning, water heater repair, leak detection, repiping, emergency plumbing"
+              placeholder="e.g. Family law, divorce, custody, estate planning, wills and trusts, consultations"
             />
             <span className="hint">List your services so the AI can answer "do you do X?" questions accurately.</span>
           </label>
@@ -366,7 +366,7 @@ export default function Settings() {
               rows={8}
               value={form.ai_system_prompt}
               onChange={set('ai_system_prompt')}
-              placeholder="Leave blank to use the default SoCal Receptionist behavior. Only change this if you need custom tone, specific scripts, or special instructions for your industry."
+              placeholder="Leave blank to use the default SoCal Receptionist behavior. Only change this if you need custom tone, specific scripts, or special instructions for your practice area."
             />
             <span className="hint">
               Override how the AI behaves entirely. For most businesses, leave this blank.

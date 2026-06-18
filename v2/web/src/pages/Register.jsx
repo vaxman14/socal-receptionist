@@ -22,12 +22,15 @@ function loadSaved() {
   } catch { return null; }
 }
 
-const BUSINESS_TYPES = [
-  'Restaurant',
-  'Medical / Dental',
-  'Law Firm',
-  'Real Estate',
-  'Salon / Spa',
+// SoCal Receptionist is focused on the legal vertical — these are practice areas,
+// stored on the (legacy-named) business_type field. Matches the legal-survey list.
+const PRACTICE_AREAS = [
+  'Family',
+  'Personal Injury',
+  'Criminal',
+  'Estate Planning',
+  'Immigration',
+  'Business / Corporate',
   'Other',
 ];
 
@@ -226,7 +229,7 @@ function StepBusiness({ userInfo, onNext }) {
     setError(null);
 
     if (!form.business_name.trim()) return setError('Business name is required.');
-    if (!form.business_type) return setError('Please select a business type.');
+    if (!form.business_type) return setError('Please select a practice area.');
     if (!form.business_phone.trim()) return setError('Business phone is required.');
     if (!form.staff_phone.trim()) return setError('Forwarding number is required.');
 
@@ -286,15 +289,15 @@ function StepBusiness({ userInfo, onNext }) {
             autoComplete="organization"
             value={form.business_name}
             onChange={set('business_name')}
-            placeholder="Smith's Plumbing & Heating"
+            placeholder="Smith & Associates Law"
           />
         </label>
 
         <label className="field">
-          <span className="label">Business type *</span>
+          <span className="label">Practice area *</span>
           <select autoComplete="off" value={form.business_type} onChange={set('business_type')}>
-            <option value="">Select a type…</option>
-            {BUSINESS_TYPES.map((t) => (
+            <option value="">Select a practice area…</option>
+            {PRACTICE_AREAS.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
