@@ -35,6 +35,7 @@ const supportChatRouter = require('./support-chat');
 const publicApiRouter = require('./api/public');
 const apiAccessRouter = require('./admin/api-access');
 const outboundAssistRouter = require('./voice/outbound-assist');
+const widgetRouter = require('./widget');
 const { router: reminderRouter, start: startReminderPoller } = require('./voice/reminder-poller');
 
 const app = express();
@@ -74,6 +75,11 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:8080',
 ].filter(Boolean);
+// Embeddable widget routes are mounted BEFORE the origin-restricted CORS below,
+// since they must accept requests from any law-firm domain (they set their own
+// open CORS headers and carry their own body parser).
+app.use('/widget', widgetRouter);
+
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true); // server-to-server / curl
