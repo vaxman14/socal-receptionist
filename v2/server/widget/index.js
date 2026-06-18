@@ -20,7 +20,7 @@ const path = require('path');
 const express = require('express');
 const { supabase } = require('../lib/supabase');
 const { sendEmail } = require('../lib/email');
-const { normalizePhone } = require('../lib/validate');
+const { normalizePhone, isValidEmail } = require('../lib/validate');
 const logger = require('../lib/logger');
 
 const router = express.Router();
@@ -53,7 +53,7 @@ router.get('/v1.js', (req, res) => {
 // Accept a lead from a firm's embedded widget.
 router.post('/lead', async (req, res) => {
   try {
-    const { key, name, phone, consent, source_url } = req.body || {};
+    const { key, name, phone, email, consent, source_url } = req.body || {};
 
     if (!key || typeof key !== 'string') {
       return res.status(400).json({ ok: false, error: 'Missing key.' });
@@ -61,6 +61,10 @@ router.post('/lead', async (req, res) => {
     const e164 = normalizePhone(phone);
     if (!e164) {
       return res.status(400).json({ ok: false, error: 'Please enter a valid phone number.' });
+    }
+    const cleanEmail = (typeof email === 'string' ? email.trim() : '').slice(0, 120);
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(400).json({ ok: false, error: 'Please enter a valid email.' });
     }
     // TCPA: explicit consent to be contacted is required and recorded server-side
     // (never trust the client checkbox alone).
@@ -91,7 +95,7 @@ router.post('/lead', async (req, res) => {
         customer_phone: e164,
         customer_name: cleanName,
         service_interest: 'Website widget',
-        notes: `${cleanUrl ? `Submitted from ${cleanUrl}` : 'Website callback widget'} — ${consentStamp}`,
+        notes: `Email: ${cleanEmail} — ${cleanUrl ? `Submitted from ${cleanUrl}` : 'Website callback widget'} — ${consentStamp}`,
         status: 'qualified',
       });
     } catch (insErr) {
@@ -107,11 +111,24 @@ router.post('/lead', async (req, res) => {
         html: `<p>A visitor requested a callback from your website widget.</p>`
             + `<p><strong>Name:</strong> ${cleanName || '—'}</p>`
             + `<p><strong>Phone:</strong> ${e164}</p>`
+            + `<p><strong>Email:</strong> ${cleanEmail}</p>`
             + `<p><strong>Page:</strong> ${cleanUrl || '—'}</p>`
             + `<p style="color:#64748b;font-size:13px">${consentStamp}</p>`,
-        text: `New website lead for ${tenant.business_name}\nName: ${cleanName || '—'}\nPhone: ${e164}\nPage: ${cleanUrl || '—'}\n${consentStamp}`,
+        text: `New website lead for ${tenant.business_name}\nName: ${cleanName || '—'}\nPhone: ${e164}\nEmail: ${cleanEmail}\nPage: ${cleanUrl || '—'}\n${consentStamp}`,
       }).catch((e) => logger.error('widget.lead_email_failed', { error: e.message }));
     }
+
+    // Confirmation email to the visitor — doubles as a consent/opt-in record.
+    const firmName = tenant.business_name || 'the firm';
+    sendEmail({
+      to: cleanEmail,
+      subject: `We got your callback request — ${firmName}`,
+      html: `<p>Hi${cleanName ? ' ' + cleanName : ''},</p>`
+          + `<p>This confirms you requested a callback from <strong>${firmName}</strong> and agreed to be contacted by phone about your request.</p>`
+          + `<p>Someone will reach out shortly at <strong>${e164}</strong>.</p>`
+          + `<p style="color:#64748b;font-size:13px">You agreed to our <a href="https://www.socalreceptionist.com/terms">Terms of Service</a> and <a href="https://www.socalreceptionist.com/privacy">Privacy Policy</a> on ${new Date().toISOString()}. If you didn't make this request, please ignore this email and you won't be contacted.</p>`,
+      text: `Hi${cleanName ? ' ' + cleanName : ''},\n\nThis confirms you requested a callback from ${firmName} and agreed to be contacted by phone about your request. Someone will reach out shortly at ${e164}.\n\nYou agreed to our Terms of Service and Privacy Policy on ${new Date().toISOString()}. If you didn't make this request, please ignore this email and you won't be contacted.`,
+    }).catch((e) => logger.error('widget.confirm_email_failed', { error: e.message }));
 
     logger.info('widget.lead', { tenant: tenant.id, hasName: !!cleanName });
     return res.json({ ok: true });

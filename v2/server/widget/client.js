@@ -80,6 +80,7 @@
     '<div class="' + NS + '-body">' +
       '<label>Your name</label><input type="text" autocomplete="name" maxlength="80" placeholder="Jane Smith">' +
       '<label>Phone number</label><input type="tel" autocomplete="tel" maxlength="25" placeholder="(951) 555-0123">' +
+      '<label>Email</label><input type="email" autocomplete="email" maxlength="120" placeholder="you@email.com">' +
       '<label class="' + NS + '-consent"><input type="checkbox">' +
         '<span>I agree to be contacted by phone about my request, and I accept the ' +
         '<a href="' + esc(termsUrl) + '" target="_blank" rel="noopener">Terms of Service</a> and ' +
@@ -94,6 +95,7 @@
 
   var nameEl = panel.querySelector('input[type=text]');
   var phoneEl = panel.querySelector('input[type=tel]');
+  var emailEl = panel.querySelector('input[type=email]');
   var consentEl = panel.querySelector('input[type=checkbox]');
   var errEl = panel.querySelector('.' + NS + '-err');
   var submitEl = panel.querySelector('.' + NS + '-submit');
@@ -110,14 +112,16 @@
     errEl.textContent = '';
     var name = nameEl.value.trim();
     var phone = phoneEl.value.trim();
+    var email = emailEl.value.trim();
     if (!phone) { errEl.textContent = 'Please enter a phone number.'; return; }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'Please enter a valid email.'; return; }
     if (!consentEl.checked) { errEl.textContent = 'Please agree to the terms to continue.'; return; }
     submitEl.disabled = true;
     submitEl.textContent = 'Sending…';
     fetch(apiBase + '/widget/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: key, name: name, phone: phone, consent: true, source_url: location.href })
+      body: JSON.stringify({ key: key, name: name, phone: phone, email: email, consent: true, source_url: location.href })
     }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
         if (!res.ok || !res.j.ok) {
