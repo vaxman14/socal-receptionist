@@ -28,11 +28,15 @@ const router = express.Router();
 const WIDGET_JS = fs.readFileSync(path.join(__dirname, 'client.js'), 'utf8');
 
 // Open CORS for every /widget route + preflight short-circuit.
+// The widget loads on third-party domains, so we must also relax helmet's default
+// Cross-Origin-Resource-Policy (same-origin), which otherwise makes browsers block
+// the script with ERR_BLOCKED_BY_RESPONSE.NotSameOrigin on any other site.
 router.use((req, res, next) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
   res.set('Access-Control-Max-Age', '86400');
+  res.set('Cross-Origin-Resource-Policy', 'cross-origin');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
