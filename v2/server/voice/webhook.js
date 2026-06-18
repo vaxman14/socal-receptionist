@@ -193,10 +193,12 @@ router.post('/voice/callback', async (req, res) => {
   const vr = new VoiceResponse();
   const connect = vr.connect();
   const stream = connect.stream({ url: wsUrl });
+  const leadName = (req.query.lead_name || '').toString().slice(0, 80);
   stream.parameter({ name: 'tenant_id',   value: tenant.id });
   stream.parameter({ name: 'from_number', value: customerNum });
   stream.parameter({ name: 'to_number',   value: ourNum });
   stream.parameter({ name: 'is_callback', value: 'true' });
+  if (leadName) stream.parameter({ name: 'lead_name', value: leadName });
   sendTwiml(res, vr);
 });
 

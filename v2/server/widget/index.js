@@ -153,10 +153,12 @@ router.post('/lead', async (req, res) => {
         return;
       }
       const twilio = require('twilio');
+      // Pass the lead's name so the callback greets them by name and skips re-asking.
+      const cbUrl = `${apiBase}/voice/callback?lead_name=${encodeURIComponent(cleanName || '')}`;
       await twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN).calls.create({
         to: e164,
         from: firmNumber,
-        url: `${apiBase}/voice/callback`,
+        url: cbUrl,
         method: 'POST',
       });
       logger.info('widget.callback_fired', { tenant: tenant.id, from: firmNumber });

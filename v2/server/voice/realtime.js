@@ -174,6 +174,7 @@ function handleMediaStream(twilioWs, req) {
   let offeredSlots = []; // last slots read to the caller by check_availability
   let recordingEnabled = false;
   let isCallback = false;
+  let leadName = null;
   let ourNumber = null;
   let transcript = []; // { role: 'caller'|'ai', text: string }
   let realtimeCostCents = 0; // accumulated from response.done usage blocks
@@ -329,7 +330,19 @@ function handleMediaStream(twilioWs, req) {
       silence_duration_ms: tdCfg.silence_duration_ms != null ? tdCfg.silence_duration_ms : 700,
       create_response: tdCfg.create_response != null ? tdCfg.create_response : true,
     };
-    const instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber });
+    let instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber });
+    // Outbound callback: override the inbound "qualify + promise a callback" flow.
+    // We already have the lead's name/phone/email from the website form, and THIS
+    // call is the callback — so don't re-ask for their info and never promise to
+    // call them back.
+    if (isCallback) {
+      instructions += `
+
+OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
+- YOU are calling the person back because they just submitted a request on ${tenant.business_name}'s website. This call IS the callback. NEVER say "we'll call you back", "someone will be in touch", or "we'll reach you at..." — you are already reaching them, right now.
+- We ALREADY have their name${leadName ? ` (${leadName})` : ''}, phone, and email from the form. Do NOT ask for their name or phone number. Greet them by name.
+- Your job on this call: ask what they need help with, then offer to schedule a free consultation with an attorney. Do not attempt to answer legal questions (see guardrails). Keep it short and natural.`;
+    }
     openaiWs.send(JSON.stringify({
       type: 'session.update',
       session: {
@@ -368,8 +381,12 @@ function handleMediaStream(twilioWs, req) {
       ? 'First say: "This call may be recorded for quality and training purposes." Then, '
       : '';
     // Outbound: WE called THEM because they requested a callback on the website.
-    const callbackGreeting = `Hi, this is ${tenant.business_name}. I'm calling because you just requested a callback on our website. Is now a good time to talk about how we can help?`;
-    logger.info('voice.realtime.greeting', { isCallback, hasVoiceGreeting: !!tenant.voice_greeting });
+    // Greet by name (we have it from the form) and ask what they need — do NOT
+    // ask their name and do NOT imply a future callback.
+    const callbackGreeting = leadName
+      ? `Hi ${leadName}, this is ${tenant.business_name} returning the request you just submitted on our website. What can we help you with today?`
+      : `Hi, this is ${tenant.business_name} returning the request you just submitted on our website. What can we help you with today?`;
+    logger.info('voice.realtime.greeting', { isCallback, hasLeadName: !!leadName });
     openaiWs.send(JSON.stringify({
       type: 'response.create',
       response: {
@@ -511,6 +528,7 @@ function handleMediaStream(twilioWs, req) {
         tenantId   = params.tenant_id;
         fromNumber = params.from_number;
         isCallback = params.is_callback === 'true';
+        leadName   = params.lead_name || null;
         ourNumber  = params.to_number || '+19513958776';
 
         // Load the tenant and set up the call record.
