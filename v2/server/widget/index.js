@@ -94,8 +94,9 @@ router.post('/lead', async (req, res) => {
         tenant_id: tenant.id,
         customer_phone: e164,
         customer_name: cleanName,
+        customer_email: cleanEmail,
         service_interest: 'Website widget',
-        notes: `Email: ${cleanEmail} — ${cleanUrl ? `Submitted from ${cleanUrl}` : 'Website callback widget'} — ${consentStamp}`,
+        notes: `${cleanUrl ? `Submitted from ${cleanUrl}` : 'Website callback widget'} — ${consentStamp}`,
         status: 'qualified',
       });
     } catch (insErr) {
