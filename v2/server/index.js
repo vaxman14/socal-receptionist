@@ -152,10 +152,12 @@ app.post('/legal-survey', async (req, res) => {
     };
 
     // Save to Supabase (best-effort — a DB hiccup must not lose the email notify).
+    let entryId = null;
     try {
       const { supabase } = require('./lib/supabase');
-      const { error } = await supabase.from('legal_survey_responses').insert(record);
+      const { data, error } = await supabase.from('legal_survey_responses').insert(record).select('id').single();
       if (error) console.error('[legal-survey] supabase insert error:', error.message);
+      else if (data) entryId = data.id;
     } catch (e) {
       console.error('[legal-survey] supabase failed:', e.message);
     }
@@ -201,7 +203,7 @@ app.post('/legal-survey', async (req, res) => {
     } else {
       console.error('[legal-survey] RESEND_API_KEY missing — response saved/logged, not emailed');
     }
-    return res.json({ ok: true });
+    return res.json({ ok: true, entry_id: entryId });
   } catch (e) {
     console.error('[legal-survey] handler error:', e.message);
     return res.status(500).json({ error: 'failed' });
