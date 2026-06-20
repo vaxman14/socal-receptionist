@@ -288,6 +288,63 @@ app.post('/callback-demo', async (req, res) => {
   }
 });
 
+// CTF Designs callback widget — calls the visitor, then bridges them to Roman.
+// Reuses the same Twilio plumbing + rate-limit maps as /callback-demo. Isolated
+// from the voice/inbound path. Connect target overridable via CTF_CALLBACK_TO.
+app.post('/callback-ctf', async (req, res) => {
+  try {
+    if (process.env.CALLBACK_WIDGET_ENABLED === 'false') {
+      return res.status(503).json({ error: 'Callback is temporarily off.' });
+    }
+    let digits = String((req.body && req.body.phone) || '').replace(/\D/g, '');
+    if (digits.length === 11 && digits[0] === '1') digits = digits.slice(1);
+    if (digits.length !== 10) return res.status(400).json({ error: 'Enter a valid 10-digit US phone number.' });
+    const e164 = '+1' + digits;
+    const now = Date.now();
+    const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+
+    const lastPhone = cbDemoByPhone.get(e164) || 0;
+    if (now - lastPhone < 15 * 60000) return res.status(429).json({ error: 'We just called that number. Give it a minute and answer your phone.' });
+    const ipRec = cbDemoByIp.get(ip) || { count: 0, windowStart: now };
+    if (now - ipRec.windowStart > CB_HOUR_MS) { ipRec.count = 0; ipRec.windowStart = now; }
+    if (ipRec.count >= 5) return res.status(429).json({ error: 'Too many requests from your network. Try again later.' });
+    if (now - cbDemoGlobal.windowStart > CB_HOUR_MS) { cbDemoGlobal = { count: 0, windowStart: now }; }
+    if (cbDemoGlobal.count >= 30) return res.status(429).json({ error: 'Our line is busy right now. Please try again shortly.' });
+
+    const SID = process.env.TWILIO_ACCOUNT_SID;
+    const TOKEN = process.env.TWILIO_AUTH_TOKEN;
+    if (!SID || !TOKEN) { console.error('[callback-ctf] Twilio creds missing'); return res.status(500).json({ error: 'Calling is temporarily unavailable.' }); }
+    const client = require('twilio')(SID, TOKEN);
+    const fromNum = process.env.TWILIO_PHONE_NUMBER || '+19513958776';
+    const connectTo = process.env.CTF_CALLBACK_TO || '+19515149294';
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna-Neural">Please hold while we connect you with C T F Designs.</Say><Dial callerId="${fromNum}">${connectTo}</Dial></Response>`;
+
+    await client.calls.create({ to: e164, from: fromNum, twiml });
+    cbDemoByPhone.set(e164, now);
+    ipRec.count += 1; cbDemoByIp.set(ip, ipRec);
+    cbDemoGlobal.count += 1;
+    console.log(`[callback-ctf] calling ${e164} -> bridge ${connectTo} (ip ${ip})`);
+
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if (RESEND_API_KEY) {
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'CTF Designs <hello@noreply.socalreceptionist.com>',
+          to: ['roman@ctfdesigns.com'],
+          subject: `📞 CTF callback requested — ${e164}`,
+          text: `A ctfdesigns.com visitor requested a callback.\nPhone: ${e164}`,
+        }),
+      }).catch(err => console.error('[callback-ctf] lead email failed:', err.message));
+    }
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[callback-ctf] error:', e.message);
+    return res.status(500).json({ error: 'Could not place the call. Please try again.' });
+  }
+});
+
 app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'socal-receptionist-v2', ts: new Date().toISOString() });
 });
