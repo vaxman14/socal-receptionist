@@ -4,6 +4,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '../../components/Sidebar';
 import Overview from './Overview';
 import Leads from './Leads';
+import Chats from './Chats';
 import Calls from './Calls';
 import TimeTickets from './TimeTickets';
 import OutboundLeads from './OutboundLeads';
@@ -17,6 +18,7 @@ import Help from '../Help';
 const LINKS = [
   { to: '/', label: 'Overview', end: true },
   { to: '/leads', label: 'Leads' },
+  { to: '/chat', label: 'Live Chat' },
   { to: '/calls', label: 'Calls' },
   { to: '/integrations', label: 'Integrations' },
   { to: '/marketing', label: 'Marketing' },
@@ -32,6 +34,7 @@ export default function ClientApp() {
       <Routes>
         <Route index element={<Overview />} />
         <Route path="leads" element={<Leads />} />
+        <Route path="chat" element={<Chats />} />
         <Route path="calls" element={<Calls />} />
         <Route path="time-tickets" element={<TimeTickets />} />
         <Route path="outbound" element={<OutboundLeads />} />

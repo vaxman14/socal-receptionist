@@ -589,6 +589,12 @@ app.listen(port, () => {
   startReminderPoller();
   // Start time-ticket sync — pushes accepted tickets to Clio/MyCase every 10 min.
   require('./integrations/ticket-sync').start();
+  // Live-chat fallback: hand unclaimed "talk to a human" requests back to the AI
+  // after the grace window so a visitor is never left on a dead chat.
+  const liveChat = require('./lib/live-chat');
+  setInterval(() => {
+    liveChat.sweepWaiting().catch((e) => console.error('[live-chat] sweep failed:', e.message));
+  }, 20 * 1000);
 });
 
 if (process.env.RUN_WORKER === 'true') {

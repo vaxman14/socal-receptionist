@@ -22,10 +22,33 @@ const { supabase } = require('../lib/supabase');
 const { sendEmail } = require('../lib/email');
 const { normalizePhone, isValidEmail } = require('../lib/validate');
 const logger = require('../lib/logger');
+const liveChat = require('../lib/live-chat');
 
 const router = express.Router();
 
 const WIDGET_JS = fs.readFileSync(path.join(__dirname, 'client.js'), 'utf8');
+const CHAT_JS = fs.readFileSync(path.join(__dirname, 'chat-client.js'), 'utf8');
+
+// ---- chat widget rate limiting (in-memory, per-IP + global) ----
+// A public AI endpoint must not be weaponizable for free LLM calls.
+const CHAT_WINDOW_MS = 10 * 60 * 1000;
+const CHAT_PER_IP_MAX = 40;
+const CHAT_GLOBAL_MAX = 2000;
+const _chatIpHits = new Map();
+let _chatGlobal = { count: 0, start: 0 };
+function chatLimited(ip) {
+  const now = Date.now();
+  if (now - _chatGlobal.start > CHAT_WINDOW_MS) _chatGlobal = { count: 0, start: now };
+  _chatGlobal.count++;
+  if (_chatGlobal.count > CHAT_GLOBAL_MAX) return true;
+  const h = _chatIpHits.get(ip);
+  if (!h || now - h.start > CHAT_WINDOW_MS) { _chatIpHits.set(ip, { count: 1, start: now }); return false; }
+  h.count++;
+  return h.count > CHAT_PER_IP_MAX;
+}
+function reqIp(req) {
+  return String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+}
 
 // Open CORS for every /widget route + preflight short-circuit.
 // The widget loads on third-party domains, so we must also relax helmet's default
@@ -169,6 +192,152 @@ router.post('/lead', async (req, res) => {
   } catch (err) {
     logger.error('widget.lead_handler_error', { error: err.message });
     return res.status(500).json({ ok: false, error: 'Server error. Please try again.' });
+  }
+});
+
+// ===========================================================================
+// Conversational AI chat + live human takeover
+// ===========================================================================
+
+// Serve the embeddable chat bubble script.
+router.get('/chat.js', (req, res) => {
+  res.set('Content-Type', 'application/javascript; charset=utf-8');
+  res.set('Cache-Control', 'public, max-age=300');
+  res.send(CHAT_JS);
+});
+
+// POST /widget/chat — a visitor message. Persists, then either the AI answers
+// (status 'ai') or the message is queued for the human who has taken over.
+router.post('/chat', async (req, res) => {
+  try {
+    if (chatLimited(reqIp(req))) {
+      return res.status(429).json({ error: 'Sending too fast. Please wait a moment.' });
+    }
+    const b = req.body || {};
+    const visitorId = liveChat.clean(b.visitor, 80);
+    const text = liveChat.clean(b.message, 2000);
+    if (!visitorId) return res.status(400).json({ error: 'visitor required' });
+    if (!text) return res.status(400).json({ error: 'empty' });
+
+    const tenant = await liveChat.resolveTenant(liveChat.clean(b.tenant, 80));
+    const business = liveChat.clean(b.business, 120) || (tenant && tenant.business_name) || '';
+    const aboutParts = [liveChat.clean(b.about, 800)];
+    if (tenant) {
+      if (tenant.business_services) aboutParts.push(liveChat.clean(tenant.business_services, 800));
+      if (tenant.ai_extra_info) aboutParts.push(liveChat.clean(tenant.ai_extra_info, 800));
+    }
+    const about = aboutParts.filter(Boolean).join(' — ');
+
+    const conv = await liveChat.getOrCreateConversation({
+      convId: liveChat.clean(b.conversation, 80) || null,
+      visitorId,
+      tenant,
+      business,
+      about,
+      sourceUrl: liveChat.clean(b.source_url, 300),
+    });
+
+    await liveChat.addMessage(conv, 'visitor', text);
+
+    // A human may have claimed the conversation since the last turn — re-read.
+    const { data: fresh } = await supabase
+      .from('chat_conversations').select('*').eq('id', conv.id).single();
+    const status = (fresh && fresh.status) || 'ai';
+    const humanAvailable = !!conv.tenant_id;
+
+    if (status !== 'ai') {
+      // Human is handling (or being summoned) — no AI turn; agent replies arrive via poll.
+      return res.json({ conversation: conv.id, pending: true, status, human_available: humanAvailable });
+    }
+
+    // AI turn.
+    const prior = await liveChat.messagesAfter(conv.id, null, null);
+    let reply;
+    try {
+      reply = await liveChat.aiReply(liveChat.toAiHistory(prior), business, about);
+    } catch (e) {
+      reply = `Thanks for reaching out${business ? ` to ${business}` : ''}. Leave your name and a phone or email and the team will follow up shortly.`;
+    }
+
+    const leadMatch = reply.match(/\[LEAD:\s*name="([^"]*)"\s*contact="([^"]*)"\]/i);
+    if (leadMatch) {
+      liveChat.captureLead(conv, { name: leadMatch[1], contact: leadMatch[2] })
+        .catch((e) => logger.error('live_chat.capture_failed', { error: e.message }));
+    }
+    const shown = liveChat.stripLeadTag(reply) || 'Could you tell me a bit more?';
+    await liveChat.addMessage(conv, 'ai', shown);
+
+    return res.json({ conversation: conv.id, reply: shown, status: 'ai', human_available: humanAvailable });
+  } catch (err) {
+    logger.error('live_chat.message_error', { error: err.message });
+    return res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// POST /widget/chat/request-human — visitor asks for a person.
+router.post('/chat/request-human', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const visitorId = liveChat.clean(b.visitor, 80);
+    const convId = liveChat.clean(b.conversation, 80);
+    if (!visitorId || !convId) return res.status(400).json({ error: 'missing conversation' });
+
+    const { data: conv } = await supabase
+      .from('chat_conversations').select('*').eq('id', convId).maybeSingle();
+    if (!conv || conv.visitor_id !== visitorId) return res.status(404).json({ error: 'not found' });
+
+    // No tenant => no human to summon; let the AI keep going and capture a lead.
+    if (!conv.tenant_id) {
+      return res.json({ status: conv.status, no_human: true });
+    }
+    if (conv.status === 'live') return res.json({ status: 'live' });
+
+    await supabase.from('chat_conversations')
+      .update({ status: 'waiting', waiting_since: new Date().toISOString() })
+      .eq('id', conv.id);
+    await liveChat.addMessage(conv, 'system', 'Connecting you with the team. One moment…');
+
+    // Notify the firm owner (best-effort).
+    try {
+      const { data: t } = await supabase
+        .from('tenants').select('business_name, voicemail_email, owner_email').eq('id', conv.tenant_id).maybeSingle();
+      const to = t && (t.voicemail_email || t.owner_email);
+      if (to) {
+        const appBase = (process.env.WEB_BASE_URL || 'https://app2.socalreceptionist.com').replace(/\/+$/, '');
+        sendEmail({
+          to,
+          subject: `💬 A website visitor wants to chat live — ${t.business_name || 'your site'}`,
+          html: `<p>A visitor on your website asked to talk to a person right now.</p>`
+              + `<p><a href="${appBase}/chat">Open Live Chat in your dashboard</a> to take over. If no one replies within a minute, the AI will take their details so you can follow up.</p>`,
+          text: `A visitor on your website asked to talk to a person. Open Live Chat in your dashboard (${appBase}/chat) to take over. If no one replies within a minute, the AI will take their details.`,
+        }).catch((e) => logger.error('live_chat.notify_failed', { error: e.message }));
+      }
+    } catch (e) { logger.error('live_chat.notify_lookup_failed', { error: e.message }); }
+
+    return res.json({ status: 'waiting' });
+  } catch (err) {
+    logger.error('live_chat.request_human_error', { error: err.message });
+    return res.status(500).json({ error: 'failed' });
+  }
+});
+
+// GET /widget/chat/poll — visitor pulls new agent/system messages + current status.
+router.get('/chat/poll', async (req, res) => {
+  try {
+    const visitorId = liveChat.clean(req.query.visitor, 80);
+    const convId = liveChat.clean(req.query.conversation, 80);
+    const after = liveChat.clean(req.query.after, 40) || null;
+    if (!visitorId || !convId) return res.status(400).json({ error: 'missing conversation' });
+
+    const { data: conv } = await supabase
+      .from('chat_conversations').select('id, visitor_id, status').eq('id', convId).maybeSingle();
+    if (!conv || conv.visitor_id !== visitorId) return res.status(404).json({ error: 'not found' });
+
+    const messages = await liveChat.messagesAfter(conv.id, after, ['agent', 'system']);
+    return res.json({ status: conv.status, messages });
+  } catch (err) {
+    logger.error('live_chat.poll_error', { error: err.message });
+    return res.status(500).json({ error: 'failed' });
   }
 });
 

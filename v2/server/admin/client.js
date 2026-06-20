@@ -834,5 +834,148 @@ router.post('/outbound-leads/:id/call', requireAal2, async (req, res) => {
   }
 });
 
-// Also fix the PATCH /admin/tenant error response
+// ---------------------------------------------------------------------------
+// Live chat — conversational widget conversations + human takeover
+// ---------------------------------------------------------------------------
+
+// GET /admin/chats?status=active|waiting|all — this tenant's chat conversations.
+// "active" (default) = anything not closed. Newest activity first.
+router.get('/chats', async (req, res) => {
+  try {
+    const filter = req.query.status || 'active';
+    let q = supabase
+      .from('chat_conversations')
+      .select('id, status, business_name, visitor_name, visitor_contact, source_url, waiting_since, last_message_at, agent_seen_at, created_at')
+      .eq('tenant_id', req.tenant.id)
+      .order('last_message_at', { ascending: false })
+      .limit(100);
+    if (filter === 'waiting') q = q.eq('status', 'waiting');
+    else if (filter !== 'all') q = q.neq('status', 'closed');
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    // Attach a short preview of the most recent message per conversation.
+    const ids = (data || []).map((c) => c.id);
+    const previews = {};
+    if (ids.length) {
+      const { data: recent } = await supabase
+        .from('chat_messages')
+        .select('conversation_id, role, body, created_at')
+        .in('conversation_id', ids)
+        .order('created_at', { ascending: false })
+        .limit(300);
+      for (const m of recent || []) {
+        if (!previews[m.conversation_id]) previews[m.conversation_id] = { role: m.role, body: m.body.slice(0, 120) };
+      }
+    }
+    const chats = (data || []).map((c) => ({
+      ...c,
+      preview: previews[c.id] || null,
+      unread: !c.agent_seen_at || (c.last_message_at && c.last_message_at > c.agent_seen_at),
+    }));
+    res.json({ chats });
+  } catch (err) {
+    console.error('[admin] list chats failed:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /admin/chats/:id/messages — full transcript (also marks it seen).
+router.get('/chats/:id/messages', async (req, res) => {
+  try {
+    const { data: conv, error: cErr } = await supabase
+      .from('chat_conversations').select('*').eq('id', req.params.id).eq('tenant_id', req.tenant.id).maybeSingle();
+    if (cErr) throw cErr;
+    if (!conv) return res.status(404).json({ error: 'not found' });
+
+    const { data: messages, error } = await supabase
+      .from('chat_messages')
+      .select('id, role, body, created_at')
+      .eq('conversation_id', conv.id)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+
+    await supabase.from('chat_conversations').update({ agent_seen_at: new Date().toISOString() }).eq('id', conv.id);
+    res.json({ conversation: conv, messages: messages || [] });
+  } catch (err) {
+    console.error('[admin] chat messages failed:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /admin/chats/:id/claim — take over: AI goes silent, agent is live.
+router.post('/chats/:id/claim', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('chat_conversations')
+      .update({ status: 'live', claimed_by: req.user.id, claimed_at: new Date().toISOString(), agent_seen_at: new Date().toISOString() })
+      .eq('id', req.params.id).eq('tenant_id', req.tenant.id)
+      .neq('status', 'closed')
+      .select('id, status').maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true, status: data.status });
+  } catch (err) {
+    console.error('[admin] claim chat failed:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /admin/chats/:id/message { body } — send an agent reply.
+router.post('/chats/:id/message', express.json(), async (req, res) => {
+  try {
+    const body = String(req.body && req.body.body || '').trim().slice(0, 4000);
+    if (!body) return res.status(400).json({ error: 'empty' });
+    const { data: conv } = await supabase
+      .from('chat_conversations').select('id, status').eq('id', req.params.id).eq('tenant_id', req.tenant.id).maybeSingle();
+    if (!conv) return res.status(404).json({ error: 'not found' });
+
+    const { data: msg, error } = await supabase
+      .from('chat_messages')
+      .insert({ conversation_id: conv.id, tenant_id: req.tenant.id, role: 'agent', body })
+      .select('id, role, body, created_at').single();
+    if (error) throw error;
+
+    const patch = { last_message_at: new Date().toISOString(), agent_seen_at: new Date().toISOString() };
+    if (conv.status !== 'live') { patch.status = 'live'; patch.claimed_by = req.user.id; patch.claimed_at = new Date().toISOString(); }
+    await supabase.from('chat_conversations').update(patch).eq('id', conv.id);
+
+    res.json({ ok: true, message: msg });
+  } catch (err) {
+    console.error('[admin] chat send failed:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /admin/chats/:id/release — hand control back to the AI.
+router.post('/chats/:id/release', async (req, res) => {
+  try {
+    const { data } = await supabase
+      .from('chat_conversations').select('id').eq('id', req.params.id).eq('tenant_id', req.tenant.id).maybeSingle();
+    if (!data) return res.status(404).json({ error: 'not found' });
+    await supabase.from('chat_conversations')
+      .update({ status: 'ai', claimed_by: null, claimed_at: null, waiting_since: null }).eq('id', data.id);
+    await supabase.from('chat_messages').insert({ conversation_id: data.id, tenant_id: req.tenant.id, role: 'system', body: 'The assistant is back to help.' });
+    res.json({ ok: true, status: 'ai' });
+  } catch (err) {
+    console.error('[admin] release chat failed:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /admin/chats/:id/close — end the conversation.
+router.post('/chats/:id/close', async (req, res) => {
+  try {
+    const { data } = await supabase
+      .from('chat_conversations').update({ status: 'closed' })
+      .eq('id', req.params.id).eq('tenant_id', req.tenant.id).select('id').maybeSingle();
+    if (!data) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true, status: 'closed' });
+  } catch (err) {
+    console.error('[admin] close chat failed:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
