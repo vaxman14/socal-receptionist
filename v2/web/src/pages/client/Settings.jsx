@@ -330,6 +330,48 @@ export default function Settings() {
               >
                 Copy snippet
               </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={async (e) => {
+                  const b = e.currentTarget; const orig = b.textContent; b.textContent = 'Building…'; b.disabled = true;
+                  try {
+                    const JSZip = (await import('jszip')).default;
+                    const esc = (s) => String(s || '').replace(/[<>]/g, '').replace(/"/g, '&quot;');
+                    const tenant = esc(data.tenant.id);
+                    const name = esc(form.business_name);
+                    const about = esc(String(form.business_services || '').slice(0, 400));
+                    const php = [
+                      '<?php',
+                      '/*',
+                      'Plugin Name: SoCal Receptionist Chat',
+                      'Description: AI chat widget that greets your website visitors and captures leads, powered by SoCal Receptionist.',
+                      'Version: 1.0.0',
+                      'Author: SoCal Receptionist',
+                      '*/',
+                      "if (!defined('ABSPATH')) { exit; }",
+                      "add_action('wp_footer', function () { ?>",
+                      `<script src="https://www.socalreceptionist.com/widget.js" data-tenant="${tenant}" data-name="${name}" data-about="${about}" data-accent="#2b6cb0"></script>`,
+                      '<?php });',
+                      '',
+                    ].join('\n');
+                    const zip = new JSZip();
+                    zip.folder('socal-receptionist-chat').file('socal-receptionist-chat.php', php);
+                    const blob = await zip.generateAsync({ type: 'blob' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = 'socal-receptionist-chat.zip'; document.body.appendChild(a); a.click();
+                    document.body.removeChild(a); URL.revokeObjectURL(url);
+                    b.textContent = 'Downloaded!';
+                  } catch (err) {
+                    b.textContent = 'Failed, try again';
+                  } finally {
+                    b.disabled = false; setTimeout(() => { b.textContent = orig; }, 1800);
+                  }
+                }}
+              >
+                Download WordPress plugin
+              </button>
               <span className="muted" style={{ fontSize: '0.82rem' }}>Edit your business name and services above to update what the chat knows.</span>
             </div>
           </div>
