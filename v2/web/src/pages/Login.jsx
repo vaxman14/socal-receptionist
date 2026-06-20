@@ -23,7 +23,11 @@ export default function Login() {
     setError(null);
     setNotice(null);
 
-    if (!email.trim() || !password) {
+    if (!email.trim()) {
+      setError('Email is required.');
+      return;
+    }
+    if (mode !== 'forgot' && !password) {
       setError('Email and password are required.');
       return;
     }
