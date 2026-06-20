@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Chat</title>
+<style>
+  :root{ --accent:#2b6cb0; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:#fff}
+  .wrap{display:flex;flex-direction:column;height:100vh}
+  .hdr{background:var(--accent);color:#fff;padding:14px 16px}
+  .hdr .biz{font-weight:700;font-size:1rem;line-height:1.2}
+  .hdr .sub{font-size:.76rem;opacity:.9;margin-top:2px}
+  .msgs{flex:1;overflow-y:auto;padding:14px;background:#f6f8fb}
+  .row{display:flex;margin-bottom:10px}
+  .row.user{justify-content:flex-end}
+  .bub{max-width:80%;padding:9px 13px;border-radius:14px;font-size:.92rem;line-height:1.45;white-space:pre-wrap;word-wrap:break-word}
+  .bot .bub{background:#fff;border:1px solid #e4e9f0;color:#1a2230;border-bottom-left-radius:4px}
+  .user .bub{background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+  .typing .bub{color:#8a97a7}
+  .inp{display:flex;gap:8px;padding:10px;border-top:1px solid #e4e9f0;background:#fff}
+  .inp input{flex:1;padding:11px 13px;border:1.5px solid #e4e9f0;border-radius:10px;font-size:.95rem;outline:none}
+  .inp input:focus{border-color:var(--accent)}
+  .inp button{border:0;background:var(--accent);color:#fff;border-radius:10px;padding:0 16px;font-weight:600;cursor:pointer}
+  .inp button:disabled{opacity:.5;cursor:default}
+  .foot{font-size:.66rem;color:#9aa7b5;text-align:center;padding:6px}
+  .foot a{color:#9aa7b5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr"><div class="biz" id="biz">Chat</div><div class="sub">We usually reply in a moment</div></div>
+  <div class="msgs" id="msgs"></div>
+  <div class="inp">
+    <input id="in" type="text" placeholder="Type your message..." autocomplete="off">
+    <button id="send">Send</button>
+  </div>
+  <div class="foot">Powered by <a href="https://www.socalreceptionist.com" target="_blank" rel="noopener">SoCal Receptionist</a></div>
+</div>
+<script>
+  var p = new URLSearchParams(location.search);
+  var BIZ = (p.get('name') || 'us').slice(0,120);
+  var ABOUT = (p.get('about') || '').slice(0,600);
+  var TENANT = (p.get('tenant') || '').slice(0,80);
+  var ACCENT = (p.get('accent') || '#2b6cb0');
+  if (/^#?[0-9a-fA-F]{3,8}$/.test(ACCENT)) { document.documentElement.style.setProperty('--accent', ACCENT.charAt(0)==='#'?ACCENT:'#'+ACCENT); }
+  document.getElementById('biz').textContent = BIZ === 'us' ? 'Chat with us' : BIZ;
+
+  var msgs = document.getElementById('msgs'), input = document.getElementById('in'), send = document.getElementById('send');
+  var history = [];
+  function esc(t){ var d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+  function add(role, text){
+    var row=document.createElement('div'); row.className='row '+(role==='user'?'user':'bot');
+    row.innerHTML='<div class="bub">'+esc(text)+'</div>';
+    msgs.appendChild(row); msgs.scrollTop=msgs.scrollHeight; return row;
+  }
+  // greeting
+  add('bot', 'Hi! Thanks for visiting ' + (BIZ==='us'?'us':BIZ) + '. How can I help you today?');
+
+  var sending=false;
+  function strip(t){ return t.replace(/\[LEAD:[^\]]*\]/g,'').trim(); }
+  function doSend(){
+    var text=(input.value||'').trim(); if(!text||sending) return;
+    add('user', text); history.push({role:'user',content:text});
+    input.value=''; sending=true; send.disabled=true;
+    var typing=add('bot','...'); typing.className='row bot typing';
+    fetch('/api/widget-chat/message',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text,history:history.slice(0,-1),business:BIZ==='us'?'':BIZ,about:ABOUT,tenant:TENANT})})
+      .then(function(r){return r.json();})
+      .then(function(j){
+        msgs.removeChild(typing);
+        var reply=strip(j.reply||'Sorry, I had trouble there. Please try again.');
+        add('bot', reply); history.push({role:'assistant',content:reply});
+      })
+      .catch(function(){ msgs.removeChild(typing); add('bot','Connection error. Please try again in a moment.'); })
+      .finally(function(){ sending=false; send.disabled=false; input.focus(); });
+  }
+  send.addEventListener('click', doSend);
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter') doSend(); });
+  input.focus();
+</script>
+</body>
+</html>

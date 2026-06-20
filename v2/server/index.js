@@ -445,6 +445,10 @@ app.use('/auth/mfa', mfaRouter);
 const supportChatRouter = require('./support-chat');
 app.use('/api/support-chat', supportChatRouter);
 
+// Embeddable client chat widget (the free/standalone bubble clients add to their own sites)
+const widgetChatRouter = require('./widget-chat');
+app.use('/api/widget-chat', widgetChatRouter);
+
 // Admin API. The owner router is mounted first so /admin/owner/* never falls
 // into the client router's requireTenant middleware.
 app.use('/admin/owner', ownerAdminRouter);
