@@ -302,6 +302,39 @@ export default function Settings() {
       <div className="stack" style={{ marginTop: 16 }}>
         <MfaSettings />
 
+        {data?.tenant?.id && (
+          <div className="card card-pad">
+            <div className="section-title">Website Chat Widget</div>
+            <p className="muted" style={{ fontSize: '0.86rem', marginBottom: 12 }}>
+              Add an AI chat bubble to your own website. Paste this snippet just before the closing &lt;/body&gt; tag. It greets visitors as your business, answers questions, and captures leads.
+            </p>
+            <textarea
+              readOnly
+              rows={5}
+              onFocus={(e) => e.target.select()}
+              style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.8rem', padding: 10, border: '1px solid #e4e9f0', borderRadius: 8, resize: 'vertical' }}
+              value={`<script src="https://www.socalreceptionist.com/widget.js"\n  data-tenant="${data.tenant.id}"\n  data-name="${String(form.business_name || '').replace(/"/g, '&quot;')}"\n  data-about="${String(form.business_services || '').replace(/"/g, '&quot;').slice(0, 400)}"\n  data-accent="#2b6cb0"></script>`}
+            />
+            <div className="row-gap" style={{ marginTop: 10 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={(e) => {
+                  const card = e.currentTarget.closest('.card');
+                  const snip = card.querySelector('textarea').value;
+                  navigator.clipboard.writeText(snip).then(() => {
+                    const b = e.currentTarget; const t = b.textContent;
+                    b.textContent = 'Copied!'; setTimeout(() => { b.textContent = t; }, 1500);
+                  });
+                }}
+              >
+                Copy snippet
+              </button>
+              <span className="muted" style={{ fontSize: '0.82rem' }}>Edit your business name and services above to update what the chat knows.</span>
+            </div>
+          </div>
+        )}
+
         {!emailConfirmed && (
           <div className="card card-pad">
             <div className="section-title">Email Verification</div>
