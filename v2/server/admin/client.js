@@ -834,6 +834,24 @@ router.post('/outbound-leads/:id/call', requireAal2, async (req, res) => {
   }
 });
 
+// POST /admin/push/register { token, platform } — register this device for
+// push notifications (live chat handoff alerts). Idempotent upsert by token.
+router.post('/push/register', express.json(), async (req, res) => {
+  try {
+    const token = String(req.body && req.body.token || '').trim().slice(0, 200);
+    const platform = String(req.body && req.body.platform || '').trim().slice(0, 20) || null;
+    if (!/^ExponentPushToken/.test(token)) return res.status(400).json({ error: 'invalid token' });
+    const { error } = await supabase
+      .from('push_tokens')
+      .upsert({ token, user_id: req.user.id, platform, updated_at: new Date().toISOString() }, { onConflict: 'token' });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[admin] push register failed:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Live chat — conversational widget conversations + human takeover
 // ---------------------------------------------------------------------------

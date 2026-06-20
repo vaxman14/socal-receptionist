@@ -297,10 +297,17 @@ router.post('/chat/request-human', async (req, res) => {
       .eq('id', conv.id);
     await liveChat.addMessage(conv, 'system', 'Connecting you with the team. One moment…');
 
-    // Notify the firm owner (best-effort).
+    // Notify the firm owner (best-effort): push to their app + email.
     try {
       const { data: t } = await supabase
-        .from('tenants').select('business_name, voicemail_email, owner_email').eq('id', conv.tenant_id).maybeSingle();
+        .from('tenants').select('business_name, voicemail_email, owner_email, owner_user_id').eq('id', conv.tenant_id).maybeSingle();
+      if (t && t.owner_user_id) {
+        require('../lib/push').pushToUser(t.owner_user_id, {
+          title: 'A website visitor wants to chat',
+          body: 'Open Live Chat to take over before the AI follows up.',
+          data: { type: 'live_chat', conversation: conv.id },
+        }).catch(() => {});
+      }
       const to = t && (t.voicemail_email || t.owner_email);
       if (to) {
         const appBase = (process.env.WEB_BASE_URL || 'https://app2.socalreceptionist.com').replace(/\/+$/, '');
