@@ -104,6 +104,124 @@ function AgreementsCard({ tenantId }) {
   );
 }
 
+// Platform-admin billing/plan/lifecycle controls. Owner-only actions in the
+// product sense (billing + close) are gated server-side to platform admins.
+function BillingManager({ tenantId, sub, tenant, onSaved }) {
+  const [plan, setPlan] = useState(sub?.plan || '');
+  const [price, setPrice] = useState(
+    sub?.custom_price_cents != null ? (sub.custom_price_cents / 100).toString() : ''
+  );
+  const [status, setStatus] = useState(sub?.status || 'trialing');
+  const [trial, setTrial] = useState(sub?.trial_ends_at ? sub.trial_ends_at.slice(0, 10) : '');
+  const [cancelEnd, setCancelEnd] = useState(!!sub?.cancel_at_period_end);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [err, setErr] = useState(null);
+
+  async function call(path, body, label) {
+    setBusy(true); setErr(null); setMsg(null);
+    try {
+      await api.patch(path, body);
+      setMsg(`${label} saved.`);
+      onSaved();
+    } catch (e) {
+      setErr(e.message || 'Save failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const savePlan = () =>
+    call(`/admin/owner/tenants/${tenantId}/plan`, {
+      plan: plan || null,
+      custom_price_cents: price === '' ? null : Math.round(Number(price) * 100),
+    }, 'Plan');
+
+  const saveBilling = () =>
+    call(`/admin/owner/tenants/${tenantId}/billing`, {
+      status,
+      trial_ends_at: trial ? new Date(trial).toISOString() : null,
+      cancel_at_period_end: cancelEnd,
+    }, 'Billing');
+
+  const setSetup = (paid) =>
+    call(`/admin/owner/tenants/${tenantId}/billing`, { setup_paid: paid }, 'Setup fee');
+  const setRefund = (refunded) =>
+    call(`/admin/owner/tenants/${tenantId}/billing`, { setup_refunded: refunded }, 'Refund');
+
+  const setTenantStatus = (s, confirmMsg) => {
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    call(`/admin/owner/tenants/${tenantId}/status`, { status: s }, 'Account');
+  };
+
+  return (
+    <div className="card card-pad">
+      <div className="section-title">Manage billing &amp; plan</div>
+      {err && <p className="state" style={{ color: 'var(--red, #c0392b)' }}>{err}</p>}
+      {msg && <p className="state" style={{ color: 'var(--green, #1f8a4c)' }}>{msg}</p>}
+
+      <div className="kv" style={{ gridTemplateColumns: '1fr', gap: 14 }}>
+        <div>
+          <label className="muted" style={{ display: 'block', fontSize: '0.8rem', marginBottom: 4 }}>Plan</label>
+          <select value={plan} onChange={(e) => setPlan(e.target.value)} disabled={busy} style={{ width: '100%' }}>
+            <option value="">—</option>
+            <option value="essentials_monthly">Essentials (monthly)</option>
+            <option value="essentials_annual">Essentials (annual)</option>
+            <option value="concierge_monthly">Concierge (monthly)</option>
+            <option value="concierge_annual">Concierge (annual)</option>
+          </select>
+        </div>
+        <div>
+          <label className="muted" style={{ display: 'block', fontSize: '0.8rem', marginBottom: 4 }}>
+            Custom monthly price (USD) — overrides plan price; blank = standard
+          </label>
+          <input type="number" min="0" step="1" placeholder="e.g. 1500" value={price}
+            onChange={(e) => setPrice(e.target.value)} disabled={busy} style={{ width: '100%' }} />
+        </div>
+        <button className="btn btn-primary btn-sm" disabled={busy} onClick={savePlan}>Save plan &amp; price</button>
+      </div>
+
+      <hr style={{ border: 0, borderTop: '1px solid #eef0f6', margin: '16px 0' }} />
+
+      <div className="kv" style={{ gridTemplateColumns: '1fr', gap: 14 }}>
+        <div>
+          <label className="muted" style={{ display: 'block', fontSize: '0.8rem', marginBottom: 4 }}>Subscription status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} disabled={busy} style={{ width: '100%' }}>
+            {['trialing', 'active', 'past_due', 'canceled', 'unpaid', 'incomplete'].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="muted" style={{ display: 'block', fontSize: '0.8rem', marginBottom: 4 }}>Trial ends (comp / extend)</label>
+          <input type="date" value={trial} onChange={(e) => setTrial(e.target.value)} disabled={busy} style={{ width: '100%' }} />
+        </div>
+        <label style={{ fontSize: '0.85rem' }}>
+          <input type="checkbox" checked={cancelEnd} onChange={(e) => setCancelEnd(e.target.checked)} disabled={busy} /> Cancel at period end
+        </label>
+        <button className="btn btn-primary btn-sm" disabled={busy} onClick={saveBilling}>Save billing</button>
+      </div>
+
+      <hr style={{ border: 0, borderTop: '1px solid #eef0f6', margin: '16px 0' }} />
+
+      <div className="row-gap" style={{ flexWrap: 'wrap', gap: 8 }}>
+        <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setSetup(true)}>Mark setup paid</button>
+        <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setRefund(true)}>Mark setup refunded</button>
+        {tenant.status === 'active' ? (
+          <button className="btn btn-danger btn-sm" disabled={busy}
+            onClick={() => setTenantStatus('suspended_billing', `Suspend ${tenant.business_name}? Voice will be disabled.`)}>
+            Suspend account
+          </button>
+        ) : (
+          <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setTenantStatus('active')}>
+            Reactivate account
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function TenantDetail() {
   const { id } = useParams();
   const { data, loading, error, reload } = useFetch(`/admin/owner/tenants/${id}`);
@@ -206,6 +324,8 @@ export default function TenantDetail() {
             <p className="muted">No subscription on file.</p>
           )}
         </div>
+
+        <BillingManager tenantId={id} sub={sub} tenant={t} onSaved={reload} />
 
         <div className="card card-pad">
           <div className="section-title">Usage this month</div>

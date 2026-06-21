@@ -55,8 +55,21 @@ function mapStripeStatus(s) {
 // In subscription mode Stripe invoices one-time line items on the first
 // invoice, i.e. immediately at checkout. `payment_method_collection: 'always'`
 // keeps the card on file for the recurring charges that begin after the trial.
-async function createCheckoutSession({ tenant, priceId, setupPriceId, successUrl, cancelUrl }) {
-  const lineItems = [{ price: priceId, quantity: 1 }];
+async function createCheckoutSession({ tenant, priceId, setupPriceId, successUrl, cancelUrl, customPriceCents }) {
+  // A platform-admin price override bills an inline monthly price instead of the
+  // standard plan Price object (no per-deal Price clutter in the Stripe dashboard).
+  const recurringItem = customPriceCents
+    ? {
+        price_data: {
+          currency: 'usd',
+          unit_amount: customPriceCents,
+          recurring: { interval: 'month' },
+          product_data: { name: 'SoCal Receptionist — custom plan' },
+        },
+        quantity: 1,
+      }
+    : { price: priceId, quantity: 1 };
+  const lineItems = [recurringItem];
   if (setupPriceId) lineItems.push({ price: setupPriceId, quantity: 1 });
 
   // Two checkout shapes:

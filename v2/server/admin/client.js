@@ -391,6 +391,17 @@ router.post('/billing/checkout', requireAal2, async (req, res) => {
       }
     }
 
+    // Platform-admin price override: if this tenant's subscription has a
+    // custom_price_cents set, bill that monthly amount instead of the plan price.
+    let customPriceCents = null;
+    {
+      const { data: sub } = await supabase
+        .from('subscriptions').select('custom_price_cents').eq('tenant_id', req.tenant.id).maybeSingle();
+      if (sub && Number.isInteger(sub.custom_price_cents) && sub.custom_price_cents >= 0) {
+        customPriceCents = sub.custom_price_cents;
+      }
+    }
+
     // Build redirect URLs server-side — never trust the client. Stripe should
     // send the user back to the SPA, so prefer WEB_BASE_URL.
     const base = (process.env.WEB_BASE_URL || process.env.APP_BASE_URL || '').replace(/\/+$/, '');
@@ -398,6 +409,7 @@ router.post('/billing/checkout', requireAal2, async (req, res) => {
       tenant: req.tenant,
       priceId,
       setupPriceId,
+      customPriceCents,
       successUrl: `${base}/billing/success`,
       cancelUrl: `${base}/billing/cancel`,
     });

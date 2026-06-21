@@ -55,6 +55,94 @@ router.get('/tenants/:id', async (req, res) => {
   res.json({ tenant: data });
 });
 
+// ---- Platform-admin write actions (billing / plan / lifecycle) ----
+
+const jsonBody = express.json();
+const SUB_STATUS = ['trialing', 'active', 'past_due', 'canceled', 'unpaid', 'incomplete'];
+const TENANT_STATUS = ['active', 'suspended_billing', 'suspended_compliance'];
+
+// Update (or create) a tenant's single subscription row.
+async function upsertSubscription(tenantId, fields) {
+  const { data: existing } = await supabase
+    .from('subscriptions').select('id').eq('tenant_id', tenantId).maybeSingle();
+  if (existing) {
+    return supabase.from('subscriptions')
+      .update({ ...fields, updated_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId).select().maybeSingle();
+  }
+  return supabase.from('subscriptions')
+    .insert({ tenant_id: tenantId, ...fields }).select().maybeSingle();
+}
+
+async function audit(req, tenantId, action, metadata) {
+  try {
+    await supabase.from('audit_log').insert({
+      tenant_id: tenantId, actor_type: 'owner', actor_user_id: req.user.id,
+      action, target_type: 'tenant', target_id: tenantId, metadata: metadata || {},
+    });
+  } catch (e) { console.error('[owner] audit write failed:', e.message); }
+}
+
+// PATCH /admin/owner/tenants/:id/billing — edit subscription billing fields.
+router.patch('/tenants/:id/billing', jsonBody, async (req, res) => {
+  const tenantId = req.params.id;
+  const b = req.body || {};
+  const fields = {};
+  if (b.status !== undefined) {
+    if (!SUB_STATUS.includes(b.status)) return res.status(400).json({ error: 'invalid subscription status' });
+    fields.status = b.status;
+  }
+  if (b.trial_ends_at !== undefined) fields.trial_ends_at = b.trial_ends_at || null;
+  if (b.current_period_end !== undefined) fields.current_period_end = b.current_period_end || null;
+  if (b.cancel_at_period_end !== undefined) fields.cancel_at_period_end = !!b.cancel_at_period_end;
+  if (b.setup_paid === true) fields.setup_paid_at = new Date().toISOString();
+  if (b.setup_paid === false) fields.setup_paid_at = null;
+  if (b.setup_refunded === true) fields.setup_refunded_at = new Date().toISOString();
+  if (b.setup_refunded === false) fields.setup_refunded_at = null;
+  if (Object.keys(fields).length === 0) return res.status(400).json({ error: 'no billing fields provided' });
+  const { data, error } = await upsertSubscription(tenantId, fields);
+  if (error) return res.status(500).json({ error: error.message });
+  await audit(req, tenantId, 'billing.updated', fields);
+  res.json({ subscription: data });
+});
+
+// PATCH /admin/owner/tenants/:id/plan — assign plan + optional custom price override.
+router.patch('/tenants/:id/plan', jsonBody, async (req, res) => {
+  const tenantId = req.params.id;
+  const b = req.body || {};
+  const fields = {};
+  if (b.plan !== undefined) fields.plan = b.plan || null;
+  if (b.custom_price_cents !== undefined) {
+    if (b.custom_price_cents === null || b.custom_price_cents === '') {
+      fields.custom_price_cents = null;
+    } else {
+      const n = Number(b.custom_price_cents);
+      if (!Number.isInteger(n) || n < 0) {
+        return res.status(400).json({ error: 'custom_price_cents must be a non-negative integer (cents)' });
+      }
+      fields.custom_price_cents = n;
+    }
+  }
+  if (Object.keys(fields).length === 0) return res.status(400).json({ error: 'no plan fields provided' });
+  const { data, error } = await upsertSubscription(tenantId, fields);
+  if (error) return res.status(500).json({ error: error.message });
+  await audit(req, tenantId, 'plan.updated', fields);
+  res.json({ subscription: data });
+});
+
+// PATCH /admin/owner/tenants/:id/status — tenant lifecycle (suspend / reactivate / close).
+router.patch('/tenants/:id/status', jsonBody, async (req, res) => {
+  const tenantId = req.params.id;
+  const status = (req.body || {}).status;
+  if (!TENANT_STATUS.includes(status)) return res.status(400).json({ error: 'invalid tenant status' });
+  const patch = { status };
+  if (status !== 'active') patch.voice_enabled = false;
+  const { data, error } = await supabase.from('tenants').update(patch).eq('id', tenantId).select().maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  await audit(req, tenantId, 'tenant.status_changed', { status });
+  res.json({ tenant: data });
+});
+
 // GET /admin/owner/stats — platform KPIs (tenant mix, billing, volume).
 router.get('/stats', async (req, res) => {
   try {
