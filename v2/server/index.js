@@ -531,7 +531,8 @@ function legalPage(title, bodyHtml) {
     nav{margin-bottom:2rem;font-size:.85rem}
     nav a{margin-right:1rem;color:#6b7280;text-decoration:none}
     nav a:hover{color:#4f46e5}
-    .meta{margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;font-size:.8rem;color:#9ca3af}
+    .meta{margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;font-size:.8rem;color:#6b7280}
+    main p a, main li a{text-decoration:underline}
   </style>
 </head>
 <body>
@@ -543,8 +544,8 @@ function legalPage(title, bodyHtml) {
     <a href="/cookies">Cookie Policy</a>
     <a href="/accessibility">Accessibility</a>
   </nav>
-  ${bodyHtml}
-  <div class="meta">SoCal Receptionist &nbsp;·&nbsp; Murrieta, CA &nbsp;·&nbsp; <a href="mailto:info@socalreceptionist.com">Contact</a></div>
+  <main>${bodyHtml}</main>
+  <footer class="meta">SoCal Receptionist &nbsp;·&nbsp; Murrieta, CA &nbsp;·&nbsp; <a href="mailto:info@socalreceptionist.com">Contact</a></footer>
 </body>
 </html>`;
 }
