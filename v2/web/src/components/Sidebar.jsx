@@ -36,20 +36,11 @@ export function AppShell({ scope, links, adminLinks, children }) {
             </>
           )}
         </nav>
-        <div className="sidebar-foot">
-          <div className="email">{user?.email}</div>
-          <button className="btn btn-secondary btn-sm btn-block" onClick={signOut}>
-            Sign out
-          </button>
-        </div>
       </aside>
 
       <div className="main">
         <header className="topbar">
-          <span className="name">
-            SoCal Receptionist
-            <small>{scope === 'owner' ? 'Platform Admin' : 'Business Console'}</small>
-          </span>
+          <span className="topbar-user">{user?.email}</span>
           <button className="btn btn-secondary btn-sm" onClick={signOut}>
             Sign out
           </button>
