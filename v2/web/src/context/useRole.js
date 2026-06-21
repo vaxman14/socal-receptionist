@@ -58,8 +58,13 @@ export function useRole() {
         if (userId) writeRoleCache(userId, 'owner', null);
         return;
       } catch (err) {
-        // 401 is handled globally; anything else here just means "not owner".
+        // 401 is handled globally; re-auth.
         if (err instanceof ApiError && err.status === 401) throw err;
+        // Only a definitive 403 means "not a platform owner". A network error
+        // or a 5xx means we COULDN'T determine the role — never fall through to
+        // (and cache) the client role on an ambiguous failure, or a transient
+        // outage locks a platform admin into the client view.
+        if (!(err instanceof ApiError) || err.status >= 500) throw err;
       }
 
       // Not the owner — does this account have a tenant yet?
