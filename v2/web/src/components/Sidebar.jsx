@@ -2,12 +2,14 @@
 
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AccessibilityWidget from './AccessibilityWidget';
 
 export function AppShell({ scope, links, adminLinks, children }) {
   const { user, signOut } = useAuth();
 
   return (
     <div className="app-shell">
+      <AccessibilityWidget />
       <aside className="sidebar">
         <div className="sidebar-brand">
           <img src="/logo-icon.svg" alt="" />

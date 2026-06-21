@@ -742,3 +742,41 @@ audio { width: 100%; margin-top: 8px; }
   background: #6d4aff; color: #fff; font-size: 0.7rem; font-weight: 600;
   padding: 0.15rem 0.55rem; border-radius: 999px; letter-spacing: 0.03em;
 }
+
+/* ---- Accessibility widget ---- */
+.a11y-widget { position: fixed; left: 18px; bottom: 18px; z-index: 9999; }
+.a11y-fab {
+  width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer;
+  background: #6d4aff; color: #fff; font-size: 1.4rem; line-height: 1;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center;
+}
+.a11y-fab:hover { background: #5a3ae0; }
+.a11y-panel {
+  position: absolute; left: 0; bottom: 58px; width: 240px;
+  background: #fff; border: 1px solid #e2e6f0; border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18); padding: 14px; color: #1f2640;
+}
+.a11y-panel-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 10px; }
+.a11y-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; margin-bottom: 10px; }
+.a11y-btns { display: flex; align-items: center; gap: 6px; }
+.a11y-btns button {
+  border: 1px solid #d4d9e6; background: #f4f6fb; border-radius: 6px;
+  width: 30px; height: 28px; cursor: pointer; font-weight: 700;
+}
+.a11y-btns button:disabled { opacity: 0.4; cursor: default; }
+.a11y-val { font-size: 0.8rem; min-width: 38px; text-align: center; }
+.a11y-toggle {
+  display: flex; justify-content: space-between; align-items: center; width: 100%;
+  border: 1px solid #d4d9e6; background: #f4f6fb; border-radius: 8px;
+  padding: 9px 11px; margin-bottom: 8px; cursor: pointer; font-size: 0.85rem; color: #1f2640;
+}
+.a11y-toggle span { font-weight: 700; color: #8b93a7; font-size: 0.78rem; }
+.a11y-toggle.on { border-color: #6d4aff; background: #f1ecff; }
+.a11y-toggle.on span { color: #6d4aff; }
+.a11y-reset { width: 100%; border: none; background: none; color: #6d4aff; font-size: 0.8rem; cursor: pointer; padding: 4px; }
+
+/* ---- Accessibility effects (applied to document root) ---- */
+.a11y-contrast { filter: contrast(1.35); }
+.a11y-contrast body { background: #fff; color: #000; }
+.a11y-reduce-motion, .a11y-reduce-motion * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+.a11y-dyslexia, .a11y-dyslexia * { font-family: "Comic Sans MS", "Trebuchet MS", Verdana, sans-serif !important; letter-spacing: 0.03em; }
