@@ -44,6 +44,8 @@ function slugify(name) {
 }
 
 // GET /onboarding/business — does the caller already have a tenant?
+// Resolves by ownership first, then by active tenant membership (invited users),
+// so admin members land in the client app instead of the onboarding wizard.
 router.get('/business', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('tenants')
@@ -56,7 +58,24 @@ router.get('/business', requireAuth, async (req, res) => {
     console.error('[onboarding] get business failed:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
-  res.json({ tenant: data || null });
+  if (data) return res.json({ tenant: data, role: 'owner' });
+
+  // Membership fallback — invited admin/owner members.
+  const { data: member } = await supabase
+    .from('tenant_members')
+    .select('tenant_id, role')
+    .eq('user_id', req.user.id)
+    .eq('status', 'active')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (member) {
+    const { data: t } = await supabase
+      .from('tenants').select('*').eq('id', member.tenant_id).maybeSingle();
+    if (t) return res.json({ tenant: t, role: member.role });
+  }
+
+  res.json({ tenant: null });
 });
 
 // POST /onboarding/business — create the caller's tenant.

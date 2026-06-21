@@ -6,7 +6,7 @@
 
 const express = require('express');
 const { supabase } = require('../lib/supabase');
-const { requireAuth, requireTenant, requireAal2 } = require('../lib/auth');
+const { requireAuth, requireTenant, requireTenantOwner, requireAal2 } = require('../lib/auth');
 const { createCheckoutSession, createPortalSession } = require('../lib/billing');
 const { listTickets, updateTicket, bulkAccept, exportCsv } = require('../lib/time-tickets');
 const { listLeads: listOutboundLeads, createLead, bulkCreateLeads, updateLead, deleteLead } = require('../lib/outbound-leads');
@@ -353,7 +353,7 @@ router.get('/calls/:id/recording', async (req, res) => {
 // SECURITY: priceId and setupPriceId are validated against a server-side
 // allowlist — client-supplied IDs are never used directly (issue #3).
 // successUrl and cancelUrl are always derived from APP_BASE_URL (issue #14).
-router.post('/billing/checkout', requireAal2, async (req, res) => {
+router.post('/billing/checkout', requireAal2, requireTenantOwner, async (req, res) => {
   try {
     let priceId;
     let setupPriceId;
@@ -422,7 +422,7 @@ router.post('/billing/checkout', requireAal2, async (req, res) => {
 
 // POST /admin/billing/portal — open the Stripe Customer Portal.
 // SECURITY: returnUrl is always derived from APP_BASE_URL (issue #14).
-router.post('/billing/portal', requireAal2, async (req, res) => {
+router.post('/billing/portal', requireAal2, requireTenantOwner, async (req, res) => {
   try {
     const { data: sub } = await supabase
       .from('subscriptions')
@@ -1006,6 +1006,97 @@ router.post('/chats/:id/close', async (req, res) => {
     console.error('[admin] close chat failed:', err.message);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// ---- Team / Users (per-tenant multi-user, 2 roles: owner | admin) ----
+const crypto = require('crypto');
+
+// GET /admin/users — list this tenant's members. Any member may view.
+router.get('/users', async (req, res) => {
+  const { data, error } = await supabase
+    .from('tenant_members')
+    .select('id, email, full_name, role, status, invited_at, accepted_at')
+    .eq('tenant_id', req.tenant.id)
+    .order('created_at', { ascending: true });
+  if (error) {
+    console.error('[admin] list users failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+  res.json({ users: data || [], myRole: req.tenantRole });
+});
+
+// POST /admin/users — invite a user by email (owner only).
+router.post('/users', requireAal2, requireTenantOwner, express.json(), async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const role = req.body.role === 'owner' ? 'owner' : 'admin';
+  if (!email || !email.includes('@')) return res.status(400).json({ error: 'A valid email is required.' });
+
+  const { data: existing } = await supabase
+    .from('tenant_members')
+    .select('id').eq('tenant_id', req.tenant.id).ilike('email', email).maybeSingle();
+  if (existing) return res.status(409).json({ error: 'That email is already a member or has a pending invite.' });
+
+  const token = crypto.randomBytes(24).toString('hex');
+  const invite_expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase.from('tenant_members').insert({
+    tenant_id: req.tenant.id, email, role, status: 'invited',
+    invite_token: token, invite_expires_at, invited_by: req.user.id,
+  }).select('id, email, full_name, role, status, invited_at').maybeSingle();
+  if (error) {
+    console.error('[admin] invite user failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+
+  const base = (process.env.WEB_BASE_URL || process.env.APP_BASE_URL || '').replace(/\/+$/, '');
+  const link = `${base}/invite/${token}`;
+  await sendEmail({
+    to: email,
+    subject: `You're invited to ${req.tenant.business_name} on SoCal Receptionist`,
+    html: `<p>You've been invited to join <strong>${req.tenant.business_name}</strong> as a ${role}.</p>
+           <p><a href="${link}">Accept your invitation</a> and set up your account. This link expires in 7 days.</p>`,
+    text: `You've been invited to join ${req.tenant.business_name} as a ${role}. Accept: ${link} (expires in 7 days).`,
+  });
+
+  // Return the link too, so the owner can copy/share it even if email is unavailable.
+  res.json({ user: data, invite_link: link });
+});
+
+// PATCH /admin/users/:id — change a member's role (owner only).
+router.patch('/users/:id', requireAal2, requireTenantOwner, express.json(), async (req, res) => {
+  const role = req.body.role === 'owner' ? 'owner' : 'admin';
+  const { data, error } = await supabase
+    .from('tenant_members')
+    .update({ role })
+    .eq('id', req.params.id).eq('tenant_id', req.tenant.id)
+    .select('id, email, full_name, role, status').maybeSingle();
+  if (error) {
+    console.error('[admin] update member failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+  if (!data) return res.status(404).json({ error: 'Member not found.' });
+  res.json({ user: data });
+});
+
+// DELETE /admin/users/:id — remove a member or pending invite (owner only).
+router.delete('/users/:id', requireAal2, requireTenantOwner, async (req, res) => {
+  const { data: target } = await supabase
+    .from('tenant_members')
+    .select('id, role').eq('id', req.params.id).eq('tenant_id', req.tenant.id).maybeSingle();
+  if (!target) return res.status(404).json({ error: 'Member not found.' });
+  if (target.role === 'owner') {
+    const { count } = await supabase
+      .from('tenant_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', req.tenant.id).eq('role', 'owner').eq('status', 'active');
+    if ((count || 0) <= 1) return res.status(400).json({ error: 'Cannot remove the last owner.' });
+  }
+  const { error } = await supabase
+    .from('tenant_members').delete().eq('id', req.params.id).eq('tenant_id', req.tenant.id);
+  if (error) {
+    console.error('[admin] remove member failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+  res.json({ ok: true });
 });
 
 module.exports = router;

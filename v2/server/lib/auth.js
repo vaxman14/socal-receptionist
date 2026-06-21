@@ -78,10 +78,16 @@ async function requireAal2(req, res, next) {
   }
 }
 
-// Load the tenant owned by the caller and attach req.tenant. Use after requireAuth.
+// Load the caller's tenant and attach req.tenant + req.tenantRole.
+//
+// Resolution order (backward-compatible):
+//   1. Legacy fast path — tenants.owner_user_id === caller. role = 'owner'.
+//   2. Membership path — an active tenant_members row for the caller.
+//      role = that row's role ('owner' | 'admin').
+// Existing single-owner accounts are unaffected by the membership fallback.
 async function requireTenant(req, res, next) {
   try {
-    const { data, error } = await supabase
+    let { data: tenant, error } = await supabase
       .from('tenants')
       .select('*')
       .eq('owner_user_id', req.user.id)
@@ -89,8 +95,27 @@ async function requireTenant(req, res, next) {
       .limit(1)
       .maybeSingle();
     if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'no tenant for this account' });
-    req.tenant = data;
+    let role = tenant ? 'owner' : null;
+
+    if (!tenant) {
+      const { data: member } = await supabase
+        .from('tenant_members')
+        .select('tenant_id, role')
+        .eq('user_id', req.user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (member) {
+        const { data: t } = await supabase
+          .from('tenants').select('*').eq('id', member.tenant_id).maybeSingle();
+        if (t) { tenant = t; role = member.role; }
+      }
+    }
+
+    if (!tenant) return res.status(404).json({ error: 'no tenant for this account' });
+    req.tenant = tenant;
+    req.tenantRole = role;
     return next();
   } catch (err) {
     console.error('[auth] requireTenant failed:', err.message);
@@ -98,4 +123,13 @@ async function requireTenant(req, res, next) {
   }
 }
 
-module.exports = { requireAuth, requirePlatformAdmin, requireTenant, requireAal2 };
+// Require the caller to be the tenant OWNER (not an admin member). Use after
+// requireTenant. Gates billing + account-closing actions per the role model.
+function requireTenantOwner(req, res, next) {
+  if (req.tenantRole !== 'owner') {
+    return res.status(403).json({ error: 'owner role required', code: 'owner_only' });
+  }
+  return next();
+}
+
+module.exports = { requireAuth, requirePlatformAdmin, requireTenant, requireTenantOwner, requireAal2 };

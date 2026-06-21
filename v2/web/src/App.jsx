@@ -23,6 +23,7 @@ import Wizard from './pages/onboarding/Wizard';
 import Register from './pages/Register';
 import Welcome from './pages/Welcome';
 import ResetPassword from './pages/ResetPassword';
+import InviteAccept from './pages/InviteAccept';
 
 // SessionStorage cache for MFA gate — avoids 2 network round-trips on every
 // reload when the user has already cleared MFA in this browser session.
@@ -51,6 +52,7 @@ export default function App() {
   // Public routes: accessible without a session.
   if (location.pathname.startsWith('/register')) return <Register />;
   if (location.pathname.startsWith('/reset-password')) return <ResetPassword />;
+  if (location.pathname.startsWith('/invite/')) return <InviteAccept />;
 
   if (loading) return <Loading label="Loading…" />;
   if (!session) return <Login />;

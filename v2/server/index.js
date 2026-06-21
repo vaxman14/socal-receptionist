@@ -29,6 +29,7 @@ const onboardingRegisterRouter = require('./onboarding/register');
 const onboardingNumbersRouter = require('./onboarding/numbers');
 const onboardingChatRouter = require('./onboarding/chat');
 const onboardingActivateRouter = require('./onboarding/activate');
+const inviteRouter = require('./onboarding/invite');
 const mfaRouter = require('./auth/mfa');
 const integrationsRouter = require('./integrations/router');
 const supportChatRouter = require('./support-chat');
@@ -294,6 +295,7 @@ app.use('/onboarding', onboardingChatRouter);
 app.use('/onboarding', onboardingActivateRouter);
 app.use('/onboarding', onboardingAgreementRouter);
 app.use('/onboarding', onboardingNumbersRouter);
+app.use('/', strictLimiter, inviteRouter);
 
 // MFA API — trusted-device ("trust this device for 30 days") issue / verify /
 // revoke. The TOTP + passkey factors themselves are handled by Supabase Auth

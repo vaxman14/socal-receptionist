@@ -13,6 +13,7 @@ import Marketing from './Marketing';
 import Reminders from './Reminders';
 import Settings from './Settings';
 import Billing from './Billing';
+import Users from './Users';
 import Help from '../Help';
 // Platform-admin pages — shown to super-admins in addition to their client app.
 import PlatformOverview from '../owner/PlatformOverview';
@@ -30,6 +31,7 @@ const LINKS = [
   { to: '/marketing', label: 'Marketing' },
   { to: '/reminders', label: 'Reminders' },
   { to: '/settings', label: 'Settings' },
+  { to: '/users', label: 'Users' },
   { to: '/billing', label: 'Billing' },
   { to: '/help', label: 'Help & FAQ' },
 ];
@@ -57,6 +59,7 @@ export default function ClientApp({ isPlatformAdmin = false }) {
         <Route path="marketing" element={<Marketing />} />
         <Route path="reminders" element={<Reminders />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="users" element={<Users />} />
         <Route path="billing" element={<Billing />} />
         <Route path="help" element={<Help />} />
         {isPlatformAdmin && [
