@@ -235,6 +235,16 @@ table.data tbody tr.clickable:hover { background: var(--light); }
   color: #6f7d9c;
 }
 
+.sidebar-group-label {
+  margin: 16px 6px 6px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8b97b3;
+}
 .sidebar-nav { flex: 1; padding: 6px 12px; overflow-y: auto; }
 .sidebar-nav a {
   display: flex;

@@ -14,6 +14,12 @@ import Reminders from './Reminders';
 import Settings from './Settings';
 import Billing from './Billing';
 import Help from '../Help';
+// Platform-admin pages — shown to super-admins in addition to their client app.
+import PlatformOverview from '../owner/PlatformOverview';
+import Tenants from '../owner/Tenants';
+import TenantDetail from '../owner/TenantDetail';
+import Documents from '../owner/Documents';
+import AuditLog from '../owner/AuditLog';
 
 const LINKS = [
   { to: '/', label: 'Overview', end: true },
@@ -28,9 +34,18 @@ const LINKS = [
   { to: '/help', label: 'Help & FAQ' },
 ];
 
-export default function ClientApp() {
+// Mounted at free paths (no collision with client routes) so the owner pages'
+// internal navigation (e.g. navigate('/tenants/:id')) keeps working unmodified.
+const ADMIN_LINKS = [
+  { to: '/platform', label: 'Platform' },
+  { to: '/tenants', label: 'All Tenants' },
+  { to: '/documents', label: 'Documents' },
+  { to: '/audit', label: 'Audit Log' },
+];
+
+export default function ClientApp({ isPlatformAdmin = false }) {
   return (
-    <AppShell scope="client" links={LINKS}>
+    <AppShell scope="client" links={LINKS} adminLinks={isPlatformAdmin ? ADMIN_LINKS : null}>
       <Routes>
         <Route index element={<Overview />} />
         <Route path="leads" element={<Leads />} />
@@ -44,6 +59,13 @@ export default function ClientApp() {
         <Route path="settings" element={<Settings />} />
         <Route path="billing" element={<Billing />} />
         <Route path="help" element={<Help />} />
+        {isPlatformAdmin && [
+          <Route key="platform" path="platform" element={<PlatformOverview />} />,
+          <Route key="tenants" path="tenants" element={<Tenants />} />,
+          <Route key="tenant-detail" path="tenants/:id" element={<TenantDetail />} />,
+          <Route key="documents" path="documents" element={<Documents />} />,
+          <Route key="audit" path="audit" element={<AuditLog />} />,
+        ]}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

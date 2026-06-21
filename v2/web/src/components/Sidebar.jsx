@@ -3,7 +3,7 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export function AppShell({ scope, links, children }) {
+export function AppShell({ scope, links, adminLinks, children }) {
   const { user, signOut } = useAuth();
 
   return (
@@ -23,6 +23,16 @@ export function AppShell({ scope, links, children }) {
               {l.label}
             </NavLink>
           ))}
+          {adminLinks && adminLinks.length > 0 && (
+            <>
+              <div className="sidebar-group-label">Admin</div>
+              {adminLinks.map((l) => (
+                <NavLink key={l.to} to={l.to} end={l.end}>
+                  {l.label}
+                </NavLink>
+              ))}
+            </>
+          )}
         </nav>
         <div className="sidebar-foot">
           <div className="email">{user?.email}</div>
@@ -48,6 +58,12 @@ export function AppShell({ scope, links, children }) {
               {l.label}
             </NavLink>
           ))}
+          {adminLinks &&
+            adminLinks.map((l) => (
+              <NavLink key={l.to} to={l.to} end={l.end}>
+                {l.label}
+              </NavLink>
+            ))}
         </nav>
         <main className="content">{children}</main>
       </div>

@@ -27,9 +27,12 @@ function readRoleCache(userId) {
   return null;
 }
 
-function writeRoleCache(userId, role, tenant) {
+function writeRoleCache(userId, role, tenant, isPlatformAdmin) {
   try {
-    sessionStorage.setItem(`scr.role.${userId}`, JSON.stringify({ role, tenant, ts: Date.now() }));
+    sessionStorage.setItem(
+      `scr.role.${userId}`,
+      JSON.stringify({ role, tenant, isPlatformAdmin: !!isPlatformAdmin, ts: Date.now() }),
+    );
   } catch {}
 }
 
@@ -38,10 +41,10 @@ export function useRole() {
   const userId = session?.user?.id;
 
   const [state, setState] = useState(() => {
-    if (!userId) return { role: null, tenant: null, loading: true, error: null };
+    if (!userId) return { role: null, tenant: null, isPlatformAdmin: false, loading: true, error: null };
     const cached = readRoleCache(userId);
-    if (cached) return { role: cached.role, tenant: cached.tenant, loading: false, error: null };
-    return { role: null, tenant: null, loading: true, error: null };
+    if (cached) return { role: cached.role, tenant: cached.tenant, isPlatformAdmin: !!cached.isPlatformAdmin, loading: false, error: null };
+    return { role: null, tenant: null, isPlatformAdmin: false, loading: true, error: null };
   });
 
   const detect = useCallback(async () => {
@@ -50,36 +53,37 @@ export function useRole() {
       setState((s) => ({ ...s, loading: true, error: null }));
     }
     try {
-      // Owner check first.
+      // Platform-admin is a FLAG, not a separate surface. A super-admin who
+      // also owns a tenant gets the full client app PLUS an Admin section.
+      let isPlatformAdmin = false;
       try {
         await api.get('/admin/owner/stats');
-        const next = { role: 'owner', tenant: null, loading: false, error: null };
-        setState(next);
-        if (userId) writeRoleCache(userId, 'owner', null);
-        return;
+        isPlatformAdmin = true;
       } catch (err) {
         // 401 is handled globally; re-auth.
         if (err instanceof ApiError && err.status === 401) throw err;
-        // Only a definitive 403 means "not a platform owner". A network error
-        // or a 5xx means we COULDN'T determine the role — never fall through to
-        // (and cache) the client role on an ambiguous failure, or a transient
-        // outage locks a platform admin into the client view.
+        // Only a definitive 403 means "not a platform admin". A network error
+        // or a 5xx means we COULDN'T determine it — bail to the error state
+        // rather than mislabel a transient outage as "not admin".
         if (!(err instanceof ApiError) || err.status >= 500) throw err;
+        // 403 -> genuinely not a platform admin; continue.
       }
 
-      // Not the owner — does this account have a tenant yet?
+      // Does this account have a tenant yet?
       const data = await api.get('/onboarding/business');
-      if (data && data.tenant) {
-        setState({ role: 'client', tenant: data.tenant, loading: false, error: null });
-        if (userId) writeRoleCache(userId, 'client', data.tenant);
-      } else {
-        setState({ role: 'onboarding', tenant: null, loading: false, error: null });
-        // Don't cache 'onboarding' — it changes once setup is done.
-      }
+      const tenant = data && data.tenant ? data.tenant : null;
+
+      // Surface: a tenant -> client app (+ admin section if admin).
+      // No tenant but admin -> pure owner console. Neither -> onboarding wizard.
+      const role = tenant ? 'client' : isPlatformAdmin ? 'owner' : 'onboarding';
+      setState({ role, tenant, isPlatformAdmin, loading: false, error: null });
+      // Don't cache 'onboarding' — it changes once setup is done.
+      if (userId && role !== 'onboarding') writeRoleCache(userId, role, tenant, isPlatformAdmin);
     } catch (err) {
       setState({
         role: null,
         tenant: null,
+        isPlatformAdmin: false,
         loading: false,
         error: err.message || 'Could not determine your account type.',
       });

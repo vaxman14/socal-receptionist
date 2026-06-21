@@ -118,7 +118,7 @@ function MfaGate() {
 
 // Split out so useRole only runs once we know there is a session.
 function RoleRouter({ mfaAlreadyEnrolled }) {
-  const { role, loading, error, reload } = useRole();
+  const { role, isPlatformAdmin, loading, error, reload } = useRole();
   // If MfaGate confirmed a factor already exists, skip straight past enrollment.
   // This prevents a redundant "Loading…" flash on every page reload for users
   // who enrolled MFA during their initial setup.
@@ -136,7 +136,7 @@ function RoleRouter({ mfaAlreadyEnrolled }) {
   }
 
   if (role === 'owner') return <OwnerApp />;
-  if (role === 'client') return <ClientApp />;
+  if (role === 'client') return <ClientApp isPlatformAdmin={isPlatformAdmin} />;
 
   // Should not happen — role is always set once loading/error are clear.
   return <ErrorState message="Could not determine your account type." onRetry={reload} />;
