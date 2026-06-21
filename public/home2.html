@@ -85,7 +85,8 @@
     :root {
       --navy: #0f1f3d;
       --blue: #1a3a6e;
-      --orange: #f47c20;
+      --orange: #c2410c;
+      --orange-bright: #f47c20;
       --orange-dark: #d96a10;
       --light: #f5f7fa;
       --text: #1a1a2e;
@@ -93,20 +94,21 @@
       --white: #ffffff;
     }
     html { scroll-behavior: smooth; }
+    main p a, footer p a, form a { text-decoration: underline; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text); background: var(--white); }
 
     /* NAV */
     nav { background: #031637; padding: 8px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .nav-logo { color: var(--white); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.3px; }
-    .nav-logo span { color: var(--orange); }
+    .nav-logo span { color: #fdba74; }
     .btn-nav { background: var(--orange); color: var(--white); border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; text-decoration: none; }
     .btn-nav:hover { background: var(--orange-dark); }
 
     /* HERO */
     .hero { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%); color: var(--white); padding: 80px 24px 90px; text-align: center; }
-    .hero-badge { display: inline-block; background: rgba(244,124,32,0.2); border: 1px solid var(--orange); color: var(--orange); padding: 6px 16px; border-radius: 100px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 24px; text-transform: uppercase; }
+    .hero-badge { display: inline-block; background: rgba(244,124,32,0.2); border: 1px solid var(--orange-bright); color: #fdba74; padding: 6px 16px; border-radius: 100px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 24px; text-transform: uppercase; }
     .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.15; max-width: 760px; margin: 0 auto 20px; }
-    .hero h1 span { color: var(--orange); }
+    .hero h1 span { color: #fdba74; }
     .hero p { font-size: 1.15rem; color: rgba(255,255,255,0.8); max-width: 560px; margin: 0 auto 36px; line-height: 1.6; }
     .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
     .btn-primary { background: var(--orange); color: var(--white); border: none; padding: 16px 32px; border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.2s, transform 0.1s; }
@@ -125,7 +127,7 @@
     .pain-card p { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
     /* Hero jingle (Josi poem) */
     .hero-jingle { font-style: italic; font-size: 1.15rem; line-height: 1.6; max-width: 600px; margin: -18px auto 30px; color: rgba(255,255,255,0.9); }
-    .hero-jingle strong { display: inline-block; margin-top: 8px; font-style: normal; color: var(--orange); font-size: 1.25rem; }
+    .hero-jingle strong { display: inline-block; margin-top: 8px; font-style: normal; color: #fdba74; font-size: 1.25rem; }
     /* INTEGRATIONS */
     .integrations { background: var(--light); padding: 72px 24px; text-align: center; }
     .integrations h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 16px; }
@@ -151,7 +153,7 @@
 
     /* CALCULATOR */
     .calc-section { background: var(--navy); color: var(--white); padding: 72px 24px; }
-    .calc-section .section-label { color: var(--orange); }
+    .calc-section .section-label { color: #fdba74; }
     .calc-section h2 { font-size: 1.8rem; font-weight: 800; text-align: center; margin-bottom: 8px; }
     .calc-section > p { text-align: center; color: rgba(255,255,255,0.7); margin-bottom: 48px; }
     .calc-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; max-width: 860px; margin: 0 auto; align-items: center; }
@@ -159,7 +161,7 @@
     .calc-inputs { display: flex; flex-direction: column; gap: 24px; }
     .calc-field label { display: block; font-size: 0.85rem; font-weight: 600; color: rgba(255,255,255,0.7); margin-bottom: 8px; }
     .calc-field input[type=range] { width: 100%; accent-color: var(--orange); cursor: pointer; }
-    .calc-field .range-val { font-size: 1.3rem; font-weight: 700; color: var(--orange); margin-top: 4px; }
+    .calc-field .range-val { font-size: 1.3rem; font-weight: 700; color: #fdba74; margin-top: 4px; }
     .calc-result { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 32px; text-align: center; }
     .calc-result .their-cost { margin-bottom: 24px; }
     .calc-result .their-cost .label { font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
@@ -226,6 +228,7 @@
   </div>
 </nav>
 
+<main>
 <!-- HERO -->
 <section class="hero">
   <div class="hero-badge">Try It Live — Right Now</div>
@@ -240,6 +243,7 @@
   <div class="callback-widget" style="max-width:430px;margin:24px auto 0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);border-radius:14px;padding:18px">
     <p style="font-weight:700;margin-bottom:10px">On a desktop? Have Josi call you in 10 seconds:</p>
     <form id="cb-form" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <label for="cb-phone" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Your phone number</label>
       <input id="cb-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(951) 555-0100" required style="flex:1;min-width:170px;padding:13px 14px;border-radius:10px;border:none;font-size:1rem;color:#111">
       <button id="cb-btn" type="submit" class="btn-primary" style="white-space:nowrap">📞 Call me now</button>
     </form>
@@ -404,11 +408,11 @@
   <div class="price-card" style="flex:1;min-width:280px;">
     <div class="price-name">Essentials</div>
     <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0;">
-      <span id="ess-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:inline;">$500/mo</span>
+      <span id="ess-strike" style="font-size:1.1rem;color:#6b7280;text-decoration:line-through;display:inline;">$500/mo</span>
     </div>
     <div class="price-amount"><span>$</span><span id="ess-price">400</span></div>
     <div class="price-period" id="ess-period">per month, billed as $4,800/yr</div>
-    <div class="price-setup" style="color:#22c55e;font-weight:600;">No setup fee</div>
+    <div class="price-setup" style="color:#15803d;font-weight:600;">No setup fee</div>
     <ul class="price-features">
       <li>24/7 AI receptionist</li>
       <li>Instant lead qualification & capture</li>
@@ -426,7 +430,7 @@
     <div class="price-badge">White-Glove Setup</div>
     <div class="price-name">Concierge</div>
     <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0;">
-      <span id="con-strike" style="font-size:1.1rem;color:#999;text-decoration:line-through;display:inline;">$500/mo</span>
+      <span id="con-strike" style="font-size:1.1rem;color:#6b7280;text-decoration:line-through;display:inline;">$500/mo</span>
     </div>
     <div class="price-amount"><span>$</span><span id="con-price">400</span></div>
     <div class="price-period" id="con-period">per month, billed as $4,800/yr</div>
@@ -500,11 +504,12 @@ function setBilling(mode) {
       <span>I agree to receive recurring automated marketing and informational text messages (offers, updates, appointment and scheduling messages, and responses to my inquiry) from SoCal Receptionist at the number provided. Consent is not a condition of purchase. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help.</span>
     </label>
     <p style="font-size:0.72rem;color:#6b7280;margin-top:6px;line-height:1.5">We never sell or share your mobile information. View our <a href="/sms-terms" style="color:#4f46e5">SMS Terms</a>, <a href="/privacy" style="color:#4f46e5">Privacy Policy</a>, and <a href="/terms" style="color:#4f46e5">Terms</a>.</p>
-    <p style="font-size:0.68rem;color:#9ca3af;margin-top:6px;line-height:1.5">Protected by reCAPTCHA. The Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#9ca3af;text-decoration:underline">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener" style="color:#9ca3af;text-decoration:underline">Terms of Service</a> apply.</p>
+    <p style="font-size:0.68rem;color:#6b7280;margin-top:6px;line-height:1.5">Protected by reCAPTCHA. The Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#6b7280;text-decoration:underline">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener" style="color:#6b7280;text-decoration:underline">Terms of Service</a> apply.</p>
     <div class="form-success" id="form-success">🎉 Got it! We'll reach out within a few hours to schedule your demo.</div>
     <div class="form-error" id="form-error">Something went wrong. Please try again or text us directly.</div>
   </form>
 </section>
+</main>
 
 <footer>
   <p>© 2026 SoCal Receptionist, LLC · Murrieta, CA</p>

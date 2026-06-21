@@ -11,6 +11,7 @@
   *{margin:0;padding:0;box-sizing:border-box}
   :root{--grad:linear-gradient(135deg,#ff5a1f,#e91e8c,#7b2fbe);--text:#0b1430;--muted:#6b7280;--border:#e5e7eb}
   body{font-family:'Inter',-apple-system,sans-serif;color:var(--text);background:#f7f8fc;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px;line-height:1.5}
+  main p a, footer p a, form a { text-decoration: underline; }
   .grad{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
   .card{background:#fff;border:1px solid var(--border);border-radius:18px;max-width:520px;width:100%;padding:34px;box-shadow:0 16px 40px rgba(20,30,60,.08)}
   img.logo{width:230px;max-width:80%;height:auto;display:block;margin:0 auto 22px}
@@ -33,6 +34,7 @@
 </style>
 </head>
 <body>
+<main>
   <div class="card">
     <img class="logo" src="/images/logo-clean.png" alt="SoCal Receptionist">
     <div id="form">
@@ -61,6 +63,7 @@
       <p>Thanks. You will receive a confirmation text shortly. Reply STOP at any time to opt out, or HELP for help.</p>
     </div>
   </div>
+</main>
 
 <script>
   function submitForm(e){
