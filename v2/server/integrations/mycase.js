@@ -103,8 +103,8 @@ async function saveTokens(tenantId, tokens, extra = {}) {
   await supabase.from('tenant_integrations').upsert({
     tenant_id: tenantId,
     provider: 'mycase',
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token,
+    access_token: encryptToken(tokens.access_token),
+    refresh_token: encryptToken(tokens.refresh_token),
     token_expires_at: new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString(),
     extra,
     enabled: true,
