@@ -93,7 +93,14 @@ function apiBase() {
 }
 
 function spaBase() {
-  return (process.env.APP_BASE_URL || 'https://app.socalreceptionist.com').replace(/\/+$/, '');
+  // Redirect the browser back to the SPA origin the user is actually logged into.
+  // WEB_BASE_URL is the canonical prod app origin; APP_BASE_URL may still point at
+  // app2 (staging alias), which is a different origin and would appear signed out.
+  return (
+    process.env.WEB_BASE_URL ||
+    process.env.APP_BASE_URL ||
+    'https://app.socalreceptionist.com'
+  ).replace(/\/+$/, '');
 }
 
 // ---------------------------------------------------------------------------

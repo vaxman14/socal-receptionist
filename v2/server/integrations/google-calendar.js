@@ -44,19 +44,38 @@ function buildAuthUrl(baseUrl, state) {
 }
 
 async function exchangeCode(code, baseUrl) {
-  const res = await fetch(TOKEN_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body:    new URLSearchParams({
-      client_id:     CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      grant_type:    'authorization_code',
-      code,
-      redirect_uri:  getRedirectUri(baseUrl),
-    }),
-  });
-  if (!res.ok) throw new Error(`Google token exchange failed: ${res.status} ${await res.text()}`);
-  return res.json();
+  const params = {
+    client_id:     CLIENT_ID,
+    client_secret: CLIENT_SECRET,
+    grant_type:    'authorization_code',
+    code,
+    redirect_uri:  getRedirectUri(baseUrl),
+  };
+  // Retry transient network failures (e.g. undici "Premature close" / "other
+  // side closed" on a reused keep-alive socket). A real 4xx from Google is NOT
+  // retried — that's a genuine config/code error.
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(TOKEN_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:    new URLSearchParams(params),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        const err = new Error(`Google token exchange failed: ${res.status} ${text}`);
+        err.httpStatus = res.status;
+        throw err;
+      }
+      return res.json();
+    } catch (err) {
+      lastErr = err;
+      if (err.httpStatus) throw err; // real HTTP error from Google — don't retry
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 async function refreshAccessToken(tenantId) {
