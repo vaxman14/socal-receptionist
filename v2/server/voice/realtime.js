@@ -269,7 +269,7 @@ function handleMediaStream(twilioWs, req) {
       // Queue AI audio, transcoded to mu-law and paced to Twilio in 20ms frames.
       case 'response.output_audio.delta': {
         if (event.delta) {
-          try { playQueue = Buffer.concat([playQueue, pcmDeltaToMulaw(event.delta)]); } catch {}
+          try { playQueue = Buffer.concat([playQueue, Buffer.from(event.delta, 'base64')]); } catch {}
         }
         break;
       }
@@ -357,8 +357,8 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
             transcription: { model: 'gpt-4o-transcribe' },
           },
           output: {
-            // PCM16@24kHz — we transcode to mu-law 8kHz ourselves (pcmDeltaToMulaw).
-            format: { type: 'audio/pcm', rate: 24000 },
+            // Mu-law 8kHz direct from OpenAI, forwarded straight to Twilio (no transcode).
+            format: { type: 'audio/pcmu' },
             voice: realtimeVoice,
           },
         },
