@@ -85,33 +85,32 @@
     :root {
       --navy: #0f1f3d;
       --blue: #1a3a6e;
-      --orange: #c2410c;        /* AA-accessible: 5.2:1 on white + white text passes */
-      --orange-dark: #9a3412;
-      --orange-bright: #f47c20;  /* bright brand orange: button BG (w/ dark text), text on dark, decorative */
+      --orange: #c2410c;
+      --orange-bright: #f47c20;
+      --orange-dark: #d96a10;
       --orange-bright-hover: #e06d10;
-      --on-bright: #1a1a1a;       /* near-black text for use ON bright orange — high contrast */
+      --on-bright: #1a1a1a;       /* near-black text for use ON bright orange */
       --light: #f5f7fa;
       --text: #1a1a2e;
       --muted: #6b7280;
       --white: #ffffff;
     }
     html { scroll-behavior: smooth; }
-    /* WCAG 1.4.1: in-text links must be distinguishable by more than color */
-    main p a, footer p a, .demo-form a { text-decoration: underline; }
+    main p a, footer p a, form a { text-decoration: underline; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text); background: var(--white); }
 
     /* NAV */
     nav { background: #031637; padding: 8px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .nav-logo { color: var(--white); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.3px; }
-    .nav-logo span { color: var(--orange-bright); }
+    .nav-logo span { color: #fdba74; }
     .btn-nav { background: var(--orange-bright); color: var(--on-bright); border: none; padding: 10px 20px; border-radius: 6px; font-weight: 700; font-size: 0.9rem; cursor: pointer; text-decoration: none; }
     .btn-nav:hover { background: var(--orange-bright-hover); }
 
     /* HERO */
     .hero { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%); color: var(--white); padding: 80px 24px 90px; text-align: center; }
-    .hero-badge { display: inline-block; background: rgba(244,124,32,0.18); border: 1px solid var(--orange-bright); color: #fdba74; padding: 6px 16px; border-radius: 100px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 24px; text-transform: uppercase; }
+    .hero-badge { display: inline-block; background: rgba(244,124,32,0.2); border: 1px solid var(--orange-bright); color: #fdba74; padding: 6px 16px; border-radius: 100px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 24px; text-transform: uppercase; }
     .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.15; max-width: 760px; margin: 0 auto 20px; }
-    .hero h1 span { color: var(--orange-bright); }
+    .hero h1 span { color: #fdba74; }
     .hero p { font-size: 1.15rem; color: rgba(255,255,255,0.8); max-width: 560px; margin: 0 auto 36px; line-height: 1.6; }
     .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
     .btn-primary { background: var(--orange-bright); color: var(--on-bright); border: none; padding: 16px 32px; border-radius: 8px; font-weight: 800; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.2s, transform 0.1s; }
@@ -128,6 +127,19 @@
     .pain-card { background: var(--white); border-radius: 10px; padding: 24px; border-left: 4px solid var(--orange-bright); box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: left; flex: 0 1 280px; }
     .pain-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
     .pain-card p { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+    /* Hero jingle (Josi poem) */
+    .hero-jingle { font-style: italic; font-size: 1.15rem; line-height: 1.6; max-width: 600px; margin: -18px auto 30px; color: rgba(255,255,255,0.9); }
+    .hero-jingle strong { display: inline-block; margin-top: 8px; font-style: normal; color: #fdba74; font-size: 1.25rem; }
+    /* INTEGRATIONS */
+    .integrations { background: var(--light); padding: 72px 24px; text-align: center; }
+    .integrations h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 16px; }
+    .int-sub { font-size: 1.05rem; color: var(--muted); max-width: 620px; margin: 0 auto 44px; line-height: 1.6; }
+    .int-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 960px; margin: 0 auto; }
+    .int-card { background: var(--white); border-radius: 10px; padding: 24px; border-top: 3px solid var(--orange-bright); box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: left; }
+    .int-card h4 { font-size: 1.05rem; font-weight: 800; margin-bottom: 12px; }
+    .int-card span { display: inline-block; background: #eef1f6; color: var(--text); font-size: 0.82rem; font-weight: 600; padding: 4px 10px; border-radius: 6px; margin: 0 6px 6px 0; }
+    @media (max-width: 760px) { .int-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 440px) { .int-grid { grid-template-columns: 1fr; } }
 
     /* HOW IT WORKS */
     .how { padding: 72px 24px; text-align: center; }
@@ -159,17 +171,17 @@
     .calc-result .our-cost { margin-bottom: 24px; }
     .calc-result .our-cost .label { font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
     .calc-result .our-cost .amount { font-size: 2.2rem; font-weight: 800; color: #4ade80; }
-    .savings-banner { background: var(--orange-bright); border-radius: 8px; padding: 16px; }
-    .savings-banner .label { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--on-bright); margin-bottom: 4px; }
+    .savings-banner { background: var(--orange-bright); border-radius: 8px; padding: 16px; color: var(--on-bright); }
+    .savings-banner .label { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.85; margin-bottom: 4px; color: var(--on-bright); }
     .savings-banner .amount { font-size: 1.8rem; font-weight: 800; color: var(--on-bright); }
-    .calc-note { font-size: 0.75rem; color: rgba(255,255,255,0.75); margin-top: 12px; }
+    .calc-note { font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 12px; }
 
     /* PRICING */
     .pricing { padding: 72px 24px; text-align: center; background: var(--light); }
     .pricing h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
     .pricing > p { color: var(--muted); margin-bottom: 32px; }
     .billing-toggle { display: inline-flex; background: #e5e7eb; border-radius: 100px; padding: 4px; margin-bottom: 40px; gap: 2px; }
-    .billing-toggle button { border: none; background: transparent; padding: 8px 22px; border-radius: 100px; font-size: 0.9rem; font-weight: 600; cursor: pointer; color: #374151; transition: all 0.2s; }
+    .billing-toggle button { border: none; background: transparent; padding: 8px 22px; border-radius: 100px; font-size: 0.9rem; font-weight: 600; cursor: pointer; color: var(--muted); transition: all 0.2s; }
     .billing-toggle button.active { background: var(--white); color: var(--navy); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .annual-badge { display: inline-block; background: #dcfce7; color: #15803d; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 100px; margin-left: 6px; vertical-align: middle; }
     .price-card { background: var(--white); border-radius: 14px; padding: 40px; max-width: 440px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 2px solid var(--orange-bright); position: relative; }
@@ -218,13 +230,13 @@
   </div>
 </nav>
 
-<main id="main">
-
+<main>
 <!-- HERO -->
 <section class="hero">
   <div class="hero-badge">Try It Live — Right Now</div>
   <h1>Don't Read About Our AI. <span>Talk to It.</span></h1>
   <p>Call the number below. You'll reach our AI receptionist — the same one that could be answering your business 24/7. Ask it anything. It'll tell you what it does.</p>
+  <p class="hero-jingle">"She never calls in sick, she never talks back. Cool under pressure, always on track. When you need her the most, she's got your back."<br><strong>Meet Josi.</strong></p>
   <div class="hero-cta">
     <a href="tel:+19514776060" class="btn-primary">📞 Call (951) 477-6060</a>
     <a href="/video" class="btn-primary">▶️ Watch the 2-minute demo</a>
@@ -233,6 +245,7 @@
   <div class="callback-widget" style="max-width:430px;margin:24px auto 0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);border-radius:14px;padding:18px">
     <p style="font-weight:700;margin-bottom:10px">On a desktop? Have Josi call you in 10 seconds:</p>
     <form id="cb-form" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <label for="cb-phone" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Your phone number</label>
       <input id="cb-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(951) 555-0100" required style="flex:1;min-width:170px;padding:13px 14px;border-radius:10px;border:none;font-size:1rem;color:#111">
       <button id="cb-btn" type="submit" class="btn-primary" style="white-space:nowrap">📞 Call me now</button>
     </form>
@@ -334,6 +347,21 @@
 </section>
 
 <!-- CALCULATOR -->
+<!-- INTEGRATIONS -->
+<section class="integrations" id="integrations">
+  <div class="section-label">Works With Your Software</div>
+  <h2>Built for your profession, not a generic bot.</h2>
+  <p class="int-sub">Josi connects to the tools your industry already runs, so a captured call becomes a real client in the system you already use.</p>
+  <div class="int-grid">
+    <div class="int-card"><h4>⚖️ Legal</h4><span>Clio</span><span>MyCase</span><span>PracticePanther</span></div>
+    <div class="int-card"><h4>🩺 Medical</h4><span>DrChrono</span><span>athenahealth</span><span>SimplePractice</span></div>
+    <div class="int-card"><h4>🦷 Dental</h4><span>Open Dental</span><span>Dentrix</span><span>Eaglesoft</span></div>
+    <div class="int-card"><h4>💵 Accounting</h4><span>QuickBooks</span><span>Karbon</span><span>TaxDome</span></div>
+    <div class="int-card"><h4>🔧 Home Services</h4><span>Jobber</span><span>Housecall Pro</span><span>ServiceTitan</span></div>
+    <div class="int-card"><h4>🗓️ Calendar &amp; CRM</h4><span>Google</span><span>Microsoft</span><span>HubSpot</span><span>Salesforce</span></div>
+  </div>
+</section>
+
 <section class="calc-section" id="calculator">
   <div class="section-label" style="text-align:center">Savings Calculator</div>
   <h2>See What a Human Receptionist Really Costs</h2>
@@ -341,12 +369,12 @@
   <div class="calc-wrapper">
     <div class="calc-inputs">
       <div class="calc-field">
-        <label for="wage">Receptionist hourly wage</label>
+        <label>Receptionist hourly wage</label>
         <input type="range" id="wage" min="16" max="35" value="20" step="1">
         <div class="range-val" id="wage-val">$20 / hour</div>
       </div>
       <div class="calc-field">
-        <label for="hours">Hours per week needed</label>
+        <label>Hours per week needed</label>
         <input type="range" id="hours" min="10" max="50" value="40" step="5">
         <div class="range-val" id="hours-val">40 hrs / week</div>
       </div>
@@ -483,7 +511,6 @@ function setBilling(mode) {
     <div class="form-error" id="form-error">Something went wrong. Please try again or text us directly.</div>
   </form>
 </section>
-
 </main>
 
 <footer>
@@ -491,7 +518,7 @@ function setBilling(mode) {
   <p style="margin-top:8px"><a href="/faq">FAQ</a> · <a href="/support">Support</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Use</a> · <a href="/sms-terms">SMS Terms</a> · <a href="/cookies">Cookie Policy</a> · <a href="/accessibility">Accessibility</a></p>
   <p style="margin-top:8px;font-size:0.75rem">By texting (951) 477-6060 you consent to receive automated SMS replies from SoCal Receptionist. Msg &amp; data rates may apply. Message frequency varies. Reply STOP to opt out, HELP for help. See our <a href="/sms-terms" style="color:rgba(255,255,255,0.6)">SMS Terms</a>.</p>
   <p style="margin-top:12px">
-    <a href="https://ctfdesigns.com" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;text-decoration:none;color:rgba(255,255,255,0.72);font-size:0.78rem;transition:color 0.2s" onmouseover="this.style.color='rgba(255,255,255,1)'" onmouseout="this.style.color='rgba(255,255,255,0.72)'">
+    <a href="https://ctfdesigns.com" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;text-decoration:none;color:rgba(255,255,255,0.4);font-size:0.78rem;transition:color 0.2s" onmouseover="this.style.color='rgba(255,255,255,0.8)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">
       <img src="https://ctfdesigns.com/images/logo.png" alt="CTF Designs" style="width:15px;height:15px;border-radius:50%;object-fit:cover;vertical-align:middle">
       Built by CTF Designs
     </a>

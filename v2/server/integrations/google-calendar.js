@@ -214,6 +214,20 @@ async function listUsers(tenantId) {
     }));
 }
 
+// Format a Date as local wall-clock ("YYYY-MM-DDTHH:mm:ss", no offset) in `tz`.
+// Google reads dateTime+timeZone unambiguously when there's no trailing 'Z'.
+// Sending an ISO string WITH 'Z' alongside a timeZone makes Google render the
+// "17:00" digits in PT (→ 5pm) instead of the intended 10am — a 7h tz shift.
+function localWallClock(date, tz) {
+  const p = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(date).reduce((a, x) => (a[x.type] = x.value, a), {});
+  const hh = p.hour === '24' ? '00' : p.hour;
+  return `${p.year}-${p.month}-${p.day}T${hh}:${p.minute}:${p.second}`;
+}
+
 // Create an event on the tenant's primary calendar.
 async function createEvent(tenantId, { title, startIso, durationMins = 30, attendeeEmail, attendeeName, timezone = 'America/Los_Angeles' }) {
   const accessToken = await getAccessToken(tenantId);
@@ -222,14 +236,16 @@ async function createEvent(tenantId, { title, startIso, durationMins = 30, atten
 
   const body = {
     summary: title,
-    start:   { dateTime: start.toISOString(), timeZone: timezone },
-    end:     { dateTime: end.toISOString(),   timeZone: timezone },
+    start:   { dateTime: localWallClock(start, timezone), timeZone: timezone },
+    end:     { dateTime: localWallClock(end,   timezone), timeZone: timezone },
     ...(attendeeEmail ? {
       attendees: [{ email: attendeeEmail, displayName: attendeeName || attendeeEmail }],
     } : {}),
   };
 
-  const res = await fetch(`${CAL_BASE}/calendars/primary/events`, {
+  // sendUpdates=all → Google emails the attendee (the caller) a calendar invite,
+  // which is their booking confirmation. Without it Google stays silent.
+  const res = await fetch(`${CAL_BASE}/calendars/primary/events?sendUpdates=all`, {
     method:  'POST',
     agent:   googleAgent,
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },

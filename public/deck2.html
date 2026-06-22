@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoCal Receptionist — Investor Deck</title>
+<meta property="og:title" content="SoCal Receptionist — Meet Josi">
+<meta property="og:description" content="The AI receptionist that replaces the front desk and works inside the software your business already runs.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --navy: #1a1a2e; --bg: #ffffff; --bg2: #f7f8fc;
+    --orange: #ff5a1f; --pink: #e91e8c; --purple: #7b2fbe;
+    --grad: linear-gradient(135deg, #ff5a1f, #e91e8c, #7b2fbe);
+    --muted: #7a7a88; --card: #f4f5f9; --border: rgba(0,0,0,0.08); --text: #1a1a2e;
+  }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+  .slide { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 7vw 8vw; position: relative; border-bottom: 1px solid var(--border); }
+  .grad { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .label { font-size: 0.8rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 18px; }
+  h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); font-weight: 900; letter-spacing: -1.5px; line-height: 1.05; }
+  h2 { font-size: clamp(1.8rem, 3.6vw, 2.7rem); font-weight: 800; letter-spacing: -1px; line-height: 1.1; margin-bottom: 26px; }
+  p.lead { font-size: clamp(1.05rem, 1.6vw, 1.35rem); color: #444; line-height: 1.6; max-width: 760px; }
+  .muted { color: var(--muted); }
+  .cards { display: grid; gap: 18px; margin-top: 34px; }
+  .c2 { grid-template-columns: repeat(2, 1fr); } .c3 { grid-template-columns: repeat(3, 1fr); } .c4 { grid-template-columns: repeat(4, 1fr); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 26px; }
+  .card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 8px; }
+  .card p { font-size: 0.98rem; color: #555; line-height: 1.5; }
+  .stat { font-size: clamp(2rem, 4vw, 3rem); font-weight: 900; }
+  .pill { display: inline-block; padding: 7px 16px; border-radius: 100px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; border: 1px solid rgba(255,90,31,0.3); }
+  .pill.grad { -webkit-text-fill-color: transparent; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; }
+  /* cover */
+  .cover { align-items: center; text-align: center; }
+  .cover img.logo { width: min(420px, 80vw); height: auto; margin-bottom: 30px; }
+  .cover .tagline { font-size: clamp(1.1rem, 2vw, 1.5rem); color: #555; max-width: 640px; margin: 22px auto 30px; line-height: 1.5; }
+  .cover .meet { font-size: clamp(2.6rem, 6vw, 4.2rem); font-weight: 900; letter-spacing: -2px; }
+  .statbar { display: flex; gap: 56px; justify-content: center; flex-wrap: wrap; margin-top: 44px; }
+  .statbar .s small { display: block; font-size: 0.8rem; color: var(--muted); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-top: 6px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+  .check { font-weight: 700; }
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .vs .bad { border-left: 4px solid #d23; } .vs .good { border-left: 4px solid; border-image: var(--grad) 1; }
+  @media (max-width: 820px){ .c2,.c3,.c4,.two,.vs{ grid-template-columns: 1fr; } .slide{ padding: 12vw 7vw; } }
+</style>
+</head>
+<body>
+
+<!-- 1. COVER -->
+<section class="slide cover">
+  <img class="logo" src="https://www.socalreceptionist.com/images/logo-clean.png" alt="SoCal Receptionist" onerror="this.style.display='none'">
+  <div class="meet grad">Meet Josi.</div>
+  <p class="tagline">The AI receptionist that replaces the front desk and works inside the software your business already runs.</p>
+  <div class="row" style="justify-content:center">
+    <span class="pill grad">Pre-Seed</span>
+    <span class="pill grad">Live Product</span>
+    <span class="pill grad">Vertical AI</span>
+  </div>
+  <div class="statbar">
+    <div class="s"><div class="stat grad">24/7</div><small>Never misses a call</small></div>
+    <div class="s"><div class="stat grad">From $500</div><small>Per month, per business</small></div>
+    <div class="s"><div class="stat grad">Live</div><small>Call (951) 477-6060</small></div>
+  </div>
+</section>
+
+<!-- 2. PROBLEM -->
+<section class="slide">
+  <div class="label grad">The Problem</div>
+  <h2>Every missed call is lost revenue. The fix has always been broken.</h2>
+  <p class="lead">When a prospect calls a lawyer, a dentist, or a plumber and gets voicemail, they hang up and call the next name on the list. So owners hire a receptionist. That receptionist is expensive, works one shift, calls in sick, and eventually quits.</p>
+  <div class="cards c3">
+    <div class="card"><h3>Calls go unanswered</h3><p>After hours, lunch, and overflow calls fall straight to voicemail. The lead is gone.</p></div>
+    <div class="card"><h3>Humans are costly and fragile</h3><p>A front-desk hire runs $40,000+ a year, covers one shift, and turns over constantly.</p></div>
+    <div class="card"><h3>Owners are trapped</h3><p>The phone owns the business owner. There is no vacation, no date night, no off switch.</p></div>
+  </div>
+</section>
+
+<!-- 3. WHY NOW -->
+<section class="slide" style="background:var(--bg2)">
+  <div class="label grad">Why Now</div>
+  <h2>Voice AI just crossed the line where callers cannot tell.</h2>
+  <p class="lead">Real-time voice models are finally fast and natural enough to hold a real conversation on a live phone line. The technology is ready. The local businesses that need it most have no one building for them.</p>
+</section>
+
+<!-- 4. MEET JOSI / PRODUCT -->
+<section class="slide">
+  <div class="label grad">The Product</div>
+  <h2>Josi answers, qualifies, books, and files. Automatically.</h2>
+  <p class="lead">Josi is a full AI receptionist on a real phone line. She greets every caller in a natural voice, answers questions about the business, captures the lead, books the appointment, and then writes it into the software the business already runs.</p>
+  <div class="cards c4">
+    <div class="card"><h3>Answers 24/7</h3><p>Every call, every hour, no overflow, no voicemail.</p></div>
+    <div class="card"><h3>Captures the lead</h3><p>Name, number, and reason for the call, every time.</p></div>
+    <div class="card"><h3>Books the appointment</h3><p>Reads real calendar availability and schedules on the spot.</p></div>
+    <div class="card"><h3>Files it for you</h3><p>Pushes the contact and appointment into their practice software.</p></div>
+  </div>
+  <p class="lead" style="margin-top:28px"><strong>It is live today.</strong> Call <strong>(951) 477-6060</strong> and talk to the product yourself.</p>
+</section>
+
+<!-- 5. THE SHIFT -->
+<section class="slide" style="background:var(--bg2)">
+  <div class="label grad">The Insight</div>
+  <h2>We are not in the business of answering phones. We replace the receptionist.</h2>
+  <p class="lead">Answering calls is a commodity that giants will give away. The real job of a receptionist is everything after the call: getting the client into the system, onto the calendar, and into the workflow. That is the work, and that is where we live.</p>
+  <div class="vs cards" style="margin-top:30px">
+    <div class="card bad"><h3>Answering service</h3><p>A bot that picks up and takes a message. Easy to copy. Races to zero.</p></div>
+    <div class="card good"><h3 class="grad">Receptionist replacement</h3><p>Captures, books, and files into Clio, Jobber, QuickBooks, and more. Deeply embedded. Hard to leave.</p></div>
+  </div>
+</section>
+
+<!-- 6. MOAT -->
+<section class="slide">
+  <div class="label grad">Why We Win</div>
+  <h2>The incumbents cannot reach our customer.</h2>
+  <p class="lead">RingCentral and Google are launching AI receptionists. They sell horizontal, self-serve features to customers who already bought their phone system. They will never hand-hold a solo dentist or a three-attorney firm.</p>
+  <div class="cards c3">
+    <div class="card"><h3>Local and done-for-you</h3><p>We sell and set up in person, in a market we live in. A dashboard cannot copy trust.</p></div>
+    <div class="card"><h3>Vertical integrations</h3><p>Native connections to the exact software each profession runs. The integration is the moat.</p></div>
+    <div class="card"><h3>We own the whole stack</h3><p>Including the real-time voice pipeline, so we control call quality instead of renting it.</p></div>
+  </div>
+</section>
+
+<!-- 7. INTEGRATIONS -->
+<section class="slide" style="background:var(--bg2)">
+  <div class="label grad">The Moat, Concretely</div>
+  <h2>Works with the software you already run.</h2>
+  <p class="lead">One connector per vertical turns "AI that answers" into "the front desk that runs your business." This is what no horizontal player will build for the local SMB.</p>
+  <div class="cards c3" style="margin-top:26px">
+    <div class="card"><h3>Legal</h3><p>Clio, MyCase, PracticePanther</p></div>
+    <div class="card"><h3>Medical</h3><p>DrChrono, athenahealth, SimplePractice</p></div>
+    <div class="card"><h3>Dental</h3><p>Open Dental, Dentrix, Eaglesoft</p></div>
+    <div class="card"><h3>Accounting</h3><p>QuickBooks, Karbon, TaxDome</p></div>
+    <div class="card"><h3>Home Services</h3><p>Jobber, Housecall Pro, ServiceTitan</p></div>
+    <div class="card"><h3>Calendar and CRM</h3><p>Google, Microsoft, HubSpot, Salesforce</p></div>
+  </div>
+</section>
+
+<!-- 8. BRAND / JOSI -->
+<section class="slide">
+  <div class="label grad">The Brand</div>
+  <h2>Josi is the face. The feeling we sell is freedom.</h2>
+  <p class="lead">Josi is our spokes-persona, the recognizable name and personality that carries the marketing. The message underneath is emotional, not technical: get your life back.</p>
+  <div class="vs cards" style="margin-top:30px">
+    <div class="card bad"><h3>Robert</h3><p>His receptionist called in sick again. Now he is alone in his office, phones ringing off the hook, drowning in missed calls.</p></div>
+    <div class="card good"><h3 class="grad">Roman</h3><p>Out at dinner on a date night while Josi gracefully handles twenty calls at once. She never calls in sick. She never quits.</p></div>
+  </div>
+</section>
+
+<!-- 9. BUSINESS MODEL -->
+<section class="slide" style="background:var(--bg2)">
+  <div class="label grad">Business Model</div>
+  <h2>Priced against a human hire, not a $49 bot.</h2>
+  <p class="lead">A front-desk receptionist costs $3,300 or more a month and still calls in sick. Josi is a fraction of that, never misses a call, and files into the software you already run. We price on that value, by vertical.</p>
+  <div class="cards c3" style="margin-top:26px">
+    <div class="card"><h3>Essentials</h3><p><strong>$500 / month.</strong> Full AI receptionist: answers 24/7, captures leads, books appointments, dashboard. For trades and general SMBs.</p></div>
+    <div class="card"><h3>Professional</h3><p><strong>$900 to $1,200 / month.</strong> Everything in Essentials plus native integration into your practice software (Clio, Dentrix, QuickBooks). For legal, medical, dental, and accounting.</p></div>
+    <div class="card"><h3>Concierge setup</h3><p><strong>$1,500 one-time.</strong> White-glove onboarding, number provisioning, and integration setup, done for you.</p></div>
+  </div>
+  <p class="lead" style="margin-top:28px">At a blended price near $900 a month, <strong>1,000 active clients is over $10M in ARR.</strong> There are millions of local service businesses in the US that miss calls every day.</p>
+</section>
+
+<!-- 10. TRACTION -->
+<section class="slide">
+  <div class="label grad">Where We Are</div>
+  <h2>Built and live. Pre-revenue by timing, not capability.</h2>
+  <div class="cards c2">
+    <div class="card"><h3>The product works today</h3><p>A real AI receptionist on a live line, with a multi-tenant platform, self-serve onboarding, dashboard, and billing.</p></div>
+    <div class="card"><h3>Investor interest is real</h3><p>In active conversations with investors including UpWest, and in the application process with YC and MuckerLab.</p></div>
+    <div class="card"><h3>Integration moat in motion</h3><p>Connector framework built, first vertical integrations underway across legal, trades, medical, and accounting.</p></div>
+    <div class="card"><h3>What is missing is fuel</h3><p>Zero paying customers yet. The build is done enough to onboard them. We need to turn on demand.</p></div>
+  </div>
+</section>
+
+<!-- 11. MARKET -->
+<section class="slide" style="background:var(--bg2)">
+  <div class="label grad">Market</div>
+  <h2>Win Southern California, then expand by vertical.</h2>
+  <p class="lead">Tens of thousands of target businesses sit in our backyard: law firms, dental and medical offices, and home services. We win them locally and in person, then repeat the playbook vertical by vertical, software by software.</p>
+  <div class="statbar" style="justify-content:flex-start;margin-top:34px">
+    <div class="s"><div class="stat grad">Millions</div><small>US local service SMBs</small></div>
+    <div class="s"><div class="stat grad">SoCal</div><small>Dense, local beachhead</small></div>
+    <div class="s"><div class="stat grad">Vertical</div><small>Repeatable expansion</small></div>
+  </div>
+</section>
+
+<!-- 12. TEAM -->
+<section class="slide">
+  <div class="label grad">Team</div>
+  <h2>A founder who lived the problem and ships with AI.</h2>
+  <p class="lead"><strong>Roman Vaxman, Founder.</strong> Worked in operations at a law firm and saw how missed calls cost real clients. Has owned and operated a small business. Israeli, served in the IDF. Builds and ships the entire product solo using AI coding tools, from the real-time voice pipeline to the customer dashboard.</p>
+  <p class="lead" style="margin-top:18px">An AI-native solo founder who is so deep in building with AI that the AI recommended applying to YC. That is the kind of leverage this company is built on.</p>
+</section>
+
+<!-- 13. THE ASK -->
+<section class="slide" style="background:var(--bg2)">
+  <div class="label grad">The Ask</div>
+  <h2>Raising $300K pre-seed to turn a working product into paying customers.</h2>
+  <div class="cards c3">
+    <div class="card"><h3>Aggressive marketing</h3><p>Local and vertical demand generation to fill the pipeline.</p></div>
+    <div class="card"><h3>First sales hire</h3><p>Convert demand into signed, paying SoCal businesses.</p></div>
+    <div class="card"><h3>Integration buildout</h3><p>Ship the priority connectors that lock clients in.</p></div>
+  </div>
+  <p class="lead" style="margin-top:26px">$300K on a SAFE, $3M post-money cap. The product is built. This round buys distribution.</p>
+</section>
+
+<!-- 14. CLOSE -->
+<section class="slide cover">
+  <img class="logo" src="https://www.socalreceptionist.com/images/logo-clean.png" alt="SoCal Receptionist" onerror="this.style.display='none'">
+  <div class="meet grad">Meet Josi.</div>
+  <p class="tagline" style="font-style:italic">"She never calls in sick, she never talks back. Cool under pressure, always on track. When you need her the most, she's got your back."</p>
+  <div class="statbar">
+    <div class="s"><div class="stat grad" style="font-size:1.5rem">Try it live</div><small>(951) 477-6060</small></div>
+    <div class="s"><div class="stat grad" style="font-size:1.5rem">Roman Vaxman</div><small>roman@socalreceptionist.com</small></div>
+    <div class="s"><div class="stat grad" style="font-size:1.5rem">Web</div><small>socalreceptionist.com</small></div>
+  </div>
+</section>
+
+</body>
+</html>
