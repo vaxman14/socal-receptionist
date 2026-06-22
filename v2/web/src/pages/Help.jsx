@@ -169,7 +169,7 @@ const SECTIONS = [
       },
       {
         q: 'How do I contact support?',
-        a: 'Email support@socalreceptionist.com or call (951) 395-8776. We respond within 1 business day.',
+        a: 'Email support@socalreceptionist.com or call (951) 477-6060. We respond within 1 business day.',
       },
     ],
   },
