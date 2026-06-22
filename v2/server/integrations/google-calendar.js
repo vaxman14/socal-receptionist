@@ -12,8 +12,17 @@
 //   createEvent(tenantId, event)            → book an appointment
 
 const fetch = require('node-fetch');
+const https = require('https');
 const { supabase } = require('../lib/supabase');
 const { encryptToken, decryptToken } = require('../lib/token-crypto');
+
+// All Google API calls go through this agent. Two reasons:
+//  1) Force IPv4 (family: 4) — DO containers intermittently get a broken IPv6
+//     route to googleapis.com, which dies mid-response as "Premature close".
+//  2) keepAlive: false — Node 24's global agent keeps sockets alive by default,
+//     so a half-closed pooled socket gets reused across retries and every
+//     attempt fails identically. A fresh socket per request avoids that.
+const googleAgent = new https.Agent({ keepAlive: false, family: 4 });
 
 const AUTH_URL  = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -59,6 +68,7 @@ async function exchangeCode(code, baseUrl) {
     try {
       const res = await fetch(TOKEN_URL, {
         method:  'POST',
+        agent:   googleAgent,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body:    new URLSearchParams(params),
       });
@@ -89,6 +99,7 @@ async function refreshAccessToken(tenantId) {
 
   const res = await fetch(TOKEN_URL, {
     method:  'POST',
+    agent:   googleAgent,
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body:    new URLSearchParams({
       client_id:     CLIENT_ID,
@@ -137,6 +148,7 @@ async function saveTokens(tenantId, tokens, extra = {}) {
 
 async function getAccountInfo(accessToken) {
   const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    agent:   googleAgent,
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) return {};
@@ -158,6 +170,7 @@ async function listUpcomingEvents(tenantId, windowMs = 30 * 60 * 1000) {
     maxResults:   '20',
   });
   const res = await fetch(`${CAL_BASE}/calendars/primary/events?${params}`, {
+    agent:   googleAgent,
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) throw new Error(`Google listEvents failed: ${res.status}`);
@@ -183,6 +196,7 @@ async function listUpcomingEvents(tenantId, windowMs = 30 * 60 * 1000) {
 async function listUsers(tenantId) {
   const accessToken = await getAccessToken(tenantId);
   const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader', {
+    agent:   googleAgent,
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) throw new Error(`Google calendarList failed: ${res.status}`);
@@ -214,6 +228,7 @@ async function createEvent(tenantId, { title, startIso, durationMins = 30, atten
 
   const res = await fetch(`${CAL_BASE}/calendars/primary/events`, {
     method:  'POST',
+    agent:   googleAgent,
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body:    JSON.stringify(body),
   });
@@ -225,7 +240,7 @@ async function disconnect(tenantId) {
   // Best-effort revoke so the grant doesn't linger on the Google account.
   try {
     const token = await getAccessToken(tenantId);
-    await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, { method: 'POST' });
+    await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, { method: 'POST', agent: googleAgent });
   } catch { /* not connected or already expired — nothing to revoke */ }
   await supabase.from('tenant_integrations').delete()
     .eq('tenant_id', tenantId).eq('provider', 'google_calendar');
@@ -238,6 +253,7 @@ async function getFreeBusy(tenantId, timeMinIso, timeMaxIso) {
   const accessToken = await getAccessToken(tenantId);
   const res = await fetch(`${CAL_BASE}/freeBusy`, {
     method:  'POST',
+    agent:   googleAgent,
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body:    JSON.stringify({ timeMin: timeMinIso, timeMax: timeMaxIso, items: [{ id: 'primary' }] }),
   });
