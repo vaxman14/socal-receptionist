@@ -208,13 +208,23 @@ function handleMediaStream(twilioWs, req) {
 
   function startDrain() {
     if (drainTimer) return;
+    // Wall-clock-corrected pacing: setInterval(20) never fires at exactly 20ms
+    // (timer drift + event-loop load under the OpenAI WS), so a naive
+    // one-frame-per-tick drain falls behind real time and starves → a periodic
+    // stutter/gap. Instead, each tick we send as many 20ms frames as the real
+    // elapsed time calls for, and reset the clock whenever the queue runs dry.
+    let nextFrameAt = Date.now();
     drainTimer = setInterval(() => {
-      if (!streamSid || playQueue.length === 0) return;
-      const frame = playQueue.subarray(0, FRAME_BYTES);
-      playQueue = playQueue.subarray(frame.length);
-      try {
-        twilioWs.send(JSON.stringify({ event: 'media', streamSid, media: { payload: frame.toString('base64') } }));
-      } catch {}
+      if (!streamSid || playQueue.length === 0) { nextFrameAt = Date.now(); return; }
+      const now = Date.now();
+      while (playQueue.length > 0 && nextFrameAt <= now) {
+        const frame = playQueue.subarray(0, FRAME_BYTES);
+        playQueue = playQueue.subarray(frame.length);
+        try {
+          twilioWs.send(JSON.stringify({ event: 'media', streamSid, media: { payload: frame.toString('base64') } }));
+        } catch {}
+        nextFrameAt += 20;
+      }
     }, 20);
   }
 
