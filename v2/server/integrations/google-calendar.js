@@ -27,7 +27,10 @@ const googleAgent = new https.Agent({ keepAlive: false, family: 4 });
 const AUTH_URL  = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const CAL_BASE  = 'https://www.googleapis.com/calendar/v3';
-const SCOPES    = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email';
+// Full calendar scope: calendar.events alone can write events but CANNOT run a
+// freeBusy query (403 ACCESS_TOKEN_SCOPE_INSUFFICIENT), which the voice booking
+// flow needs to read availability. calendar covers events + freeBusy.
+const SCOPES    = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email';
 
 // GCAL_* are the dedicated names used by contact-resolver/reminder-poller;
 // fall back to the GOOGLE_* pair Roman already has registered.
