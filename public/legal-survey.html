@@ -301,7 +301,7 @@
         <label class="opt"><input type="radio" name="wants_demo" value="yes"> Yes — I'd like a demo / to be an early pilot firm</label>
         <label class="opt"><input type="radio" name="wants_demo" value="no"> No thanks, just sharing my answers</label>
       </div>
-      <label class="f" style="margin-top:14px;display:block"><strong>Your details</strong> — required to enter the giveaway and receive the results.</label>
+      <label class="f" style="margin-top:14px;display:block"><strong>Your details</strong> — required to receive the results.</label>
       <div class="contact-grid" id="contact-fields">
         <label for="contact_name" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Your name</label>
         <input type="text" id="contact_name" name="contact_name" placeholder="Your name" required>
@@ -331,9 +331,7 @@
   <div id="thankyou">
     <div class="pill">Thank you 🙏</div>
     <h2>Got it. Thank you.</h2>
-    <p>Your answers are exactly what we need to build this the right way for law firms.</p>
-    <p id="ty-entry" style="display:none;margin-top:12px;font-weight:700">You're entered to win a free year of SoCal Receptionist. Your entry ID: <span id="entry-id"></span></p>
-    <p style="font-size:.85rem;color:#667">Winner drawn June 30, 2026. No purchase necessary. <a href="/sweepstakes-rules">Official rules</a>.</p>
+    <p>Your answers are exactly what we need to build this the right way for law firms. We'll send you the results.</p>
     <p id="ty-demo" style="display:none"><strong>We'll be in touch soon about your demo.</strong></p>
     <p style="margin-top:16px"><a href="https://www.socalreceptionist.com" style="color:var(--orange);font-weight:700;text-decoration:none">← Back to socalreceptionist.com</a></p>
   </div>
@@ -484,7 +482,7 @@
       });
     });
   });
-  // contact/entry fields are always shown and required (sweepstakes entry + results)
+  // contact fields are always shown and required (to send results)
 
   var form=document.getElementById('survey'), btn=document.getElementById('submit-btn'), err=document.getElementById('err');
   var _surveyStarted=false;
@@ -522,7 +520,7 @@
       return;
     }
     if(!payload.contact_name || !payload.firm_name || !payload.contact_email){
-      err.textContent='Please add your name, firm, and email to enter the giveaway and receive the results.';
+      err.textContent='Please add your name, firm, and email to receive the results.';
       err.style.display='block'; window.scrollTo({top:0,behavior:'smooth'}); return;
     }
     btn.disabled=true; btn.textContent='Submitting…';
@@ -534,7 +532,6 @@
           if(!res.ok){ throw new Error(res.j && res.j.error ? res.j.error : 'failed'); }
           form.style.display='none';
           document.getElementById('thankyou').style.display='block';
-          if(res.j && res.j.entry_id){ document.getElementById('entry-id').textContent=res.j.entry_id; document.getElementById('ty-entry').style.display='block'; }
           if(payload.wants_demo) document.getElementById('ty-demo').style.display='block';
           try{ if(window.posthog) posthog.capture('survey_submitted',{survey:'legal_survey',wants_demo:!!payload.wants_demo}); }catch(e){}
           window.scrollTo({top:0,behavior:'smooth'});
