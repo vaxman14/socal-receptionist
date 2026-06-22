@@ -15,6 +15,7 @@ const fetch = require('node-fetch');
 const https = require('https');
 const { supabase } = require('../lib/supabase');
 const { encryptToken, decryptToken } = require('../lib/token-crypto');
+const logger = require('../lib/logger');
 
 // All Google API calls go through this agent. Two reasons:
 //  1) Force IPv4 (family: 4) — DO containers intermittently get a broken IPv6
@@ -228,20 +229,39 @@ function localWallClock(date, tz) {
   return `${p.year}-${p.month}-${p.day}T${hh}:${p.minute}:${p.second}`;
 }
 
+// Numeric UTC offset for `tz` at `date`, e.g. "-07:00" (PDT) or "+00:00" (UTC).
+function tzOffset(date, tz) {
+  const name = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' })
+    .formatToParts(date).find((p) => p.type === 'timeZoneName')?.value || 'GMT';
+  return name.replace('GMT', '') || '+00:00';
+}
+
+// Full offset-bearing ISO8601 in `tz`, e.g. "2026-06-30T09:00:00-07:00". The
+// explicit offset pins the absolute instant with zero ambiguity — no reliance on
+// Google reconciling a bare wall-clock against the timeZone field.
+function zonedIso(date, tz) {
+  return `${localWallClock(date, tz)}${tzOffset(date, tz)}`;
+}
+
 // Create an event on the tenant's primary calendar.
 async function createEvent(tenantId, { title, startIso, durationMins = 30, attendeeEmail, attendeeName, timezone = 'America/Los_Angeles' }) {
   const accessToken = await getAccessToken(tenantId);
   const start = new Date(startIso);
   const end   = new Date(start.getTime() + durationMins * 60 * 1000);
 
+  const startDateTime = zonedIso(start, timezone);
+  const endDateTime   = zonedIso(end,   timezone);
   const body = {
     summary: title,
-    start:   { dateTime: localWallClock(start, timezone), timeZone: timezone },
-    end:     { dateTime: localWallClock(end,   timezone), timeZone: timezone },
+    start:   { dateTime: startDateTime, timeZone: timezone },
+    end:     { dateTime: endDateTime,   timeZone: timezone },
     ...(attendeeEmail ? {
       attendees: [{ email: attendeeEmail, displayName: attendeeName || attendeeEmail }],
     } : {}),
   };
+
+  // GROUND-TRUTH LOGGING: what we ask Google to store.
+  logger.info('voice.calendar.create_request', { startIso, startSent: startDateTime, tz: timezone });
 
   // sendUpdates=all → Google emails the attendee (the caller) a calendar invite,
   // which is their booking confirmation. Without it Google stays silent.
@@ -252,7 +272,10 @@ async function createEvent(tenantId, { title, startIso, durationMins = 30, atten
     body:    JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Google createEvent failed: ${res.status} ${await res.text()}`);
-  return res.json();
+  const created = await res.json();
+  // GROUND-TRUTH LOGGING: what Google actually stored (its echoed start).
+  logger.info('voice.calendar.create_stored', { startStored: created.start, htmlLink: created.htmlLink });
+  return created;
 }
 
 async function disconnect(tenantId) {
