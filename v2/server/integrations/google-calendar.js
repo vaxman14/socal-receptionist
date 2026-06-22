@@ -260,8 +260,8 @@ async function createEvent(tenantId, { title, startIso, durationMins = 30, atten
     } : {}),
   };
 
-  // GROUND-TRUTH LOGGING: what we ask Google to store.
-  logger.info('voice.calendar.create_request', { startIso, startSent: startDateTime, tz: timezone });
+  // GROUND-TRUTH LOGGING: what we ask Google to store + who the invite goes to.
+  logger.info('voice.calendar.create_request', { startIso, startSent: startDateTime, tz: timezone, attendee: attendeeEmail || null, sendUpdates: 'all' });
 
   // sendUpdates=all → Google emails the attendee (the caller) a calendar invite,
   // which is their booking confirmation. Without it Google stays silent.
