@@ -16,7 +16,7 @@ const { recordCallStart, updateCall } = require('../lib/calls');
 const { recordUsage, estimateRealtimeCostCents } = require('../lib/usage');
 const { sendEmail } = require('../lib/email');
 const { fireWebhooks } = require('../lib/public-api');
-const { computeSlots } = require('../lib/booking');
+const { computeSlots, resolveDayPreference } = require('../lib/booking');
 const googleCalendar = require('../integrations/google-calendar');
 const logger = require('../lib/logger');
 const OpenAI = require('openai');
@@ -139,13 +139,15 @@ function buildTools(tenant) {
     tools.push({
       type: 'function',
       name: 'check_availability',
-      description: 'Get the next available appointment times. Call this when the caller wants to book or asks what times are open. Returns a numbered list of slots; read them to the caller and ask which one they want.',
-      parameters: { type: 'object', properties: {}, required: [] },
+      description: 'Get available appointment times across the next several days. Call this when the caller wants to book or asks what times are open. If the caller asks for a particular day or a date further out (e.g. "Wednesday", "next week", "the 25th"), pass it as preferred_day. Returns a numbered list of slots; read them to the caller and ask which one they want.',
+      parameters: { type: 'object', properties: {
+        preferred_day: { type: 'string', description: 'Optional. The specific day the caller asked for, e.g. "Wednesday", "next Monday", "tomorrow", or "2026-06-25". Omit to get the soonest openings across the next several days.' },
+      }, required: [] },
     });
     tools.push({
       type: 'function',
       name: 'book_appointment',
-      description: 'Book an appointment after the caller picks a time from check_availability. Requires the slot number they chose plus their name; email is optional (used to send a calendar invite).',
+      description: "Book an appointment after the caller picks a time from check_availability. First collect BOTH the caller's name and their email — the email is where the calendar invite and confirmation are sent, so always ask for it before booking. Pass the slot number, the name, and the email.",
       parameters: {
         type: 'object',
         properties: {
@@ -364,7 +366,7 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
             turn_detection: turnDetection,
             // Caller speech transcription. GA API: lives under input, not output —
             // output transcripts arrive automatically via response.output_audio_transcript.*
-            transcription: { model: 'gpt-4o-transcribe' },
+            transcription: { model: 'gpt-4o-transcribe', language: 'en' },
           },
           output: {
             // Mu-law 8kHz direct from OpenAI, forwarded straight to Twilio (no transcode).
@@ -460,15 +462,31 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
     if (fnName === 'check_availability') {
       try {
         const now = new Date();
+        const tz  = tenant.timezone || 'America/Los_Angeles';
         const busy = await googleCalendar.getFreeBusy(
           tenantId, now.toISOString(), new Date(now.getTime() + 14 * 86400000).toISOString()
         );
-        offeredSlots = computeSlots(tenant, busy, { count: 3, now });
+        const pref = args.preferred_day ? resolveDayPreference(args.preferred_day, tz, now) : null;
+        let scope;
+        if (pref) {
+          offeredSlots = computeSlots(tenant, busy, { count: 4, perDayCap: 4, onlyDate: pref, now });
+          if (offeredSlots.length === 0) {
+            // Nothing that day — fall back to the soonest spread so we still offer something.
+            offeredSlots = computeSlots(tenant, busy, { count: 6, perDayCap: 2, now });
+            scope = 'Nothing is open on the day they asked for. The soonest available are';
+          } else {
+            scope = 'Available on the day they asked for';
+          }
+        } else {
+          // Spread across days (max 2/day) so the caller hears multiple days, not just the first morning.
+          offeredSlots = computeSlots(tenant, busy, { count: 6, perDayCap: 2, now });
+          scope = 'Available times';
+        }
         if (offeredSlots.length === 0) {
           result = 'No open appointment times in the next two weeks. Offer to take their info for a callback instead.';
         } else {
           const list = offeredSlots.map((s, i) => `${i + 1}. ${s.label}`).join('; ');
-          result = `Available times: ${list}. Read these options to the caller, ask which number they want, then call book_appointment with that number and their name.`;
+          result = `${scope}: ${list}. Read these options to the caller and ask which number they want. Before booking, collect their name AND their email, then call book_appointment with the slot number, name, and email. If they want a different day than these, call check_availability again with preferred_day set to the day they asked for.`;
         }
       } catch (err) {
         logger.error('voice.realtime.check_availability_failed', { error: err.message });
