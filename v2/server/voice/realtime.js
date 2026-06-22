@@ -550,6 +550,11 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
             .maybeSingle();
           tenant = t;
 
+          // Decide recording (and therefore the consent disclosure) the moment we
+          // know the tenant — BEFORE the greeting is generated — so a recorded call
+          // is never missing the "this call may be recorded" disclosure.
+          recordingEnabled = !!(tenant?.recording_enabled || RECORDING_TENANT_IDS.has(tenantId));
+
           if (tenant) {
             const conv = await getOrCreateConversation(tenant.id, fromNumber).catch(() => null);
             conversationId = conv?.id || null;
