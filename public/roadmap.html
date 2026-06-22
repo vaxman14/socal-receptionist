@@ -14,6 +14,8 @@
       --orange: #c2410c;
       --orange-bright: #f47c20;
       --orange-dark: #d96a10;
+      --orange-bright-hover: #e06d10;
+      --on-bright: #1a1a1a;       /* near-black text for use ON bright orange */
       --light: #f5f7fa;
       --text: #1a1a2e;
       --muted: #6b7280;
@@ -48,7 +50,7 @@
     .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; color: var(--muted); }
     .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
     .dot-done { background: var(--green); }
-    .dot-active { background: var(--orange); }
+    .dot-active { background: var(--orange-bright); }
     .dot-next { background: var(--yellow); }
     .dot-future { background: #d1d5db; }
 
@@ -60,7 +62,7 @@
     .phase-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; position: relative; }
     .phase-dot { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1rem; z-index: 1; }
     .phase-dot-done { background: var(--green); color: white; }
-    .phase-dot-active { background: var(--orange); color: white; }
+    .phase-dot-active { background: var(--orange-bright); color: var(--on-bright); }
     .phase-dot-next { background: var(--yellow); color: white; }
     .phase-dot-future { background: #e5e7eb; color: var(--muted); }
     .phase-label { }
@@ -85,8 +87,8 @@
     .cta-box { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%); border-radius: 16px; padding: 40px 32px; text-align: center; color: var(--white); margin-top: 64px; }
     .cta-box h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 12px; }
     .cta-box p { color: rgba(255,255,255,0.75); margin-bottom: 24px; font-size: 0.95rem; }
-    .btn-orange { display: inline-block; background: var(--orange); color: var(--white); font-weight: 700; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-size: 0.95rem; transition: background 0.2s; }
-    .btn-orange:hover { background: var(--orange-dark); }
+    .btn-orange { display: inline-block; background: var(--orange-bright); color: var(--on-bright); font-weight: 800; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-size: 0.95rem; transition: background 0.2s; }
+    .btn-orange:hover { background: var(--orange-bright-hover); }
 
     /* FOOTER */
     footer { background: var(--navy); color: rgba(255,255,255,0.5); text-align: center; padding: 20px; font-size: 0.8rem; }

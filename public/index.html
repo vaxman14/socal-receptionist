@@ -87,7 +87,9 @@
       --blue: #1a3a6e;
       --orange: #c2410c;        /* AA-accessible: 5.2:1 on white + white text passes */
       --orange-dark: #9a3412;
-      --orange-bright: #f47c20;  /* original brand orange — decorative/large only */
+      --orange-bright: #f47c20;  /* bright brand orange: button BG (w/ dark text), text on dark, decorative */
+      --orange-bright-hover: #e06d10;
+      --on-bright: #1a1a1a;       /* near-black text for use ON bright orange — high contrast */
       --light: #f5f7fa;
       --text: #1a1a2e;
       --muted: #6b7280;
@@ -101,19 +103,19 @@
     /* NAV */
     nav { background: #031637; padding: 8px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .nav-logo { color: var(--white); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.3px; }
-    .nav-logo span { color: var(--orange); }
-    .btn-nav { background: var(--orange); color: var(--white); border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; text-decoration: none; }
-    .btn-nav:hover { background: var(--orange-dark); }
+    .nav-logo span { color: var(--orange-bright); }
+    .btn-nav { background: var(--orange-bright); color: var(--on-bright); border: none; padding: 10px 20px; border-radius: 6px; font-weight: 700; font-size: 0.9rem; cursor: pointer; text-decoration: none; }
+    .btn-nav:hover { background: var(--orange-bright-hover); }
 
     /* HERO */
     .hero { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%); color: var(--white); padding: 80px 24px 90px; text-align: center; }
     .hero-badge { display: inline-block; background: rgba(244,124,32,0.18); border: 1px solid var(--orange-bright); color: #fdba74; padding: 6px 16px; border-radius: 100px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 24px; text-transform: uppercase; }
     .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.15; max-width: 760px; margin: 0 auto 20px; }
-    .hero h1 span { color: var(--orange); }
+    .hero h1 span { color: var(--orange-bright); }
     .hero p { font-size: 1.15rem; color: rgba(255,255,255,0.8); max-width: 560px; margin: 0 auto 36px; line-height: 1.6; }
     .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .btn-primary { background: var(--orange); color: var(--white); border: none; padding: 16px 32px; border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.2s, transform 0.1s; }
-    .btn-primary:hover { background: var(--orange-dark); transform: translateY(-1px); }
+    .btn-primary { background: var(--orange-bright); color: var(--on-bright); border: none; padding: 16px 32px; border-radius: 8px; font-weight: 800; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.2s, transform 0.1s; }
+    .btn-primary:hover { background: var(--orange-bright-hover); transform: translateY(-1px); }
     .btn-secondary { background: transparent; color: var(--white); border: 2px solid rgba(255,255,255,0.4); padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; transition: border-color 0.2s; }
     .btn-secondary:hover { border-color: var(--white); }
     .hero-note { margin-top: 20px; font-size: 0.85rem; color: rgba(255,255,255,0.5); }
@@ -123,7 +125,7 @@
     .pain h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 16px; }
     .pain p { font-size: 1.05rem; color: var(--muted); max-width: 580px; margin: 0 auto 40px; line-height: 1.6; }
     .pain-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 960px; margin: 0 auto; }
-    .pain-card { background: var(--white); border-radius: 10px; padding: 24px; border-left: 4px solid var(--orange); box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: left; flex: 0 1 280px; }
+    .pain-card { background: var(--white); border-radius: 10px; padding: 24px; border-left: 4px solid var(--orange-bright); box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: left; flex: 0 1 280px; }
     .pain-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
     .pain-card p { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
 
@@ -157,9 +159,9 @@
     .calc-result .our-cost { margin-bottom: 24px; }
     .calc-result .our-cost .label { font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
     .calc-result .our-cost .amount { font-size: 2.2rem; font-weight: 800; color: #4ade80; }
-    .savings-banner { background: var(--orange); border-radius: 8px; padding: 16px; }
-    .savings-banner .label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #fff; margin-bottom: 4px; }
-    .savings-banner .amount { font-size: 1.8rem; font-weight: 800; color: #fff; }
+    .savings-banner { background: var(--orange-bright); border-radius: 8px; padding: 16px; }
+    .savings-banner .label { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--on-bright); margin-bottom: 4px; }
+    .savings-banner .amount { font-size: 1.8rem; font-weight: 800; color: var(--on-bright); }
     .calc-note { font-size: 0.75rem; color: rgba(255,255,255,0.75); margin-top: 12px; }
 
     /* PRICING */
@@ -170,8 +172,8 @@
     .billing-toggle button { border: none; background: transparent; padding: 8px 22px; border-radius: 100px; font-size: 0.9rem; font-weight: 600; cursor: pointer; color: #374151; transition: all 0.2s; }
     .billing-toggle button.active { background: var(--white); color: var(--navy); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .annual-badge { display: inline-block; background: #dcfce7; color: #15803d; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 100px; margin-left: 6px; vertical-align: middle; }
-    .price-card { background: var(--white); border-radius: 14px; padding: 40px; max-width: 440px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 2px solid var(--orange); position: relative; }
-    .price-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--orange); color: var(--white); font-size: 0.78rem; font-weight: 700; padding: 6px 18px; border-radius: 100px; white-space: nowrap; }
+    .price-card { background: var(--white); border-radius: 14px; padding: 40px; max-width: 440px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 2px solid var(--orange-bright); position: relative; }
+    .price-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--orange-bright); color: var(--on-bright); font-size: 0.78rem; font-weight: 800; padding: 6px 18px; border-radius: 100px; white-space: nowrap; }
     .price-name { font-size: 1.1rem; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
     .price-amount { font-size: 3.2rem; font-weight: 800; color: var(--navy); line-height: 1; }
     .price-amount span { font-size: 1.2rem; font-weight: 600; color: var(--muted); vertical-align: super; }

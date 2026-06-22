@@ -39,6 +39,7 @@
       --orange: #c2410c;
       --orange-bright: #f47c20;
       --orange-dark: #d96a10;
+      --on-bright: #1a1a1a;       /* near-black text for use ON bright orange */
       --light: #f5f7fa;
       --white: #ffffff;
       --ink: #1a1a2e;
@@ -82,7 +83,7 @@
     }
     .opt:hover { border-color: var(--blue); background: #f8fafc; }
     .opt input { accent-color: var(--orange); width: 18px; height: 18px; flex-shrink: 0; }
-    .opt.checked { border-color: var(--orange); background: #fff7f0; }
+    .opt.checked { border-color: var(--orange-bright); background: #fff7f0; }
     .opts.inline { flex-direction: row; flex-wrap: wrap; }
     .opts.inline .opt { flex: 1 1 calc(50% - 5px); min-width: 130px; }
     input[type="text"], input[type="email"], input[type="tel"], select, textarea {
@@ -99,7 +100,7 @@
     .scale label:hover { border-color: var(--blue); }
     .scale input { display: none; }
     .scale input:checked + span { }
-    .scale label.checked { background: var(--orange); color: #fff; border-color: var(--orange); }
+    .scale label.checked { background: var(--orange-bright); color: var(--on-bright); border-color: var(--orange-bright); }
     .scale-ends { display: flex; justify-content: space-between; font-size: .72rem; color: var(--muted); margin-top: 6px; }
     .disclaimer {
       background: #fff7f0; border: 1px solid #fcd9b6; border-radius: 12px;
@@ -108,7 +109,7 @@
     .disclaimer strong { color: #b45309; }
     .submit-row { text-align: center; margin-top: 6px; }
     #submit-btn {
-      background: linear-gradient(135deg, var(--orange), var(--orange-dark)); color: #fff;
+      background: linear-gradient(135deg, var(--orange-bright), #fb923c); color: var(--on-bright);
       border: none; border-radius: 12px; padding: 16px 40px; font-size: 1.05rem; font-weight: 800;
       cursor: pointer; box-shadow: 0 4px 16px rgba(244,124,32,.35); transition: transform .12s, opacity .12s;
     }
