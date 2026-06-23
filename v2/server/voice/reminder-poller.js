@@ -18,7 +18,7 @@
 const twilio  = require('twilio');
 const { supabase }  = require('../lib/supabase');
 const { resolve: resolveContact } = require('../lib/contact-resolver');
-const { sendEmail } = require('../lib/email');
+const { sendEmail, brandedEmail } = require('../lib/email');
 const logger  = require('../lib/logger');
 const express = require('express');
 
@@ -161,7 +161,12 @@ async function pollTenant(tenant, recipients, minMs, maxMs, apiBase) {
         to:      recipient.email_address,
         subject: `Reminder: upcoming call${who} ${when}`,
         text:    `Heads up — you have a call${who} ${when}.` + (attendeePhone ? ` Contact number: ${attendeePhone}.` : ''),
-        html:    `<p>Heads up — you have a call${who} <strong>${when}</strong>.</p>` + (attendeePhone ? `<p>Contact number: ${attendeePhone}</p>` : ''),
+        html:    brandedEmail({
+          heading: '⏰ Upcoming call reminder',
+          preview: `You have a call${who} ${when}`,
+          bodyHtml: `<p>Heads up — you have a call${who} <strong>${when}</strong>.</p>` + (attendeePhone ? `<p style="margin:0;">Contact number: <strong>${attendeePhone}</strong></p>` : ''),
+          footer: `<strong style="color:#6b7280;">${tenant.business_name || 'SoCal Receptionist'}</strong>`,
+        }),
       }).catch(err => logger.warn('reminder-poller.email_failed', { tenantId: tenant.id, error: err.message }));
     }
 

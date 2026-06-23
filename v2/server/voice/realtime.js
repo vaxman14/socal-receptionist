@@ -559,6 +559,7 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
                 heading: `You're all set! ✅`,
                 preview: `Your appointment is confirmed for ${slot.label}`,
                 bodyHtml: `<p>Hi ${args.name || 'there'},</p><p>Your appointment with <strong>${tenant.business_name}</strong> is confirmed for:</p>${slotBox}<p style="margin:0;">Need to reschedule? Just call us back${ourNumber ? ` at <strong>${formatPhone(ourNumber)}</strong>` : ''}.</p>`,
+                footer: `<strong style="color:#6b7280;">${tenant.business_name}</strong>${ourNumber ? ` &nbsp;·&nbsp; ${formatPhone(ourNumber)}` : ''}`,
               }),
               text: `Your appointment with ${tenant.business_name} is confirmed for ${slot.label}.${ourNumber ? ` To reschedule, call ${formatPhone(ourNumber)}.` : ''}`,
             }).catch(() => {});

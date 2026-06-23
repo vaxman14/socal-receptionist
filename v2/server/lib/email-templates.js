@@ -7,39 +7,13 @@
 // Links in email should land on the web app, not the API host.
 const APP_BASE_URL = process.env.WEB_BASE_URL || process.env.APP_BASE_URL || 'https://app.socalreceptionist.com';
 const BRAND = 'SoCal Receptionist';
+const { brandedEmail } = require('./email');
 
-// Minimal inline-styled HTML shell. Email clients ignore <style> blocks and
-// external CSS, so styling is inlined and kept deliberately simple.
-function layout({ heading, bodyHtml }) {
-  return `<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 0;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;max-width:560px;">
-            <tr>
-              <td style="background:#0f3d5c;padding:24px 32px;">
-                <span style="color:#ffffff;font-size:18px;font-weight:700;">${BRAND}</span>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:32px;">
-                <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#0f3d5c;">${heading}</h1>
-                ${bodyHtml}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:20px 32px;background:#f4f5f7;color:#7a7a7a;font-size:12px;">
-                ${BRAND} &middot; This is a transactional message about your account.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
+// Delegate to the canonical branded shell (logo header + card + footer) so every
+// transactional email shares one look. `footer` overrides the default contact
+// line (used for per-tenant emails).
+function layout({ heading, bodyHtml, footer }) {
+  return brandedEmail({ heading, bodyHtml, footer });
 }
 
 // Sent right after a business owner registers their tenant (status

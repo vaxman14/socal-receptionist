@@ -80,7 +80,10 @@ async function sendEmail({ to, subject, html, text } = {}) {
 const BRAND_ORANGE = '#f47c20';
 const LOGO_URL = 'https://www.socalreceptionist.com/images/logo-white.png';
 
-function brandedEmail({ heading = '', bodyHtml = '', preview = '' } = {}) {
+const DEFAULT_FOOTER = `<strong style="color:#6b7280;">SoCal Receptionist</strong> &nbsp;·&nbsp; Murrieta, CA<br>` +
+  `<a href="https://www.socalreceptionist.com" style="color:${BRAND_ORANGE};text-decoration:none;">socalreceptionist.com</a> &nbsp;·&nbsp; (951) 477-6060`;
+
+function brandedEmail({ heading = '', bodyHtml = '', preview = '', footer } = {}) {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f4f5f7;-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
@@ -94,8 +97,7 @@ function brandedEmail({ heading = '', bodyHtml = '', preview = '' } = {}) {
         ${heading ? `<tr><td style="padding:30px 28px 0;color:#1a1a2e;font-size:20px;font-weight:700;">${heading}</td></tr>` : ''}
         <tr><td style="padding:16px 28px 30px;color:#374151;font-size:15px;line-height:1.6;">${bodyHtml}</td></tr>
         <tr><td style="padding:18px 28px;border-top:1px solid #f0f0f3;color:#9499a3;font-size:12px;line-height:1.5;text-align:center;">
-          <strong style="color:#6b7280;">SoCal Receptionist</strong> &nbsp;·&nbsp; Murrieta, CA<br>
-          <a href="https://www.socalreceptionist.com" style="color:${BRAND_ORANGE};text-decoration:none;">socalreceptionist.com</a> &nbsp;·&nbsp; (951) 477-6060
+          ${footer || DEFAULT_FOOTER}
         </td></tr>
       </table>
     </td></tr>

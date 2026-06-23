@@ -11,7 +11,7 @@ const { createCheckoutSession, createPortalSession } = require('../lib/billing')
 const { listTickets, updateTicket, bulkAccept, exportCsv } = require('../lib/time-tickets');
 const { listLeads: listOutboundLeads, createLead, bulkCreateLeads, updateLead, deleteLead } = require('../lib/outbound-leads');
 const { normalizePhone, isValidTimezone, isValidEmail } = require('../lib/validate');
-const { sendEmail } = require('../lib/email');
+const { sendEmail, brandedEmail } = require('../lib/email');
 const { sendSms } = require('../lib/sms');
 
 // ---------------------------------------------------------------------------
@@ -475,8 +475,13 @@ router.post('/marketing/review-request', requireAal2, express.json(), async (req
 
   // email
   if (!isValidEmail(to)) return res.status(400).json({ error: 'Enter a valid email address.' });
-  const html = `<p>Hi,</p><p>Thanks for choosing <strong>${businessName}</strong>. We'd love your feedback!</p>`
-    + `<p><a href="${reviewLink}">Leave us a quick Google review</a></p><p>Thank you,<br/>${businessName}</p>`;
+  const html = brandedEmail({
+    heading: 'How did we do?',
+    preview: `We'd love your feedback on ${businessName}`,
+    bodyHtml: `<p>Hi,</p><p>Thanks for choosing <strong>${businessName}</strong>. We'd love your feedback!</p>`
+      + `<p style="margin:24px 0;"><a href="${reviewLink}" style="background:#f47c20;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;display:inline-block;">Leave a quick Google review</a></p><p style="margin:0;">Thank you,<br/>${businessName}</p>`,
+    footer: `<strong style="color:#6b7280;">${businessName}</strong>`,
+  });
   const result = await sendEmail({ to, subject: `How was your experience with ${businessName}?`, html, text: message });
   if (!result.ok) return res.status(502).json({ error: result.error || 'Could not send the email.' });
   return res.json({ ok: true });
