@@ -229,14 +229,29 @@ function completion(model, messages, channel) {
       max_tokens: 300,
     });
   }
-  // Groq — OpenAI-compatible SDK so response shape is identical
-  return groqClient().chat.completions.create({
-    model,
-    messages,
-    tools,
-    temperature: 0.5,
-    max_tokens: 300,
+  // Groq — call the OpenAI-compatible REST endpoint directly with an explicit
+  // User-Agent. The groq-sdk's default client fingerprint gets blocked by
+  // Cloudflare in front of api.groq.com (error 1010 -> the SDK surfaces it as a
+  // "Premature close" / invalid-body error). A normal UA passes. Response shape
+  // is identical to the SDK's, so downstream handling is unchanged.
+  return groqChatCompletion({ model, messages });
+}
+
+async function groqChatCompletion({ model, messages }) {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'SoCalReceptionist/1.0 (+https://www.socalreceptionist.com)',
+    },
+    body: JSON.stringify({ model, messages, tools, temperature: 0.5, max_tokens: 300 }),
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`groq ${res.status}: ${body.slice(0, 300)}`);
+  }
+  return res.json();
 }
 
 // Handle one inbound message (SMS or voice turn). Persists the inbound +
