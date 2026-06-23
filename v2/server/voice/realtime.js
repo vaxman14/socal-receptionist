@@ -14,7 +14,7 @@ const { buildSystemPrompt } = require('../lib/ai');
 const { getOrCreateConversation } = require('../lib/conversations');
 const { recordCallStart, updateCall } = require('../lib/calls');
 const { recordUsage, estimateRealtimeCostCents } = require('../lib/usage');
-const { sendEmail, brandedEmail } = require('../lib/email');
+const { sendEmail, brandedEmail, tenantBrand } = require('../lib/email');
 const { fireWebhooks } = require('../lib/public-api');
 const { computeSlots, resolveDayPreference } = require('../lib/booking');
 const googleCalendar = require('../integrations/google-calendar');
@@ -554,8 +554,10 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
           if (args.email) {
             sendEmail({
               to: args.email,
+              fromName: tenant.email_from_name || tenant.business_name || undefined,
               subject: `Appointment confirmed — ${tenant.business_name}`,
               html: brandedEmail({
+                ...tenantBrand(tenant),
                 heading: `You're all set! ✅`,
                 preview: `Your appointment is confirmed for ${slot.label}`,
                 bodyHtml: `<p>Hi ${args.name || 'there'},</p><p>Your appointment with <strong>${tenant.business_name}</strong> is confirmed for:</p>${slotBox}<p style="margin:0;">Need to reschedule? Just call us back${ourNumber ? ` at <strong>${formatPhone(ourNumber)}</strong>` : ''}.</p>`,

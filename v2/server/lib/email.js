@@ -40,7 +40,7 @@ function resendClient() {
 //
 // Never throws: failures are logged and returned as { ok: false }, so callers
 // can treat email as best-effort and not couple it to request success.
-async function sendEmail({ to, subject, html, text } = {}) {
+async function sendEmail({ to, subject, html, text, fromName } = {}) {
   if (!to || !subject || (!html && !text)) {
     logger.warn('email.send_invalid', { to: to || null, subject: subject || null });
     return { ok: false, error: 'to, subject, and html or text are required' };
@@ -53,9 +53,18 @@ async function sendEmail({ to, subject, html, text } = {}) {
     return { ok: false, skipped: true };
   }
 
+  // Optional per-tenant sender display name. Keeps SoCal's verified sending
+  // address/domain (clients can't send from their own unverified domain) but
+  // shows their name in the inbox: "Vaxman Law <hello@noreply.socalreceptionist.com>".
+  let from = FROM;
+  if (fromName) {
+    const m = FROM.match(/<([^>]+)>/);
+    from = `${fromName} <${m ? m[1] : FROM}>`;
+  }
+
   try {
     const { data, error } = await client.emails.send({
-      from: FROM,
+      from,
       to,
       subject,
       ...(html ? { html } : {}),
