@@ -11,7 +11,7 @@ const { createCheckoutSession, createPortalSession } = require('../lib/billing')
 const { listTickets, updateTicket, bulkAccept, exportCsv } = require('../lib/time-tickets');
 const { listLeads: listOutboundLeads, createLead, bulkCreateLeads, updateLead, deleteLead } = require('../lib/outbound-leads');
 const { normalizePhone, isValidTimezone, isValidEmail } = require('../lib/validate');
-const { sendEmail, brandedEmail } = require('../lib/email');
+const { sendEmail, brandedEmail, tenantBrand } = require('../lib/email');
 const { sendSms } = require('../lib/sms');
 
 // ---------------------------------------------------------------------------
@@ -85,6 +85,10 @@ const EDITABLE_FIELDS = [
   // Outbound Call Assist config.
   'outbound_enabled',
   'outbound_reminder_phone',  // number Josi calls to give proactive reminders
+  // Email branding (white-label the emails sent to the client's customers).
+  'email_logo_url',           // hosted logo URL shown in the email header
+  'email_brand_color',        // header background hex, e.g. #f47c20
+  'email_from_name',          // optional display name for the From line
 ];
 
 router.use(requireAuth, requireTenant);
@@ -476,6 +480,7 @@ router.post('/marketing/review-request', requireAal2, express.json(), async (req
   // email
   if (!isValidEmail(to)) return res.status(400).json({ error: 'Enter a valid email address.' });
   const html = brandedEmail({
+    ...tenantBrand(req.tenant),
     heading: 'How did we do?',
     preview: `We'd love your feedback on ${businessName}`,
     bodyHtml: `<p>Hi,</p><p>Thanks for choosing <strong>${businessName}</strong>. We'd love your feedback!</p>`

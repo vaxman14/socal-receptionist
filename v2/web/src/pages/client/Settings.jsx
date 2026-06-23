@@ -35,6 +35,9 @@ const FIELDS = [
   'voice_id',
   'outbound_enabled',
   'outbound_reminder_phone',
+  'email_logo_url',
+  'email_brand_color',
+  'email_from_name',
 ];
 
 const VOICE_OPTIONS = [
@@ -315,6 +318,60 @@ export default function Settings() {
             </div>
             <span className="hint">Click Preview to hear a sample before saving.</span>
           </div>
+        </div>
+
+        <div className="card card-pad">
+          <div className="section-title">Email Branding</div>
+          <p className="muted" style={{ fontSize: '0.86rem', marginBottom: 8 }}>
+            White-label the confirmation and reminder emails your customers receive — your logo, color, and sender name. Leave blank to use the defaults.
+          </p>
+
+          <label className="field">
+            <span className="label">Logo URL</span>
+            <input
+              type="url"
+              value={form.email_logo_url || ''}
+              onChange={set('email_logo_url')}
+              placeholder="https://yourbusiness.com/logo.png"
+            />
+            <span className="hint">A hosted image URL (PNG/JPG, ideally a white/light logo). Shown at the top of every email. Leave blank to use your business name as text.</span>
+            {form.email_logo_url ? (
+              <span style={{ display: 'inline-block', marginTop: 8, padding: '10px 16px', borderRadius: 8, background: form.email_brand_color || '#f47c20' }}>
+                <img src={form.email_logo_url} alt="logo preview" style={{ height: 30, display: 'block' }} />
+              </span>
+            ) : null}
+          </label>
+
+          <label className="field">
+            <span className="label">Brand color</span>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="color"
+                value={form.email_brand_color || '#f47c20'}
+                onChange={set('email_brand_color')}
+                style={{ width: 48, height: 38, padding: 2, border: '1px solid #ddd', borderRadius: 8, cursor: 'pointer' }}
+              />
+              <input
+                type="text"
+                value={form.email_brand_color || ''}
+                onChange={set('email_brand_color')}
+                placeholder="#f47c20"
+                style={{ flex: 1 }}
+              />
+            </div>
+            <span className="hint">The email header background color.</span>
+          </label>
+
+          <label className="field" style={{ marginBottom: 0 }}>
+            <span className="label">Sender name</span>
+            <input
+              type="text"
+              value={form.email_from_name || ''}
+              onChange={set('email_from_name')}
+              placeholder="e.g. Temecula Valley Family Law"
+            />
+            <span className="hint">Optional display name shown as the email sender.</span>
+          </label>
         </div>
 
         <div className="card card-pad">
