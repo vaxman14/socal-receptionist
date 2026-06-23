@@ -533,7 +533,7 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
             timezone:     tenant.timezone || 'America/Los_Angeles',
           });
           leadCaptured = true; // a booking is a successful outcome
-          result = `Booked for ${slot.label}. Confirm warmly to the caller${args.email ? ' and tell them a calendar invite is on the way' : ''}.`;
+          result = `Booked for ${slot.label}. Confirm warmly to the caller${args.email ? ' and tell them a confirmation email is on the way' : ''}.`;
           const notifyTo = tenant?.voicemail_email || tenant?.owner_email;
           if (notifyTo) {
             sendEmail({
@@ -541,6 +541,17 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
               subject: `📅 New appointment — ${tenant.business_name}`,
               html: `<p><strong>${args.name || 'Caller'}</strong> booked <strong>${slot.label}</strong>.</p><p>Phone: ${fromNumber || '—'}${args.email ? ` · Email: ${args.email}` : ''}</p>`,
               text: `New appointment: ${args.name || 'Caller'} — ${slot.label}`,
+            }).catch(() => {});
+          }
+          // Send the CALLER their own confirmation — reliable, unlike the Google
+          // invite which depends on Workspace external-invite delivery (Roman's
+          // booking showed "1 awaiting" but the invite email never arrived).
+          if (args.email) {
+            sendEmail({
+              to: args.email,
+              subject: `Appointment confirmed — ${tenant.business_name}`,
+              html: `<p>Hi ${args.name || 'there'},</p><p>Your appointment with <strong>${tenant.business_name}</strong> is confirmed for <strong>${slot.label}</strong>.</p><p>Need to reschedule? Just call us back${ourNumber ? ` at ${formatPhone(ourNumber)}` : ''}.</p>`,
+              text: `Your appointment with ${tenant.business_name} is confirmed for ${slot.label}.${ourNumber ? ` To reschedule, call ${formatPhone(ourNumber)}.` : ''}`,
             }).catch(() => {});
           }
         }
