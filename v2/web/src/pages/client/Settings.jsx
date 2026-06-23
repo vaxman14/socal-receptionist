@@ -35,9 +35,6 @@ const FIELDS = [
   'voice_id',
   'outbound_enabled',
   'outbound_reminder_phone',
-  'email_logo_url',
-  'email_brand_color',
-  'email_from_name',
 ];
 
 const VOICE_OPTIONS = [
@@ -66,8 +63,6 @@ export default function Settings() {
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [saved, setSaved] = useState(false);
-  const [logoBusy, setLogoBusy] = useState(false);
-  const [logoErr, setLogoErr] = useState(null);
   const [verifyBusy, setVerifyBusy] = useState(false);
   const [verifyMsg, setVerifyMsg] = useState(null);
   const [infoInput, setInfoInput] = useState('');
@@ -110,42 +105,6 @@ export default function Settings() {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     setForm((f) => ({ ...f, [key]: value }));
     setSaved(false);
-  };
-
-  // Validate (type/size/dimensions) then upload a logo to our storage.
-  const LOGO_MAX_KB = 500, LOGO_MAX_W = 1000, LOGO_MAX_H = 400;
-  const uploadLogo = async (file) => {
-    setLogoErr(null);
-    if (!file) return;
-    if (!/^image\/(png|jpeg)$/.test(file.type)) { setLogoErr('Use a PNG or JPG image.'); return; }
-    if (file.size > LOGO_MAX_KB * 1024) { setLogoErr(`Logo must be under ${LOGO_MAX_KB} KB (yours is ${Math.round(file.size / 1024)} KB).`); return; }
-    const dataUrl = await new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result);
-      r.onerror = () => reject(new Error('Could not read the file.'));
-      r.readAsDataURL(file);
-    }).catch((e) => { setLogoErr(e.message); return null; });
-    if (!dataUrl) return;
-    const dim = await new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-      img.onerror = () => resolve(null);
-      img.src = dataUrl;
-    });
-    if (dim && (dim.w > LOGO_MAX_W || dim.h > LOGO_MAX_H)) {
-      setLogoErr(`Logo is ${dim.w}×${dim.h}px — max ${LOGO_MAX_W}×${LOGO_MAX_H}px. Use a smaller image.`);
-      return;
-    }
-    setLogoBusy(true);
-    try {
-      const res = await api.post('/admin/tenant/logo', { dataUrl });
-      setForm((f) => ({ ...f, email_logo_url: res.url }));
-      setSaved(false);
-    } catch (err) {
-      setLogoErr(err.message || 'Upload failed.');
-    } finally {
-      setLogoBusy(false);
-    }
   };
 
   // ── Additional marketing / sales info: a managed list of text lines. ──
@@ -356,77 +315,6 @@ export default function Settings() {
             </div>
             <span className="hint">Click Preview to hear a sample before saving.</span>
           </div>
-        </div>
-
-        <div className="card card-pad">
-          <div className="section-title">Email Branding</div>
-          <p className="muted" style={{ fontSize: '0.86rem', marginBottom: 8 }}>
-            White-label the confirmation and reminder emails your customers receive — your logo, color, and sender name. Leave blank to use the defaults.
-          </p>
-
-          <div className="field">
-            <span className="label">Logo</span>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
-              {form.email_logo_url ? (
-                <span style={{ display: 'inline-block', padding: '10px 16px', borderRadius: 8, background: form.email_brand_color || '#f47c20' }}>
-                  <img src={form.email_logo_url} alt="logo preview" style={{ height: 30, display: 'block' }} />
-                </span>
-              ) : null}
-              <label className="btn btn-secondary" style={{ cursor: logoBusy ? 'default' : 'pointer', margin: 0 }}>
-                {logoBusy ? 'Uploading…' : (form.email_logo_url ? 'Replace logo' : 'Upload logo')}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg"
-                  style={{ display: 'none' }}
-                  disabled={logoBusy}
-                  onChange={(e) => { uploadLogo(e.target.files?.[0]); e.target.value = ''; }}
-                />
-              </label>
-              {form.email_logo_url ? (
-                <button
-                  type="button"
-                  onClick={() => setForm((f) => ({ ...f, email_logo_url: '' }))}
-                  style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.85rem' }}
-                >
-                  Remove
-                </button>
-              ) : null}
-            </div>
-            {logoErr
-              ? <span className="hint" style={{ color: '#b91c1c' }}>{logoErr}</span>
-              : <span className="hint">PNG or JPG, max {LOGO_MAX_KB} KB and {LOGO_MAX_W}×{LOGO_MAX_H}px. A white or light logo looks best on the colored header. Leave blank to use your business name as text.</span>}
-          </div>
-
-          <label className="field">
-            <span className="label">Brand color</span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                type="color"
-                value={form.email_brand_color || '#f47c20'}
-                onChange={set('email_brand_color')}
-                style={{ width: 48, height: 38, padding: 2, border: '1px solid #ddd', borderRadius: 8, cursor: 'pointer' }}
-              />
-              <input
-                type="text"
-                value={form.email_brand_color || ''}
-                onChange={set('email_brand_color')}
-                placeholder="#f47c20"
-                style={{ flex: 1 }}
-              />
-            </div>
-            <span className="hint">The email header background color.</span>
-          </label>
-
-          <label className="field" style={{ marginBottom: 0 }}>
-            <span className="label">Sender name</span>
-            <input
-              type="text"
-              value={form.email_from_name || ''}
-              onChange={set('email_from_name')}
-              placeholder="e.g. Temecula Valley Family Law"
-            />
-            <span className="hint">Optional display name shown as the email sender.</span>
-          </label>
         </div>
 
         <div className="card card-pad">
