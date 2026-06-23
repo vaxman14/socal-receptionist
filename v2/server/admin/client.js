@@ -231,6 +231,81 @@ router.patch('/tenant', requireAal2, async (req, res) => {
   res.json({ tenant: data });
 });
 
+// ── Email logo upload ──────────────────────────────────────────────────────
+// Clients upload their logo to OUR storage (Supabase Storage, public bucket) so
+// it renders in emails without them hosting it. Server-side limits enforced.
+const LOGO_BUCKET   = 'tenant-logos';
+const LOGO_MAX_BYTES = 500 * 1024;   // 500 KB
+const LOGO_MAX_W     = 1000;
+const LOGO_MAX_H     = 400;
+
+// Read intrinsic pixel size straight from the PNG/JPEG header (no image lib).
+function imageDimensions(buf) {
+  if (buf.length > 24 && buf[0] === 0x89 && buf[1] === 0x50) { // PNG
+    return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+  }
+  if (buf.length > 4 && buf[0] === 0xFF && buf[1] === 0xD8) {  // JPEG
+    let off = 2;
+    while (off + 9 < buf.length) {
+      if (buf[off] !== 0xFF) { off++; continue; }
+      const marker = buf[off + 1];
+      // Start-Of-Frame markers carry the dimensions (skip non-SOF/standalone).
+      if (marker >= 0xC0 && marker <= 0xCF && ![0xC4, 0xC8, 0xCC].includes(marker)) {
+        return { height: buf.readUInt16BE(off + 5), width: buf.readUInt16BE(off + 7) };
+      }
+      off += 2 + buf.readUInt16BE(off + 2);
+    }
+  }
+  return null;
+}
+
+let _logoBucketReady = false;
+async function ensureLogoBucket() {
+  if (_logoBucketReady) return;
+  const { data } = await supabase.storage.getBucket(LOGO_BUCKET);
+  if (!data) {
+    await supabase.storage.createBucket(LOGO_BUCKET, {
+      public: true,
+      fileSizeLimit: LOGO_MAX_BYTES,
+      allowedMimeTypes: ['image/png', 'image/jpeg'],
+    });
+  }
+  _logoBucketReady = true;
+}
+
+// POST /admin/tenant/logo  { dataUrl } — base64 PNG/JPEG. Validates type, size,
+// and dimensions, stores in our bucket, saves the public URL on the tenant.
+router.post('/tenant/logo', requireAal2, express.json({ limit: '2mb' }), async (req, res) => {
+  try {
+    const m = /^data:(image\/(png|jpeg));base64,(.+)$/.exec(req.body?.dataUrl || '');
+    if (!m) return res.status(400).json({ error: 'Upload a PNG or JPG image.' });
+    const contentType = m[1];
+    const ext = m[2] === 'jpeg' ? 'jpg' : 'png';
+    const buf = Buffer.from(m[3], 'base64');
+    if (buf.length > LOGO_MAX_BYTES) {
+      return res.status(400).json({ error: `Logo must be under ${Math.round(LOGO_MAX_BYTES / 1024)} KB (yours is ${Math.round(buf.length / 1024)} KB).` });
+    }
+    const dim = imageDimensions(buf);
+    if (dim && (dim.width > LOGO_MAX_W || dim.height > LOGO_MAX_H)) {
+      return res.status(400).json({ error: `Logo is ${dim.width}×${dim.height}px — max is ${LOGO_MAX_W}×${LOGO_MAX_H}px. Use a smaller image.` });
+    }
+    await ensureLogoBucket();
+    const path = `${req.tenant.id}/logo-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from(LOGO_BUCKET).upload(path, buf, { contentType, upsert: true });
+    if (upErr) {
+      console.error('[admin] logo upload failed:', upErr);
+      return res.status(502).json({ error: 'Upload failed — please try again.' });
+    }
+    const { data: pub } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);
+    const url = pub?.publicUrl;
+    await supabase.from('tenants').update({ email_logo_url: url }).eq('id', req.tenant.id);
+    res.json({ ok: true, url, width: dim?.width || null, height: dim?.height || null });
+  } catch (e) {
+    console.error('[admin] logo upload error:', e);
+    res.status(500).json({ error: 'Could not process the image.' });
+  }
+});
+
 // GET /admin/leads?page=1&limit=25 — this tenant's leads, newest first.
 router.get('/leads', async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 100);
