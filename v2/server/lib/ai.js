@@ -267,7 +267,10 @@ async function handleMessage(tenant, conversation, customerPhone, userText, opts
   ];
 
   const defaultModel = channel === 'voice' ? DEFAULT_VOICE_MODEL : DEFAULT_SMS_MODEL;
-  const model = opts.model || tenant.ai_model || defaultModel;
+  // tenant.ai_model is an OpenAI model chosen for the voice channel. SMS runs on
+  // Groq, which does not have OpenAI models, so only honor a tenant override on
+  // voice; SMS always uses the Groq default unless an explicit opts.model is given.
+  const model = opts.model || (channel === 'voice' ? (tenant.ai_model || defaultModel) : defaultModel);
   let promptTokens = 0;
   let completionTokens = 0;
   const tally = (r) => {
