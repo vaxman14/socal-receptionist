@@ -189,6 +189,11 @@ function handleMediaStream(twilioWs, req) {
   let drainTimer = null;
   let currentResponseId = null;
   let assistantSpeaking = false;
+  // Manual turn mode: when the tenant sets voice_settings.turn_detection
+  // create_response=false, OpenAI's VAD no longer auto-replies on every detected
+  // sound. We instead generate a reply only after a MEANINGFUL transcription
+  // arrives — so dings/beeps/breaths (which transcribe to nothing) are ignored.
+  let manualTurnMode = false;
   let pcmRemainder = Buffer.alloc(0); // leftover PCM16 bytes between deltas
   const FRAME_BYTES = 160; // 20ms of 8kHz G.711 mu-law
 
@@ -298,7 +303,23 @@ function handleMediaStream(twilioWs, req) {
 
       // Caller speech transcription (requires input_audio_transcription in session).
       case 'conversation.item.input_audio_transcription.completed': {
-        if (event.transcript) transcript.push({ role: 'caller', text: event.transcript.trim() });
+        const t = (event.transcript || '').trim();
+        if (t) transcript.push({ role: 'caller', text: t });
+        // Manual turn mode: generate a reply ONLY when real words came through.
+        // A ding/beep/breath transcribes to '' or punctuation → no letters/digits
+        // → we stay silent, killing the "it heard a noise and started talking"
+        // problem. Real speech ("yes", "next Tuesday") always has alphanumerics.
+        if (manualTurnMode) {
+          const hasWords = /[a-z0-9]/i.test(t) && t.replace(/[^a-z0-9]/gi, '').length >= 2;
+          if (hasWords) {
+            if (assistantSpeaking) {
+              // Genuine barge-in: caller spoke over the AI. Cancel + clear, then reply.
+              try { openaiWs.send(JSON.stringify({ type: 'response.cancel' })); } catch {}
+              flushPlayback();
+            }
+            try { openaiWs.send(JSON.stringify({ type: 'response.create' })); } catch {}
+          }
+        }
         break;
       }
 
@@ -342,6 +363,8 @@ function handleMediaStream(twilioWs, req) {
       silence_duration_ms: tdCfg.silence_duration_ms != null ? tdCfg.silence_duration_ms : 700,
       create_response: tdCfg.create_response != null ? tdCfg.create_response : true,
     };
+    // When auto-response is off, we drive replies manually off transcriptions.
+    manualTurnMode = turnDetection.create_response === false;
     let instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber });
     // Outbound callback: override the inbound "qualify + promise a callback" flow.
     // We already have the lead's name/phone/email from the website form, and THIS
