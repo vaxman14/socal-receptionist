@@ -14,7 +14,7 @@ const { buildSystemPrompt } = require('../lib/ai');
 const { getOrCreateConversation } = require('../lib/conversations');
 const { recordCallStart, updateCall } = require('../lib/calls');
 const { recordUsage, estimateRealtimeCostCents } = require('../lib/usage');
-const { sendEmail } = require('../lib/email');
+const { sendEmail, brandedEmail } = require('../lib/email');
 const { fireWebhooks } = require('../lib/public-api');
 const { computeSlots, resolveDayPreference } = require('../lib/booking');
 const googleCalendar = require('../integrations/google-calendar');
@@ -534,13 +534,18 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
           });
           leadCaptured = true; // a booking is a successful outcome
           result = `Booked for ${slot.label}. Confirm warmly to the caller${args.email ? ' and tell them a confirmation email is on the way' : ''}.`;
+          const slotBox = `<p style="font-size:17px;font-weight:600;color:#1a1a2e;background:#fff7f0;border-left:4px solid #f47c20;padding:12px 16px;border-radius:6px;margin:18px 0;">${slot.label}</p>`;
           const notifyTo = tenant?.voicemail_email || tenant?.owner_email;
           if (notifyTo) {
             sendEmail({
               to: notifyTo,
               subject: `📅 New appointment — ${tenant.business_name}`,
-              html: `<p><strong>${args.name || 'Caller'}</strong> booked <strong>${slot.label}</strong>.</p><p>Phone: ${fromNumber || '—'}${args.email ? ` · Email: ${args.email}` : ''}</p>`,
-              text: `New appointment: ${args.name || 'Caller'} — ${slot.label}`,
+              html: brandedEmail({
+                heading: '📅 New appointment booked',
+                preview: `${args.name || 'A caller'} booked ${slot.label}`,
+                bodyHtml: `<p><strong>${args.name || 'Caller'}</strong> just booked an appointment.</p>${slotBox}<p style="margin:0;">Phone: <strong>${formatPhone(fromNumber)}</strong>${args.email ? `<br>Email: <strong>${args.email}</strong>` : ''}</p>`,
+              }),
+              text: `New appointment: ${args.name || 'Caller'} — ${slot.label} (${formatPhone(fromNumber)}${args.email ? `, ${args.email}` : ''})`,
             }).catch(() => {});
           }
           // Send the CALLER their own confirmation — reliable, unlike the Google
@@ -550,7 +555,11 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
             sendEmail({
               to: args.email,
               subject: `Appointment confirmed — ${tenant.business_name}`,
-              html: `<p>Hi ${args.name || 'there'},</p><p>Your appointment with <strong>${tenant.business_name}</strong> is confirmed for <strong>${slot.label}</strong>.</p><p>Need to reschedule? Just call us back${ourNumber ? ` at ${formatPhone(ourNumber)}` : ''}.</p>`,
+              html: brandedEmail({
+                heading: `You're all set! ✅`,
+                preview: `Your appointment is confirmed for ${slot.label}`,
+                bodyHtml: `<p>Hi ${args.name || 'there'},</p><p>Your appointment with <strong>${tenant.business_name}</strong> is confirmed for:</p>${slotBox}<p style="margin:0;">Need to reschedule? Just call us back${ourNumber ? ` at <strong>${formatPhone(ourNumber)}</strong>` : ''}.</p>`,
+              }),
               text: `Your appointment with ${tenant.business_name} is confirmed for ${slot.label}.${ourNumber ? ` To reschedule, call ${formatPhone(ourNumber)}.` : ''}`,
             }).catch(() => {});
           }
