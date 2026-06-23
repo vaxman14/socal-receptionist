@@ -1,0 +1,589 @@
+// Standalone marketing web server for www.socalreceptionist.com.
+//
+// Serves the static marketing site (public/), the lead-form / survey / callback
+// endpoints, and the code-generated legal pages. Deliberately does NOT import the
+// voice / API / billing / worker stack — those run in the V3 app (8e427059). This
+// lets www deploy from v3-alpha with zero coupling to the phone-line code.
+//
+// Env it expects (carried over from the existing www app, unchanged):
+//   SUPABASE_URL / SUPABASE_SERVICE_KEY  (legal_survey_responses insert)
+//   RESEND_API_KEY                        (lead/survey email notifications)
+//   TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_PHONE_NUMBER  (callback widgets)
+//   APP_BASE_URL                          (callback widget -> /voice/demo-connect on the voice app)
+//   RECAPTCHA_SECRET_KEY                  (optional spam filter)
+require('dotenv').config();
+const path = require('path');
+const express = require('express');
+const cors = require('cors');
+const { verifyRecaptcha } = require('./lib/recaptcha');
+
+const app = express();
+app.set('trust proxy', true); // behind DigitalOcean / Cloudflare
+
+// Redirect naked domain -> www
+app.use((req, res, next) => {
+  if (req.hostname === 'socalreceptionist.com') {
+    return res.redirect(301, `https://www.socalreceptionist.com${req.originalUrl}`);
+  }
+  next();
+});
+app.use(cors());
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
+
+// ===== Marketing form + callback endpoints (verbatim from v2 server) =====
+app.post('/demo', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const name = String(b.name || '').trim();
+    const business = String(b.business || '').trim();
+    const phone = String(b.phone || '').trim();
+    const type = String(b.type || '').trim();
+    const email = String(b.email || '').trim();
+    const smsConsent = b.smsConsent === true || b.smsConsent === 'true';
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'name and phone are required' });
+    }
+    // reCAPTCHA v3 — block bot spam. Gracefully skipped if RECAPTCHA_SECRET_KEY
+    // is unset (so a missing key never blocks real leads, just disables filtering).
+    const captcha = await verifyRecaptcha(b.recaptcha_token);
+    if (!captcha.ok) {
+      console.log(`[demo-lead] reCAPTCHA blocked ${name} | ${business} | ${phone} — ${captcha.reason || ''}${captcha.score != null ? ` score=${captcha.score}` : ''}`);
+      return res.status(422).json({ error: 'Verification failed. Please try again, or call us at (951) 395-8776.' });
+    }
+    const ts = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+    const text = `New demo request from socalreceptionist.com\n\n`
+      + `Name: ${name}\nBusiness: ${business || '(not provided)'}\n`
+      + `Phone: ${phone}\nType: ${type || '(not provided)'}\n`
+      + `Email: ${email || '(not provided)'}\n`
+      + `SMS marketing consent: ${smsConsent ? 'YES (opted in)' : 'no'}\n`
+      + `Time: ${ts} PT`;
+    console.log(`[demo-lead] ${name} | ${business} | ${phone} | ${type}`);
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if (RESEND_API_KEY) {
+      try {
+        const r = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'SoCal Receptionist <hello@noreply.socalreceptionist.com>',
+            to: ['roman@socalreceptionist.com'],
+            subject: `🔔 New demo request — ${name}${business ? ` (${business})` : ''}`,
+            text,
+          }),
+        });
+        if (!r.ok) console.error('[demo-lead] Resend error:', await r.text());
+      } catch (e) {
+        console.error('[demo-lead] email failed:', e.message);
+      }
+    } else {
+      console.error('[demo-lead] RESEND_API_KEY missing — lead only logged, not emailed');
+    }
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[demo-lead] handler error:', e.message);
+    return res.status(500).json({ error: 'failed' });
+  }
+});
+
+// POST /legal-survey — law-firm market-research survey (public page /legal-survey).
+// Saves to Supabase (RLS-locked table, backend-only) and emails Roman on each
+// submission. Research + warm-lead capture. Does not touch the voice stack.
+app.post('/legal-survey', async (req, res) => {
+  try {
+    const b = req.body || {};
+    // reCAPTCHA v3 — same gate as /demo. Gracefully skipped if key unset.
+    const captcha = await verifyRecaptcha(b.recaptcha_token);
+    if (!captcha.ok) {
+      console.log(`[legal-survey] reCAPTCHA blocked — ${captcha.reason || ''}${captcha.score != null ? ` score=${captcha.score}` : ''}`);
+      return res.status(422).json({ error: 'Verification failed. Please try again, or call us at (951) 395-8776.' });
+    }
+    const clean = (v, max = 300) => String(v == null ? '' : v).trim().slice(0, max);
+    const pains = Array.isArray(b.top_pains) ? b.top_pains.map((p) => clean(p, 80)).filter(Boolean).slice(0, 7) : [];
+    const ratingNum = parseInt(b.value_rating, 10);
+    const record = {
+      practice_area: clean(b.practice_area),
+      practice_area_other: clean(b.practice_area_other),
+      email_calendar_other: clean(b.email_calendar_other),
+      firm_size: clean(b.firm_size),
+      who_answers: clean(b.who_answers),
+      receptionist_cost: clean(b.receptionist_cost),
+      top_pains: pains,
+      callback_speed: clean(b.callback_speed),
+      pms_software: clean(b.pms_software),
+      pms_software_other: clean(b.pms_software_other),
+      email_calendar: clean(b.email_calendar),
+      phone_system: clean(b.phone_system),
+      value_rating: Number.isFinite(ratingNum) ? ratingNum : null,
+      willingness_to_pay: clean(b.willingness_to_pay),
+      wants_demo: b.wants_demo === true || b.wants_demo === 'true',
+      contact_name: clean(b.contact_name),
+      firm_name: clean(b.firm_name),
+      contact_email: clean(b.contact_email, 200),
+      user_agent: clean(req.headers['user-agent'], 400),
+      referrer: clean(req.headers['referer'] || req.headers['referrer'], 400),
+    };
+
+    // Save to Supabase (best-effort — a DB hiccup must not lose the email notify).
+    let entryId = null;
+    try {
+      const { supabase } = require('./lib/supabase');
+      const { data, error } = await supabase.from('legal_survey_responses').insert(record).select('id').single();
+      if (error) console.error('[legal-survey] supabase insert error:', error.message);
+      else if (data) entryId = data.id;
+    } catch (e) {
+      console.error('[legal-survey] supabase failed:', e.message);
+    }
+
+    console.log(`[legal-survey] ${record.practice_area} | ${record.firm_size} | PMS=${record.pms_software} | WTP=${record.willingness_to_pay} | demo=${record.wants_demo}`);
+
+    // Notify Roman via Resend (same channel as demo leads).
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if (RESEND_API_KEY) {
+      const ts = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+      const demoLine = record.wants_demo
+        ? `\n⭐ WANTS A DEMO / PILOT\nName: ${record.contact_name || '(none)'}\nFirm: ${record.firm_name || '(none)'}\nEmail: ${record.contact_email || '(none)'}\n`
+        : '\n(No demo requested)\n';
+      const text = `New law-firm survey response — socalreceptionist.com/legal-survey\n`
+        + `\nPractice area: ${record.practice_area || '—'}${record.practice_area_other ? ` (${record.practice_area_other})` : ''}`
+        + `\nFirm size: ${record.firm_size || '—'}`
+        + `\nWho answers phones: ${record.who_answers || '—'}`
+        + `\nReceptionist cost/mo: ${record.receptionist_cost || '—'}`
+        + `\nTop pains: ${pains.join(', ') || '—'}`
+        + `\nCallback speed: ${record.callback_speed || '—'}`
+        + `\nPMS software: ${record.pms_software || '—'}${record.pms_software_other ? ` (${record.pms_software_other})` : ''}`
+        + `\nEmail/calendar: ${record.email_calendar || '—'}${record.email_calendar_other ? ` (${record.email_calendar_other})` : ''}`
+        + `\nPhone system: ${record.phone_system || '—'}`
+        + `\nValue rating (1-5): ${record.value_rating != null ? record.value_rating : '—'}`
+        + `\nWilling to pay/mo: ${record.willingness_to_pay || '—'}`
+        + `\n${demoLine}`
+        + `\nTime: ${ts} PT`;
+      try {
+        const r = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'SoCal Receptionist <hello@noreply.socalreceptionist.com>',
+            to: ['roman@socalreceptionist.com'],
+            subject: `📋 Law-firm survey${record.wants_demo ? ' ⭐DEMO' : ''} — ${record.practice_area || 'response'}${record.pms_software ? ` / ${record.pms_software}` : ''}`,
+            text,
+          }),
+        });
+        if (!r.ok) console.error('[legal-survey] Resend error:', await r.text());
+      } catch (e) {
+        console.error('[legal-survey] email failed:', e.message);
+      }
+    } else {
+      console.error('[legal-survey] RESEND_API_KEY missing — response saved/logged, not emailed');
+    }
+    return res.json({ ok: true, entry_id: entryId });
+  } catch (e) {
+    console.error('[legal-survey] handler error:', e.message);
+    return res.status(500).json({ error: 'failed' });
+  }
+});
+
+// --- Reverse-call demo widget: visitor enters number, Josi calls them back ----
+// Reuses the proven outbound bridge (/voice/callback, same plumbing as the live
+// hangup auto-callback). Fully isolated from the inbound call path. Gated by
+// CALLBACK_WIDGET_ENABLED (set 'false' to kill instantly) and rate-limited so it
+// cannot be weaponized to spam-dial numbers or run up Twilio cost.
+const cbDemoByPhone = new Map(); // e164 -> last ts (ms)
+const cbDemoByIp = new Map();    // ip -> { count, windowStart }
+let cbDemoGlobal = { count: 0, windowStart: 0 };
+const CB_HOUR_MS = 3600000;
+
+app.post('/callback-demo', async (req, res) => {
+  try {
+    if (process.env.CALLBACK_WIDGET_ENABLED === 'false') {
+      return res.status(503).json({ error: 'Demo callback is temporarily off. Please call (951) 395-8776.' });
+    }
+    let digits = String((req.body && req.body.phone) || '').replace(/\D/g, '');
+    if (digits.length === 11 && digits[0] === '1') digits = digits.slice(1);
+    if (digits.length !== 10) {
+      return res.status(400).json({ error: 'Enter a valid 10-digit US phone number.' });
+    }
+    const e164 = '+1' + digits;
+    const now = Date.now();
+    const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+
+    const lastPhone = cbDemoByPhone.get(e164) || 0;
+    if (now - lastPhone < 15 * 60000) {
+      return res.status(429).json({ error: 'We just called that number. Give it a minute and answer your phone.' });
+    }
+    const ipRec = cbDemoByIp.get(ip) || { count: 0, windowStart: now };
+    if (now - ipRec.windowStart > CB_HOUR_MS) { ipRec.count = 0; ipRec.windowStart = now; }
+    if (ipRec.count >= 5) {
+      return res.status(429).json({ error: 'Too many requests from your network. Try again later.' });
+    }
+    if (now - cbDemoGlobal.windowStart > CB_HOUR_MS) { cbDemoGlobal = { count: 0, windowStart: now }; }
+    if (cbDemoGlobal.count >= 30) {
+      return res.status(429).json({ error: 'Our demo line is busy. Please call (951) 395-8776 directly.' });
+    }
+
+    const SID = process.env.TWILIO_ACCOUNT_SID;
+    const TOKEN = process.env.TWILIO_AUTH_TOKEN;
+    if (!SID || !TOKEN) {
+      console.error('[callback-demo] Twilio creds missing');
+      return res.status(500).json({ error: 'Calling is temporarily unavailable. Please call (951) 395-8776.' });
+    }
+    const twilioLib = require('twilio');
+    const client = twilioLib(SID, TOKEN);
+    const baseUrl = (process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
+    const fromNum = process.env.TWILIO_PHONE_NUMBER || '+19513958776';
+
+    await client.calls.create({ to: e164, from: fromNum, url: `${baseUrl}/voice/demo-connect` });
+
+    cbDemoByPhone.set(e164, now);
+    ipRec.count += 1; cbDemoByIp.set(ip, ipRec);
+    cbDemoGlobal.count += 1;
+    console.log(`[callback-demo] calling ${e164} (ip ${ip})`);
+
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if (RESEND_API_KEY) {
+      const ts = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'SoCal Receptionist <hello@noreply.socalreceptionist.com>',
+          to: ['roman@socalreceptionist.com'],
+          subject: `📞 Reverse-call demo requested — ${e164}`,
+          text: `Someone asked Josi to call them from the homepage widget.\n\nPhone: ${e164}\nTime: ${ts} PT`,
+        }),
+      }).catch(err => console.error('[callback-demo] lead email failed:', err.message));
+    }
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[callback-demo] error:', e.message);
+    return res.status(500).json({ error: 'Could not place the call. Please call (951) 395-8776 directly.' });
+  }
+});
+
+// CTF Designs callback widget — calls the visitor, then bridges them to Roman.
+// Reuses the same Twilio plumbing + rate-limit maps as /callback-demo. Isolated
+// from the voice/inbound path. Connect target overridable via CTF_CALLBACK_TO.
+app.post('/callback-ctf', async (req, res) => {
+  try {
+    if (process.env.CALLBACK_WIDGET_ENABLED === 'false') {
+      return res.status(503).json({ error: 'Callback is temporarily off.' });
+    }
+    let digits = String((req.body && req.body.phone) || '').replace(/\D/g, '');
+    if (digits.length === 11 && digits[0] === '1') digits = digits.slice(1);
+    if (digits.length !== 10) return res.status(400).json({ error: 'Enter a valid 10-digit US phone number.' });
+    const e164 = '+1' + digits;
+    const now = Date.now();
+    const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+
+    const lastPhone = cbDemoByPhone.get(e164) || 0;
+    if (now - lastPhone < 15 * 60000) return res.status(429).json({ error: 'We just called that number. Give it a minute and answer your phone.' });
+    const ipRec = cbDemoByIp.get(ip) || { count: 0, windowStart: now };
+    if (now - ipRec.windowStart > CB_HOUR_MS) { ipRec.count = 0; ipRec.windowStart = now; }
+    if (ipRec.count >= 5) return res.status(429).json({ error: 'Too many requests from your network. Try again later.' });
+    if (now - cbDemoGlobal.windowStart > CB_HOUR_MS) { cbDemoGlobal = { count: 0, windowStart: now }; }
+    if (cbDemoGlobal.count >= 30) return res.status(429).json({ error: 'Our line is busy right now. Please try again shortly.' });
+
+    const SID = process.env.TWILIO_ACCOUNT_SID;
+    const TOKEN = process.env.TWILIO_AUTH_TOKEN;
+    if (!SID || !TOKEN) { console.error('[callback-ctf] Twilio creds missing'); return res.status(500).json({ error: 'Calling is temporarily unavailable.' }); }
+    const client = require('twilio')(SID, TOKEN);
+    const fromNum = process.env.TWILIO_PHONE_NUMBER || '+19513958776';
+    const connectTo = process.env.CTF_CALLBACK_TO || '+19515149294';
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna-Neural">Please hold while we connect you with C T F Designs.</Say><Dial callerId="${fromNum}">${connectTo}</Dial></Response>`;
+
+    await client.calls.create({ to: e164, from: fromNum, twiml });
+    cbDemoByPhone.set(e164, now);
+    ipRec.count += 1; cbDemoByIp.set(ip, ipRec);
+    cbDemoGlobal.count += 1;
+    console.log(`[callback-ctf] calling ${e164} -> bridge ${connectTo} (ip ${ip})`);
+
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if (RESEND_API_KEY) {
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'CTF Designs <hello@noreply.socalreceptionist.com>',
+          to: ['roman@ctfdesigns.com'],
+          subject: `📞 CTF callback requested — ${e164}`,
+          text: `A ctfdesigns.com visitor requested a callback.\nPhone: ${e164}`,
+        }),
+      }).catch(err => console.error('[callback-ctf] lead email failed:', err.message));
+    }
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[callback-ctf] error:', e.message);
+    return res.status(500).json({ error: 'Could not place the call. Please try again.' });
+  }
+});
+
+app.get('/health', (req, res) => {
+  res.json({ ok: true, service: 'socal-receptionist-v2', ts: new Date().toISOString() });
+});
+
+// ===== Legal pages (verbatim from v2 server) =====
+function legalPage(title, bodyHtml) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} — SoCal Receptionist</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:720px;margin:0 auto;padding:40px 24px;color:#1a1a2e;line-height:1.7;background:#fff}
+    a{color:#4f46e5}
+    h1{font-size:1.6rem;font-weight:700;margin-bottom:.25rem}
+    h2{font-size:1.1rem;font-weight:600;margin-top:2.5rem;margin-bottom:.5rem;color:#4f46e5}
+    h3{font-size:1rem;font-weight:600;margin-top:1.5rem;margin-bottom:.4rem}
+    p,li{font-size:.95rem;color:#374151}
+    ul{padding-left:1.4rem}
+    nav{margin-bottom:2rem;font-size:.85rem}
+    nav a{margin-right:1rem;color:#6b7280;text-decoration:none}
+    nav a:hover{color:#4f46e5}
+    .meta{margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;font-size:.8rem;color:#6b7280}
+    main p a, main li a{text-decoration:underline}
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">← Home</a>
+    <a href="/privacy">Privacy Policy</a>
+    <a href="/terms">Terms of Use</a>
+    <a href="/sms-terms">SMS Terms</a>
+    <a href="/cookies">Cookie Policy</a>
+    <a href="/accessibility">Accessibility</a>
+  </nav>
+  <main>${bodyHtml}</main>
+  <footer class="meta">SoCal Receptionist &nbsp;·&nbsp; Murrieta, CA &nbsp;·&nbsp; <a href="mailto:info@socalreceptionist.com">Contact</a></footer>
+</body>
+</html>`;
+}
+
+app.get('/privacy', (req, res) => {
+  res.type('text/html').send(legalPage('Privacy Policy', `
+  <h1>Privacy Policy</h1>
+  <p>Last updated: June 2026</p>
+  <p><strong>SoCal Receptionist</strong> ("we," "us," or "our") operates an AI-powered virtual receptionist service delivered via SMS text messaging to small businesses in Southern California. This Privacy Policy describes how we collect, use, disclose, and protect information when you interact with our SMS service or visit our website at <a href="https://www.socalreceptionist.com">www.socalreceptionist.com</a>.</p>
+
+  <h2>SMS Text Messaging Program</h2>
+  <p>SoCal Receptionist operates an SMS text messaging program that allows customers to communicate with participating businesses via automated AI-generated text messages. By texting a participating business's dedicated phone number, you agree to receive automated text messages in response.</p>
+
+  <h3>How You Opt In</h3>
+  <p>You can opt in to receive SMS messages in two ways: (1) by texting a participating business's SoCal Receptionist number, where your first inbound text message constitutes your opt-in consent to receive replies; or (2) by submitting your mobile number through an opt-in form on our website (see <a href="https://www.socalreceptionist.com/sms-optin">www.socalreceptionist.com/sms-optin</a>) or a participating business's booking page and checking the SMS consent box. After you opt in, you may receive appointment-related messages such as scheduling, confirmations, and reminders. We never send marketing or promotional text blasts, and we never message numbers that have not opted in.</p>
+
+  <h3>Message Frequency</h3>
+  <p>Message frequency varies based on your inquiries. Typically 1–5 messages per conversation session. Recurring messages may apply while your inquiry is active.</p>
+
+  <h3>Message &amp; Data Rates</h3>
+  <p><strong>Msg &amp; Data Rates May Apply.</strong> Standard message and data rates may apply depending on your mobile carrier and plan. Contact your carrier for details.</p>
+
+  <h3>How to Opt Out (STOP)</h3>
+  <p>You may opt out of receiving SMS messages from us at any time by replying <strong>STOP</strong>, <strong>CANCEL</strong>, <strong>END</strong>, <strong>QUIT</strong>, or <strong>UNSUBSCRIBE</strong> to any message. You will receive a single confirmation message and no further messages will be sent to your number.</p>
+
+  <h3>How to Get Help (HELP)</h3>
+  <p>Reply <strong>HELP</strong> to any message to receive support information. You may also contact us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a> or visit <a href="https://www.socalreceptionist.com/sms-terms">www.socalreceptionist.com/sms-terms</a> for full SMS Terms &amp; Conditions.</p>
+
+  <h3>Supported Carriers</h3>
+  <p>Supported carriers include AT&amp;T, T-Mobile, Verizon, and most major U.S. carriers. Carrier support for text programs is not guaranteed.</p>
+
+  <h2>Information We Collect</h2>
+  <ul>
+    <li><strong>Phone number</strong> — collected when you initiate a text conversation with a business using our service.</li>
+    <li><strong>Message content</strong> — the text messages you send are processed to generate a response. Message content is not stored permanently after the session ends.</li>
+    <li><strong>Consent status</strong> — we record your opt-in and opt-out status to maintain compliance with applicable regulations.</li>
+    <li><strong>Website usage data</strong> — if you visit our website, we may collect standard web log data such as IP address and browser type.</li>
+  </ul>
+
+  <h2>How We Use Your Information</h2>
+  <ul>
+    <li>To respond to your SMS inquiries and connect you with the participating business</li>
+    <li>To maintain opt-in and opt-out compliance records</li>
+    <li>To improve service quality</li>
+    <li>To comply with legal obligations</li>
+  </ul>
+  <p>We do <strong>not</strong> sell, rent, or share your personal information or phone number with third parties for marketing purposes. <strong>Mobile information and messaging opt-in data and consent are not shared with any third parties or affiliates for marketing or promotional purposes.</strong> Your phone number will not be shared with any third party for their own marketing use.</p>
+
+  <h2>Data Retention</h2>
+  <p>Opt-in and opt-out consent records are retained for compliance purposes as required by law. Conversation content is processed in real time and is not stored permanently after the session concludes.</p>
+
+  <h2>Third-Party Services</h2>
+  <p>We use Twilio for SMS delivery and OpenAI for AI-generated responses. Both services process message content under their own privacy policies:</p>
+  <ul>
+    <li>Twilio: <a href="https://www.twilio.com/legal/privacy" target="_blank" rel="noopener">twilio.com/legal/privacy</a></li>
+    <li>OpenAI: <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">openai.com/policies/privacy-policy</a></li>
+  </ul>
+
+  <h2>Children's Privacy</h2>
+  <p>Our service is not directed to children under 13. We do not knowingly collect personal information from children under 13.</p>
+
+  <h2>California Privacy Rights (CCPA)</h2>
+  <p>California residents have the right to request disclosure of personal information we collect, request deletion of their data, and opt out of the sale of personal information. We do not sell personal information. To exercise your rights, contact us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a> or visit <a href="https://www.socalreceptionist.com/data-deletion">www.socalreceptionist.com/data-deletion</a>.</p>
+
+  <h2>Changes to This Policy</h2>
+  <p>We may update this policy periodically. The "Last updated" date above reflects the most recent revision. Continued use of the service after changes constitutes acceptance of the updated policy.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this Privacy Policy or our SMS program? Contact us:</p>
+  <p>
+    <strong>SoCal Receptionist (SOCAL RECEPTIONIST LLC)</strong><br>
+    Email: <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a><br>
+    Website: <a href="https://www.socalreceptionist.com">www.socalreceptionist.com</a>
+  </p>
+  `));
+});
+
+app.get('/terms', (req, res) => {
+  res.type('text/html').send(legalPage('Terms of Use', `
+  <h1>Terms of Use</h1>
+  <p>Last updated: June 2026</p>
+  <p>By using the SMS service provided by <strong>SoCal Receptionist</strong>, you agree to these Terms of Use. If you do not agree, do not use the service.</p>
+
+  <h2>The Service</h2>
+  <p>SoCal Receptionist provides an AI-powered virtual receptionist delivered via SMS. The service answers general inquiries, provides business information, and facilitates appointment scheduling on behalf of participating businesses.</p>
+
+  <h2>Acceptable Use</h2>
+  <p>You agree not to:</p>
+  <ul>
+    <li>Use the service for any unlawful purpose</li>
+    <li>Send abusive, harassing, or threatening messages</li>
+    <li>Attempt to manipulate, reverse-engineer, or disrupt the AI system</li>
+    <li>Use the service to transmit spam or unsolicited commercial messages</li>
+  </ul>
+  <p>All communication through the service must remain professional and lawful. Profanity, cursing, harassment, or other improper or unprofessional communication will result in termination of the SMS service after one (1) warning.</p>
+
+  <h2>Usage Limits</h2>
+  <p>To keep the service available for everyone, automated fair-use limits apply:</p>
+  <ul>
+    <li>Calls from a single phone number are limited per day: 3 calls per day on the demo line and 10 calls per day on business lines.</li>
+    <li>Inbound text messages are limited to 30 per day per sender.</li>
+    <li>Calls have a maximum duration of 5 minutes on the demo line and 10 minutes on business lines, after which the call ends automatically.</li>
+  </ul>
+  <p>The AI assistant only helps with the connected business's services. Requests that attempt to misuse it, including attempts to extract its instructions or to use it for unrelated tasks such as generating content or code, will be declined. We monitor usage for abuse and may block numbers that repeatedly exceed these limits.</p>
+
+  <h2>AI-Generated Responses</h2>
+  <p>Responses are generated by an AI system and may not always be accurate, complete, or up to date. The AI is not a licensed professional in any field. Do not rely solely on AI responses for legal, medical, financial, or safety decisions. Always confirm important details directly with the business.</p>
+
+  <h2>Opt-In Requirement</h2>
+  <p>You must reply <strong>YES</strong> to the consent prompt before receiving AI messages. By doing so, you agree to receive automated text messages from the service. Reply <strong>STOP</strong> at any time to opt out.</p>
+
+  <h2>Text Messaging Registration (Business Clients)</h2>
+  <p>For business clients, US text messaging requires carrier registration (A2P 10DLC). SoCal Receptionist prepares and submits this registration on the client's behalf, as the client's messaging agent, using the business information the client provides (legal business name, EIN or sole-proprietor details, address, and contact). The client authorizes this and is solely responsible for the accuracy of that information and for obtaining lawful opt-in consent from their own customers. Voice service is active immediately; text messaging is enabled only after the client's campaign is registered and approved by the carriers, which is outside our control and is not guaranteed by any particular date or at all. If a registration is rejected for a reason attributable to the client (for example, an EIN or legal-name mismatch), the first two (2) resubmissions are at no charge and each resubmission after the second costs fifteen US dollars ($15). Plans include one thousand (1,000) text messages per month at no additional charge. Carriers may reject, suspend, or revoke a campaign at any time, which may suspend the client's text service; voice service is unaffected.</p>
+
+  <h2>No Warranties</h2>
+  <p>The service is provided "as is" without warranty of any kind. We do not guarantee uninterrupted service, accuracy of AI responses, or that the service will meet your specific needs.</p>
+
+  <h2>Limitation of Liability</h2>
+  <p>To the fullest extent permitted by applicable law, SoCal Receptionist shall not be liable for any indirect, incidental, or consequential damages arising from your use of the service.</p>
+
+  <h2>Governing Law</h2>
+  <p>These terms are governed by the laws of the State of California. Any disputes shall be resolved in the courts of Riverside County, California.</p>
+
+  <h2>Changes to These Terms</h2>
+  <p>We may update these terms at any time. Continued use of the service constitutes acceptance of the updated terms.</p>
+
+  <h2>Contact</h2>
+  <p>Questions? Email us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>.</p>
+  `));
+});
+
+app.get('/sms-terms', (req, res) => {
+  res.type('text/html').send(legalPage('SMS Terms & Conditions', `
+  <h1>SMS Terms &amp; Conditions</h1>
+  <p>Last updated: June 2026</p>
+
+  <h2>Program Description</h2>
+  <p><strong>SoCal Receptionist</strong> provides an AI-powered virtual receptionist service that communicates with customers via SMS on behalf of small businesses in Southern California. Messages may include appointment scheduling, business inquiries, and follow-ups.</p>
+
+  <h2>How to Opt In</h2>
+  <p>You opt in to receive SMS messages by texting a business phone number powered by SoCal Receptionist. Your first inbound message constitutes your explicit opt-in consent to receive AI-generated SMS replies. No automated messages are sent until you initiate the conversation.</p>
+
+  <h2>Message Frequency</h2>
+  <p>Message frequency varies based on your interactions. Typically 1–5 messages per conversation. You will not receive unsolicited marketing messages.</p>
+
+  <h2>Message &amp; Data Rates</h2>
+  <p><strong>Msg &amp; Data Rates May Apply.</strong> Standard message and data rates may apply depending on your mobile carrier plan. SoCal Receptionist does not charge for SMS messages.</p>
+
+  <h2>How to Opt Out</h2>
+  <p>Reply <strong>STOP</strong>, <strong>CANCEL</strong>, <strong>END</strong>, <strong>QUIT</strong>, or <strong>UNSUBSCRIBE</strong> at any time to immediately stop all SMS messages. You will receive one final confirmation message and no further messages will be sent.</p>
+
+  <h2>How to Get Help</h2>
+  <p>Reply <strong>HELP</strong> for assistance, or contact us directly:</p>
+  <ul>
+    <li><strong>Email:</strong> <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a></li>
+    <li><strong>Website:</strong> <a href="https://www.socalreceptionist.com/support">socalreceptionist.com/support</a></li>
+  </ul>
+
+  <h2>Supported Carriers</h2>
+  <p>Major US carriers including AT&amp;T, Verizon, T-Mobile, and others. Carrier support may vary.</p>
+
+  <h2>Privacy</h2>
+  <p>Your phone number and message content are used solely to provide the virtual receptionist service. We do not sell or share your phone number for marketing purposes. See our full <a href="/privacy">Privacy Policy</a>.</p>
+
+  <h2>Contact</h2>
+  <p>Questions? Email <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>.</p>
+  `));
+});
+
+app.get('/cookies', (req, res) => {
+  res.type('text/html').send(legalPage('Cookie Policy', `
+  <h1>Cookie Policy</h1>
+  <p>Last updated: May 2026</p>
+  <p>This Cookie Policy explains how <strong>SoCal Receptionist</strong> uses cookies on our website (<a href="https://www.socalreceptionist.com">socalreceptionist.com</a>).</p>
+
+  <h2>What Cookies We Use</h2>
+  <p>Our website uses only <strong>essential cookies</strong> necessary for basic functionality:</p>
+  <ul>
+    <li><strong>Session cookies</strong> — temporary cookies that expire when you close your browser.</li>
+  </ul>
+  <p>We do <strong>not</strong> use advertising, tracking, or third-party analytics cookies.</p>
+
+  <h2>Managing Cookies</h2>
+  <p>You can control cookies through your browser settings. Disabling essential cookies may affect site functionality.</p>
+
+  <h2>Contact</h2>
+  <p>Questions? Email us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>.</p>
+  `));
+});
+
+app.get('/accessibility', (req, res) => {
+  res.type('text/html').send(legalPage('Accessibility Statement', `
+  <h1>Accessibility Statement</h1>
+  <p>Last updated: May 2026</p>
+  <p><strong>SoCal Receptionist</strong> is committed to ensuring digital accessibility for people with disabilities. We aim to conform to <strong>WCAG 2.1 Level AA</strong>.</p>
+
+  <h2>Feedback &amp; Contact</h2>
+  <p>If you experience any accessibility barriers, contact us at <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a>. We aim to respond within 2 business days.</p>
+  `));
+});
+
+app.get('/data-deletion', (req, res) => {
+  res.type('text/html').send(legalPage('Data Deletion', `
+  <h1>Data Deletion Request</h1>
+  <p>Last updated: June 2026</p>
+  <p>To request deletion of your data held by SoCal Receptionist, email <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a> with the subject line "Data Deletion Request" and include your phone number. We will process your request within 30 days as required by California law (CCPA).</p>
+
+  <h2>What We Delete</h2>
+  <ul>
+    <li>Your phone number from our records</li>
+    <li>Any stored opt-in/opt-out consent status</li>
+    <li>Any conversation data associated with your number</li>
+  </ul>
+
+  <h2>Contact</h2>
+  <p>Email: <a href="mailto:info@socalreceptionist.com">info@socalreceptionist.com</a></p>
+  `));
+});
+
+// Serve the landing page (public/) and the React SPA (web/dist/).
+// API routes above take priority; everything else falls through to the SPA.
+const publicDir = path.join(__dirname, '../../public');
+const spaDir = path.join(__dirname, '../web/dist');
+
+
+// ===== Static marketing site =====
+app.use(express.static(publicDir, { extensions: ['html'] }));
+
+const port = Number(process.env.PORT) || 8080;
+app.listen(port, () => console.log(`[marketing] www.socalreceptionist.com listening on :${port}`));

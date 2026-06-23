@@ -36,4 +36,7 @@ EXPOSE 8080
 USER node
 
 WORKDIR /app
-CMD ["node", "v2/server/index.js"]
+# This root image powers the www marketing app (DO app 5258cb89). It runs the
+# standalone marketing server — static pages + lead forms + legal pages only —
+# NOT the voice/API/worker stack (that's the V3 app via v2/Dockerfile).
+CMD ["node", "v2/server/marketing-server.js"]
