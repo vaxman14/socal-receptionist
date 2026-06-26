@@ -652,6 +652,7 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
             });
             sendEmail({
               to: notifyTo,
+              fromName: tenant.email_from_name || tenant.business_name,
               subject: `📞 Incoming call — ${tenant.business_name}`,
               html: `<p>Someone just called <strong>${tenant.business_name}</strong>.</p><p><strong>From:</strong> ${formatPhone(fromNumber)}<br/><strong>Time:</strong> ${ts}</p>`,
               text: `Incoming call to ${tenant.business_name}\nFrom: ${formatPhone(fromNumber)}\nTime: ${ts}`,
@@ -757,7 +758,7 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
             const html = leadCaptured
               ? `<p>The caller from <strong>${formatPhone(fromNumber)}</strong> completed the conversation and their info was captured.</p><p><strong>Time:</strong> ${ts}</p>${transcriptHtml}`
               : `<p>The caller from <strong>${formatPhone(fromNumber)}</strong> hung up mid-conversation before leaving their info.</p><p><strong>Time:</strong> ${ts}</p>${transcriptHtml}`;
-            sendEmail({ to: notifyTo, subject, html }).catch(() => {});
+            sendEmail({ to: notifyTo, fromName: tenant.email_from_name || tenant.business_name, subject, html }).catch(() => {});
 
             // Save transcript to DB.
             if (callSid && transcript.length) {
