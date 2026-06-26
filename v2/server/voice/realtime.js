@@ -791,7 +791,10 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
           }
 
           // Schedule callback if no lead was captured and this was not already a callback.
-          if (!leadCaptured && !isCallback && fromNumber && fromNumber !== 'anonymous') {
+          // Do-not-callback list (env CALLBACK_DNC, comma-separated; defaults to Roman's cell)
+          // so test calls / specific numbers never get auto-called back.
+          const callbackDnc = (process.env.CALLBACK_DNC || '+19515149294').split(',').map((s) => s.trim()).filter(Boolean);
+          if (!leadCaptured && !isCallback && fromNumber && fromNumber !== 'anonymous' && !callbackDnc.includes(fromNumber)) {
             const baseUrl = (process.env.API_PUBLIC_BASE_URL || process.env.APP_BASE_URL || 'https://socal-receptionist-v2-spbrw.ondigitalocean.app').replace(/\/+$/, '');
             const callbackFrom = ourNumber || '+19514776060';
             setTimeout(() => {
