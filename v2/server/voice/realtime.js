@@ -188,6 +188,7 @@ function handleMediaStream(twilioWs, req) {
   let usageRecorded = false;
   let wrapUpTimer = null;
   let hardStopTimer = null;
+  let incomingNotifyTimer = null;
 
   // --- Outbound audio pacing + barge-in (fixes garbled/overlapping playback) ---
   let playQueue = Buffer.alloc(0);
@@ -324,6 +325,8 @@ function handleMediaStream(twilioWs, req) {
           );
           clearTimeout(wrapUpTimer);
           clearTimeout(hardStopTimer);
+          clearTimeout(incomingNotifyTimer);
+          incomingNotifyTimer = null;
           flushPlayback();
           if (drainTimer) {
             clearInterval(drainTimer);
@@ -687,22 +690,28 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
           }).catch(err => logger.error('voice.recording.start_failed', { error: err.message }));
         }
 
-        // Notify the tenant of every inbound call, regardless of outcome.
+        // Delay the inbound-call alert long enough for known robocall recordings
+        // to be transcribed and fingerprinted. A matched spam call cancels this
+        // timer, while legitimate callers still generate the normal alert.
         if (tenant) {
           const notifyTo = tenant.voicemail_email || tenant.owner_email;
           if (notifyTo) {
-            const ts = new Date().toLocaleString('en-US', {
-              timeZone: tenant.timezone || 'America/Los_Angeles',
-              dateStyle: 'medium',
-              timeStyle: 'short',
-            });
-            sendEmail({
-              to: notifyTo,
-              fromName: tenant.email_from_name || tenant.business_name,
-              subject: `📞 Incoming call — ${tenant.business_name}`,
-              html: `<p>Someone just called <strong>${tenant.business_name}</strong>.</p><p><strong>From:</strong> ${formatPhone(fromNumber)}<br/><strong>Time:</strong> ${ts}</p>`,
-              text: `Incoming call to ${tenant.business_name}\nFrom: ${formatPhone(fromNumber)}\nTime: ${ts}`,
-            }).catch(() => {});
+            incomingNotifyTimer = setTimeout(() => {
+              incomingNotifyTimer = null;
+              if (spamDetected) return;
+              const ts = new Date().toLocaleString('en-US', {
+                timeZone: tenant.timezone || 'America/Los_Angeles',
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              });
+              sendEmail({
+                to: notifyTo,
+                fromName: tenant.email_from_name || tenant.business_name,
+                subject: `📞 Incoming call — ${tenant.business_name}`,
+                html: `<p>Someone just called <strong>${tenant.business_name}</strong>.</p><p><strong>From:</strong> ${formatPhone(fromNumber)}<br/><strong>Time:</strong> ${ts}</p>`,
+                text: `Incoming call to ${tenant.business_name}\nFrom: ${formatPhone(fromNumber)}\nTime: ${ts}`,
+              }).catch(() => {});
+            }, 30_000);
           }
         }
 

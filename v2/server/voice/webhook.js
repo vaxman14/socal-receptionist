@@ -554,6 +554,12 @@ router.post('/voice/recording-status', async (req, res) => {
     await updateCall(callSid, { recording_url: recordingUrl + '.mp3', recording_sid: recordingSid });
     const call = await getCallBySid(callSid);
     if (!call) return;
+    // Fingerprinted robocalls are retained in call history for audit/blocking,
+    // but must never generate recording email or Telegram notifications.
+    if (call.outcome === 'spam_blocked') {
+      logger.info('voice.recording.spam_notification_suppressed', { callSid, recordingSid });
+      return;
+    }
     const { data: tenant } = await require('../lib/supabase').supabase
       .from('tenants').select('*').eq('id', call.tenant_id).maybeSingle();
     if (!tenant) return;
