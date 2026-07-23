@@ -35,6 +35,14 @@ const VoiceResponse = twilio.twiml.VoiceResponse;
 const DEFAULT_VOICE_ID = 'Polly.Joanna-Neural';
 // How long to ring the staff line before giving up to voicemail.
 const STAFF_DIAL_TIMEOUT = 20;
+// Confirmed automated "Google Voice Search verification" callers. Keep this
+// narrowly scoped to exact caller IDs so real local prospects are never caught.
+const DEFAULT_BLOCKED_VOICE_CALLERS = new Set([
+  '+19516673145',
+  '+19518489623',
+  '+19513046330',
+  '+19517251228',
+]);
 
 function voice(tenant) {
   return { voice: (tenant && tenant.voice_id) || DEFAULT_VOICE_ID };
@@ -43,6 +51,20 @@ function voice(tenant) {
 // Reply with TwiML. Centralised so the content type is never forgotten.
 function sendTwiml(res, vr) {
   res.type('text/xml').send(vr.toString());
+}
+
+function isBlockedVoiceCaller(number) {
+  const configured = String(process.env.VOICE_BLOCKED_CALLERS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return DEFAULT_BLOCKED_VOICE_CALLERS.has(number) || configured.includes(number);
+}
+
+function rejectCall(res) {
+  const vr = new VoiceResponse();
+  vr.reject({ reason: 'rejected' });
+  return sendTwiml(res, vr);
 }
 
 // A bare TwiML response that just says something and hangs up — used for
@@ -89,6 +111,11 @@ router.post('/voice', async (req, res) => {
   const from = req.body.From;
   const to = req.body.To;
   const callSid = req.body.CallSid;
+
+  if (isBlockedVoiceCaller(from)) {
+    logger.warn('voice.spam_caller_rejected', { from, to, callSid });
+    return rejectCall(res);
+  }
 
   let tenant;
   try {
