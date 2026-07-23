@@ -18,6 +18,10 @@ const { sendEmail, brandedEmail, tenantBrand } = require('../lib/email');
 const { fireWebhooks } = require('../lib/public-api');
 const { computeSlots, resolveDayPreference } = require('../lib/booking');
 const googleCalendar = require('../integrations/google-calendar');
+const {
+  blockVoiceCaller,
+  isGoogleVoiceSearchSpam,
+} = require('../lib/voice-spam');
 const logger = require('../lib/logger');
 const OpenAI = require('openai');
 
@@ -179,6 +183,7 @@ function handleMediaStream(twilioWs, req) {
   let leadName = null;
   let ourNumber = null;
   let transcript = []; // { role: 'caller'|'ai', text: string }
+  let spamDetected = false;
   let realtimeCostCents = 0; // accumulated from response.done usage blocks
   let usageRecorded = false;
   let wrapUpTimer = null;
@@ -305,6 +310,47 @@ function handleMediaStream(twilioWs, req) {
       case 'conversation.item.input_audio_transcription.completed': {
         const t = (event.transcript || '').trim();
         if (t) transcript.push({ role: 'caller', text: t });
+        if (!spamDetected && isGoogleVoiceSearchSpam(t)) {
+          spamDetected = true;
+          logger.warn('voice.realtime.spam_fingerprint_detected', {
+            callSid,
+            from: fromNumber,
+          });
+          blockVoiceCaller(fromNumber).catch((err) =>
+            logger.error('voice.realtime.blocklist_persist_failed', {
+              from: fromNumber,
+              error: err.message,
+            })
+          );
+          clearTimeout(wrapUpTimer);
+          clearTimeout(hardStopTimer);
+          flushPlayback();
+          if (drainTimer) {
+            clearInterval(drainTimer);
+            drainTimer = null;
+          }
+          const transcriptText = transcript
+            .map((line) => `${line.role === 'ai' ? 'AI' : 'Caller'}: ${line.text}`)
+            .join('\n');
+          if (callSid) {
+            await updateCall(callSid, {
+              outcome: 'spam_blocked',
+              transcript: transcriptText,
+            }).catch(() => {});
+            twilioClient.calls(callSid).update({ status: 'completed' })
+              .catch((err) => logger.error('voice.realtime.spam_hangup_failed', {
+                callSid,
+                error: err.message,
+              }));
+          }
+          try {
+            if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
+          } catch {}
+          try {
+            if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close();
+          } catch {}
+          break;
+        }
         // Manual turn mode: generate a reply ONLY when real words came through.
         // A ding/beep/breath transcribes to '' or punctuation → no letters/digits
         // → we stay silent, killing the "it heard a noise and started talking"
@@ -706,6 +752,19 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
         clearTimeout(hardStopTimer);
         if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
         flushUsage();
+        if (spamDetected) {
+          if (callSid) {
+            const transcriptText = transcript
+              .map((line) => `${line.role === 'ai' ? 'AI' : 'Caller'}: ${line.text}`)
+              .join('\n');
+            await updateCall(callSid, {
+              outcome: 'spam_blocked',
+              transcript: transcriptText,
+            }).catch(() => {});
+          }
+          if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
+          break;
+        }
         if (callSid) await updateCall(callSid, { outcome: 'ai_handled' }).catch(() => {});
         if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
 
