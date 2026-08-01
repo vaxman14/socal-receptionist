@@ -1,6 +1,6 @@
 // Conversational onboarding wizard.
-// Replaces the form-based StepBusiness with a chat interface.
-// When Claude signals done, shows a confirm card before submitting.
+// The only business-setup path. When the AI signals done, the owner reviews
+// the extracted details before the tenant is created.
 
 import { useState, useRef, useEffect } from 'react';
 import { api } from '../../lib/api';
@@ -124,7 +124,7 @@ export default function ChatWizard({ onCreated }) {
             <textarea value={confirmForm.business_services || ''} onChange={setField('business_services')} />
           </label>
           <label className="field">
-            <span className="label">Booking link</span>
+          <span className="label">Booking link (optional)</span>
             <input type="url" value={confirmForm.calendly_link || ''} onChange={setField('calendly_link')} />
           </label>
           <label className="field">
@@ -158,7 +158,7 @@ export default function ChatWizard({ onCreated }) {
     <div className="card card-pad chat-wizard">
       <h2 style={{ marginBottom: 4 }}>Let's set up your receptionist</h2>
       <p className="muted" style={{ fontSize: '0.88rem', marginBottom: 16 }}>
-        Just chat — I'll take care of the rest.
+        Just chat. I’ll collect the details and configure the account for you.
       </p>
 
       <div className="chat-messages">

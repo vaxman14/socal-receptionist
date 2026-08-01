@@ -2,7 +2,7 @@
 
 // No-card trial sweep.
 //
-// The Activate step (onboarding/activate.js) starts a 7-day trial with NO card
+// The Activate step (onboarding/activate.js) starts a 30-day trial with NO card
 // on file — it just stamps tenants.trial_ends_at and provisions a number. There
 // is no Stripe subscription yet, so Stripe webhooks never fire for these
 // tenants and the normal billing.applyEntitlement() suspension path can't reach

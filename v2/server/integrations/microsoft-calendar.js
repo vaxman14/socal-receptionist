@@ -177,9 +177,31 @@ async function createEvent(tenantId, { title, startIso, durationMins = 30, atten
   return res.json();
 }
 
+// Return busy intervals in the same shape as Google Calendar so the voice
+// booking engine can use either provider without changing slot logic.
+async function getFreeBusy(tenantId, timeMinIso, timeMaxIso) {
+  const accessToken = await getAccessToken(tenantId);
+  const params = new URLSearchParams({
+    startDateTime: timeMinIso,
+    endDateTime: timeMaxIso,
+    $select: 'start,end,showAs,isCancelled',
+    $orderby: 'start/dateTime',
+    $top: '500',
+  });
+  const res = await fetch(`${GRAPH_BASE}/me/calendarView?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}`, Prefer: 'outlook.timezone="UTC"' },
+  });
+  if (!res.ok) throw new Error(`MS freeBusy failed: ${res.status}`);
+  const body = await res.json();
+  return (body.value || [])
+    .filter((event) => !event.isCancelled && event.showAs !== 'free')
+    .map((event) => ({ start: new Date(event.start.dateTime), end: new Date(event.end.dateTime) }))
+    .filter((slot) => !Number.isNaN(slot.start.getTime()) && !Number.isNaN(slot.end.getTime()));
+}
+
 async function disconnect(tenantId) {
   await supabase.from('tenant_integrations').delete()
     .eq('tenant_id', tenantId).eq('provider', 'microsoft_calendar');
 }
 
-module.exports = { buildAuthUrl, exchangeCode, saveTokens, getAccountInfo, listUpcomingEvents, createEvent, disconnect };
+module.exports = { buildAuthUrl, exchangeCode, saveTokens, getAccountInfo, listUpcomingEvents, createEvent, getFreeBusy, disconnect };

@@ -105,19 +105,19 @@ const SECTIONS = [
     items: [
       {
         q: 'What plan am I on?',
-        a: 'Your current plan and renewal date are shown in the Billing tab. We offer Essentials ($500/mo) and Concierge ($500/mo + $1,500 one-time setup).',
+        a: 'Your current plan and renewal date are shown in Billing. SoCal Receptionist is $69/month or $690/year, and every new account gets a 30-day free trial.',
       },
       {
         q: 'How do I update my payment method?',
         a: 'Click "Manage Billing" in the Billing tab. You\'ll be taken to a secure Stripe portal where you can update your card, download invoices, or cancel.',
       },
       {
-        q: 'What happens if I exceed my call limit?',
-        a: 'Additional calls are billed at $99 per 50 extra calls. You\'ll receive an email notification when you\'re approaching your limit.',
+        q: 'Is there a setup fee?',
+        a: 'No. Setup is self-serve through the AI onboarding assistant. If you get stuck, email support@socalreceptionist.com and we will help.',
       },
       {
-        q: 'Is the setup fee refundable?',
-        a: 'No — the $1,500 Concierge setup fee is non-refundable. Monthly fees can be cancelled anytime with 30 days notice.',
+        q: 'Can I cancel during the trial?',
+        a: 'Yes. The first 30 days are free. If you add a card, cancel before the trial ends to avoid being charged.',
       },
     ],
   },

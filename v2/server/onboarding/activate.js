@@ -2,14 +2,9 @@
 
 // Onboarding API — the "Activate" step, shown AFTER the Service Agreement.
 //
-// Two activation methods:
-//   socal_number — self-serve (Essentials). Starts a 7-day NO-CARD trial and
-//                  provisions a Twilio number. The tenant is entitled during the
-//                  trial without a Stripe subscription (see lib/billing.isEntitled).
-//   byo_sip      — the client already has their own phone system. This is part of
-//                  our Concierge white-glove setup ($1,500 setup), sales-assisted —
-//                  NOT a self-serve trial. We capture a lead and hand off; we do not
-//                  start a trial or provision a number.
+// One activation method: self-serve provisioning of a SoCal number with a
+// 30-day no-card trial. Support can assist when needed, but there is no separate
+// concierge or sales-assisted tier.
 //
 // Provisioning used to fire on /agreement/sign; it now fires here so activation
 // is an explicit choice.
@@ -22,8 +17,8 @@ const logger = require('../lib/logger');
 
 const router = express.Router();
 
-const TRIAL_DAYS = 7;
-const METHODS = new Set(['socal_number', 'byo_sip']);
+const TRIAL_DAYS = 30;
+const METHODS = new Set(['socal_number']);
 
 // Auth is applied per-route (NOT router.use) so this router never gates sibling
 // /onboarding paths mounted after it — see the chat-route mount-order bug.
@@ -37,11 +32,11 @@ router.get('/activation', requireAuth, requireTenant, async (req, res) => {
   });
 });
 
-// POST /onboarding/activate  body: { method: 'socal_number' | 'byo_sip' }
+// POST /onboarding/activate  body: { method: 'socal_number' }
 router.post('/activate', requireAuth, requireTenant, async (req, res) => {
   const method = (req.body && req.body.method) || '';
   if (!METHODS.has(method)) {
-    return res.status(400).json({ error: "method must be 'socal_number' or 'byo_sip'" });
+    return res.status(400).json({ error: "method must be 'socal_number'" });
   }
 
   try {
@@ -69,35 +64,9 @@ router.post('/activate', requireAuth, requireTenant, async (req, res) => {
         method: 'socal_number',
         trial_ends_at: trialEndsAt,
         provisioning_started: req.tenant.status === 'onboarding',
-        message: 'Your 7-day free trial has started — setting up your number now.',
+        message: 'Your 30-day free trial has started — setting up your number now.',
       });
     }
-
-    // byo_sip — Concierge white-glove handoff. No trial, no provisioning.
-    await supabase
-      .from('tenants')
-      .update({ activation_method: 'byo_sip', updated_at: new Date().toISOString() })
-      .eq('id', req.tenant.id);
-
-    await supabase.from('platform_leads').insert({
-      source: 'byo_sip',
-      name: req.tenant.business_name,
-      email: req.tenant.owner_email || req.user.email,
-      notes:
-        `Wants to connect their own phone system / SIP trunk (Concierge white-glove). ` +
-        `Tenant ${req.tenant.id} (${req.tenant.business_name}).`,
-      status: 'new',
-    });
-
-    logger.info('activate.byo_sip', { tenant: req.tenant.id });
-    return res.status(201).json({
-      ok: true,
-      method: 'byo_sip',
-      handoff: true,
-      message:
-        'Connecting your own phone system is part of our Concierge white-glove setup. ' +
-        'Our team will reach out to get your SIP trunk wired up.',
-    });
   } catch (err) {
     logger.error('activate.error', { error: err.message });
     return res.status(500).json({ error: 'could not activate' });

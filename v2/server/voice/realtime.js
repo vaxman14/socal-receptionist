@@ -18,6 +18,7 @@ const { sendEmail, brandedEmail, tenantBrand } = require('../lib/email');
 const { fireWebhooks } = require('../lib/public-api');
 const { computeSlots, resolveDayPreference } = require('../lib/booking');
 const googleCalendar = require('../integrations/google-calendar');
+const microsoftCalendar = require('../integrations/microsoft-calendar');
 const {
   blockVoiceCaller,
   isGoogleVoiceSearchSpam,
@@ -85,6 +86,20 @@ const POLLY_TO_REALTIME = {
 
 const REALTIME_MODEL = 'gpt-realtime-2025-08-28';
 const OPENAI_WS_URL = `wss://api.openai.com/v1/realtime?model=${REALTIME_MODEL}`;
+
+async function calendarForTenant(tenantId) {
+  const { data, error } = await supabase
+    .from('tenant_integrations')
+    .select('provider')
+    .eq('tenant_id', tenantId)
+    .eq('enabled', true)
+    .in('provider', ['google_calendar', 'microsoft_calendar']);
+  if (error) throw error;
+  const connected = new Set((data || []).map((row) => row.provider));
+  if (connected.has('google_calendar')) return googleCalendar;
+  if (connected.has('microsoft_calendar')) return microsoftCalendar;
+  throw new Error('No calendar connected');
+}
 
 // We request PCM16 (24kHz) from OpenAI and transcode to G.711 mu-law (8kHz)
 // ourselves, then feed Twilio. Asking OpenAI for audio/pcmu directly produced
@@ -535,7 +550,8 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
       try {
         const now = new Date();
         const tz  = tenant.timezone || 'America/Los_Angeles';
-        const busy = await googleCalendar.getFreeBusy(
+        const calendar = await calendarForTenant(tenantId);
+        const busy = await calendar.getFreeBusy(
           tenantId, now.toISOString(), new Date(now.getTime() + 14 * 86400000).toISOString()
         );
         const pref = args.preferred_day ? resolveDayPreference(args.preferred_day, tz, now) : null;
@@ -573,7 +589,8 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
         if (!slot) {
           result = 'That slot is no longer on the list. Call check_availability again and re-offer the times.';
         } else {
-          await googleCalendar.createEvent(tenantId, {
+          const calendar = await calendarForTenant(tenantId);
+          await calendar.createEvent(tenantId, {
             title:        `Appointment — ${args.name || 'Caller'}${fromNumber ? ` (${fromNumber})` : ''}`,
             startIso:     slot.start,
             durationMins: tenant.slot_length_mins || 30,

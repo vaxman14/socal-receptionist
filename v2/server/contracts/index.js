@@ -2,19 +2,16 @@
 //
 // As of migration 003 the live contract lives in the `contract_versions` DB
 // table and is managed from the owner admin UI. This module only provides the
-// INITIAL v1 contract (the .md file shipped with the code) used to seed the DB
-// on first run — see lib/documents.js seedInitialContract().
-//
-// Do not edit service-agreement-v1.md after clients have signed it: signature
-// records store a hash of the exact text. New contracts are uploaded via the
-// admin, not by editing files here.
+// INITIAL contract (the .md file shipped with the code) used to seed the DB on
+// first run — see lib/documents.js seedInitialContract(). Published production
+// versions are also stored immutably in contract_versions.
 
 const fs = require('fs');
 const path = require('path');
 
-const SEED_CONTRACT_VERSION = 'v1';
+const SEED_CONTRACT_VERSION = 'v2';
 const SEED_CONTRACT_TITLE = 'SoCal Receptionist — Service Agreement';
-const SEED_CONTRACT_FILE = 'service-agreement-v1.md';
+const SEED_CONTRACT_FILE = 'service-agreement-v2.md';
 
 // The e-signature disclosure shown to, and agreed to by, every signer. Stored
 // verbatim with each signature record so the consent language is auditable.

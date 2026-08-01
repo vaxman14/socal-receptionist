@@ -1,4 +1,6 @@
-// Practice management, CRM, calendar, and SIP integration OAuth routes.
+// Optional calendar OAuth routes. Other historical connector modules remain in
+// the repository for compatibility, but new customers can connect only Google
+// Calendar or Microsoft Outlook/Microsoft 365.
 // Mounted at /integrations in the main server.
 //
 // Supported providers: google_calendar, clio, mycase, microsoft_calendar,
@@ -30,54 +32,12 @@ const PROVIDERS = {
     getAccountInfo: googleCalendar.getAccountInfo,
     disconnect:     googleCalendar.disconnect,
   },
-  clio: {
-    buildAuthUrl:   clio.buildAuthUrl,
-    exchangeCode:   clio.exchangeCode,
-    saveTokens:     clio.saveTokens,
-    getAccountInfo: clio.getFirmInfo,
-    disconnect:     clio.disconnect,
-  },
-  mycase: {
-    buildAuthUrl:   mycase.buildAuthUrl,
-    exchangeCode:   mycase.exchangeCode,
-    saveTokens:     mycase.saveTokens,
-    getAccountInfo: mycase.getAccountInfo,
-    disconnect:     mycase.disconnect,
-  },
   microsoft_calendar: {
     buildAuthUrl:   microsoftCalendar.buildAuthUrl,
     exchangeCode:   microsoftCalendar.exchangeCode,
     saveTokens:     microsoftCalendar.saveTokens,
     getAccountInfo: microsoftCalendar.getAccountInfo,
     disconnect:     microsoftCalendar.disconnect,
-  },
-  hubspot: {
-    buildAuthUrl:   hubspot.buildAuthUrl,
-    exchangeCode:   hubspot.exchangeCode,
-    saveTokens:     hubspot.saveTokens,
-    getAccountInfo: hubspot.getAccountInfo,
-    disconnect:     hubspot.disconnect,
-  },
-  salesforce: {
-    buildAuthUrl:   salesforce.buildAuthUrl,
-    exchangeCode:   salesforce.exchangeCode,
-    saveTokens:     salesforce.saveTokens,
-    getAccountInfo: (token) => salesforce.getAccountInfo(token, ''), // instance_url resolved later
-    disconnect:     salesforce.disconnect,
-  },
-  ringcentral: {
-    buildAuthUrl:   ringcentral.buildAuthUrl,
-    exchangeCode:   ringcentral.exchangeCode,
-    saveTokens:     ringcentral.saveTokens,
-    getAccountInfo: ringcentral.getAccountInfo,
-    disconnect:     ringcentral.disconnect,
-  },
-  vonage: {
-    buildAuthUrl:   vonage.buildAuthUrl,
-    exchangeCode:   vonage.exchangeCode,
-    saveTokens:     vonage.saveTokens,
-    getAccountInfo: vonage.getAccountInfo,
-    disconnect:     vonage.disconnect,
   },
 };
 
@@ -218,13 +178,16 @@ router.get('/:provider/callback', async (req, res) => {
     // Pass tokens through raw — each provider's saveTokens() encrypts before
     // storing. Encrypting here too would double-encrypt and break decryption.
     await provider.saveTokens(tenantId, tokens, extra);
+    if (req.params.provider === 'google_calendar' || req.params.provider === 'microsoft_calendar') {
+      await supabase.from('tenants').update({ booking_enabled: true }).eq('id', tenantId);
+    }
 
     // Redirect browser back to SPA settings page — use APP_BASE_URL (SPA origin).
-    res.redirect(`${spaBase()}/settings?integration=${req.params.provider}&status=connected`);
+    res.redirect(`${spaBase()}/integrations?integration=${req.params.provider}&status=connected`);
   } catch (err) {
     console.error(`[integrations/${req.params.provider}] callback error:`, err.message);
     const reason = encodeURIComponent((err.message || 'authorization failed').slice(0, 200));
-    res.redirect(`${spaBase()}/settings?integration=${req.params.provider}&status=error&msg=${reason}`);
+    res.redirect(`${spaBase()}/integrations?integration=${req.params.provider}&status=error&msg=${reason}`);
   }
 });
 
@@ -234,6 +197,17 @@ router.delete('/:provider', requireAuth, requireAal2, requireTenant, async (req,
   if (!provider) return res.status(404).json({ error: 'Unknown provider' });
   try {
     await provider.disconnect(req.tenant.id);
+    if (req.params.provider === 'google_calendar' || req.params.provider === 'microsoft_calendar') {
+      const { data: remaining } = await supabase
+        .from('tenant_integrations')
+        .select('provider')
+        .eq('tenant_id', req.tenant.id)
+        .eq('enabled', true)
+        .in('provider', ['google_calendar', 'microsoft_calendar']);
+      if (!remaining || remaining.length === 0) {
+        await supabase.from('tenants').update({ booking_enabled: false }).eq('id', req.tenant.id);
+      }
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error(`[integrations/${req.params.provider}] disconnect error:`, err);

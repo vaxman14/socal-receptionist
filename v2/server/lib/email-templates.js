@@ -82,8 +82,8 @@ function trialReminder({ businessName, daysLeft, trialEndsAt } = {}) {
   const bodyHtml = `
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${lead}</p>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
-      The Essentials plan is <strong>$500/mo</strong> with no setup fee. You can
-      cancel anytime from your billing portal.
+      Continue for <strong>$69/month</strong> or <strong>$690/year</strong>. There
+      is no setup fee, and you can cancel anytime from your billing portal.
     </p>
     <p style="margin:24px 0;">
       <a href="${billingUrl}" style="background:#0f3d5c;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;display:inline-block;">
@@ -101,7 +101,7 @@ function trialReminder({ businessName, daysLeft, trialEndsAt } = {}) {
       ? `Your free trial for ${name} ends today${endDate ? ` (${endDate})` : ''}. Add a payment method now to keep your AI receptionist answering calls.`
       : `Your free trial for ${name} ends in ${daysLeft} days${endDate ? ` (${endDate})` : ''}. Add a payment method to keep your AI receptionist live.`,
     '',
-    'The Essentials plan is $500/mo with no setup fee. Cancel anytime.',
+    'Continue for $69/month or $690/year. No setup fee. Cancel anytime.',
     '',
     `Add a card & subscribe: ${billingUrl}`,
   ].join('\n');

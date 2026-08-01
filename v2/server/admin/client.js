@@ -30,8 +30,6 @@ try {
 const ALLOWED_PRICE_IDS = new Set([
   process.env.STRIPE_PRICE_ID_ESSENTIALS,
   process.env.STRIPE_PRICE_ID_ESSENTIALS_ANNUAL,
-  process.env.STRIPE_PRICE_ID_CONCIERGE,
-  process.env.STRIPE_PRICE_ID_CONCIERGE_ANNUAL,
   // Legacy single-price fallback
   process.env.STRIPE_PRICE_ID,
   // Comma-separated extras (one-off promos etc.)
@@ -39,27 +37,14 @@ const ALLOWED_PRICE_IDS = new Set([
   ...Object.values(EXTRA_PLANS).map((p) => p && p.price),
 ].filter(Boolean));
 
-const ALLOWED_SETUP_PRICE_IDS = new Set([
-  process.env.STRIPE_SETUP_PRICE_ID_CONCIERGE,
-  process.env.STRIPE_SETUP_PRICE_ID,
-  ...Object.values(EXTRA_PLANS).map((p) => p && p.setup),
-].filter(Boolean));
-
 // Named plan keys — frontend sends a plan name, backend resolves price IDs.
 const PLAN_PRICE_MAP = {
+  monthly: process.env.STRIPE_PRICE_ID_ESSENTIALS,
+  annual: process.env.STRIPE_PRICE_ID_ESSENTIALS_ANNUAL,
+  // Compatibility for a cached pre-relaunch frontend.
   essentials_monthly: process.env.STRIPE_PRICE_ID_ESSENTIALS,
   essentials_annual: process.env.STRIPE_PRICE_ID_ESSENTIALS_ANNUAL,
-  concierge_monthly: process.env.STRIPE_PRICE_ID_CONCIERGE,
-  concierge_annual: process.env.STRIPE_PRICE_ID_CONCIERGE_ANNUAL,
   ...Object.fromEntries(Object.entries(EXTRA_PLANS).map(([k, p]) => [k, p && p.price])),
-};
-
-const PLAN_SETUP_MAP = {
-  concierge_monthly: process.env.STRIPE_SETUP_PRICE_ID_CONCIERGE,
-  concierge_annual: process.env.STRIPE_SETUP_PRICE_ID_CONCIERGE,
-  ...Object.fromEntries(
-    Object.entries(EXTRA_PLANS).filter(([, p]) => p && p.setup).map(([k, p]) => [k, p.setup])
-  ),
 };
 
 const router = express.Router();
@@ -434,9 +419,16 @@ router.get('/calls/:id/recording', async (req, res) => {
 // successUrl and cancelUrl are always derived from APP_BASE_URL (issue #14).
 router.post('/billing/checkout', requireAal2, requireTenantOwner, async (req, res) => {
   try {
-    let priceId;
-    let setupPriceId;
+    const { data: existing } = await supabase
+      .from('subscriptions')
+      .select('stripe_customer_id, stripe_subscription_id, status')
+      .eq('tenant_id', req.tenant.id)
+      .maybeSingle();
+    if (existing?.stripe_subscription_id && ['trialing', 'active', 'past_due'].includes(existing.status)) {
+      return res.status(409).json({ error: 'A subscription already exists. Use Manage billing instead.' });
+    }
 
+    let priceId;
     const { planKey } = req.body;
     if (planKey) {
       // Named plan — resolve server-side, no client-supplied price IDs needed.
@@ -444,7 +436,6 @@ router.post('/billing/checkout', requireAal2, requireTenantOwner, async (req, re
         return res.status(400).json({ error: 'unknown plan' });
       }
       priceId = PLAN_PRICE_MAP[planKey];
-      setupPriceId = PLAN_SETUP_MAP[planKey] || null;
       if (!priceId) return res.status(400).json({ error: 'no plan price configured' });
     } else {
       // Legacy: explicit priceId/setupPriceId (validated against allowlist).
@@ -459,26 +450,6 @@ router.post('/billing/checkout', requireAal2, requireTenantOwner, async (req, re
       }
       if (!priceId) return res.status(400).json({ error: 'no plan price configured' });
 
-      const requestedSetupPriceId = req.body.setupPriceId;
-      if (requestedSetupPriceId) {
-        if (!ALLOWED_SETUP_PRICE_IDS.has(requestedSetupPriceId)) {
-          return res.status(400).json({ error: 'invalid setup price' });
-        }
-        setupPriceId = requestedSetupPriceId;
-      } else {
-        setupPriceId = process.env.STRIPE_SETUP_PRICE_ID;
-      }
-    }
-
-    // Platform-admin price override: if this tenant's subscription has a
-    // custom_price_cents set, bill that monthly amount instead of the plan price.
-    let customPriceCents = null;
-    {
-      const { data: sub } = await supabase
-        .from('subscriptions').select('custom_price_cents').eq('tenant_id', req.tenant.id).maybeSingle();
-      if (sub && Number.isInteger(sub.custom_price_cents) && sub.custom_price_cents >= 0) {
-        customPriceCents = sub.custom_price_cents;
-      }
     }
 
     // Build redirect URLs server-side — never trust the client. Stripe should
@@ -487,10 +458,9 @@ router.post('/billing/checkout', requireAal2, requireTenantOwner, async (req, re
     const session = await createCheckoutSession({
       tenant: req.tenant,
       priceId,
-      setupPriceId,
-      customPriceCents,
-      successUrl: `${base}/billing/success`,
-      cancelUrl: `${base}/billing/cancel`,
+      trialEndsAt: req.tenant.trial_ends_at,
+      successUrl: `${base}/billing?checkout=success`,
+      cancelUrl: `${base}/billing?checkout=cancel`,
     });
     res.json({ url: session.url });
   } catch (err) {

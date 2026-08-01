@@ -165,10 +165,8 @@ function BillingManager({ tenantId, sub, tenant, onSaved }) {
           <label className="muted" style={{ display: 'block', fontSize: '0.8rem', marginBottom: 4 }}>Plan</label>
           <select value={plan} onChange={(e) => setPlan(e.target.value)} disabled={busy} style={{ width: '100%' }}>
             <option value="">—</option>
-            <option value="essentials_monthly">Essentials (monthly)</option>
-            <option value="essentials_annual">Essentials (annual)</option>
-            <option value="concierge_monthly">Concierge (monthly)</option>
-            <option value="concierge_annual">Concierge (annual)</option>
+            <option value="monthly">$69 monthly</option>
+            <option value="annual">$690 annual</option>
           </select>
         </div>
         <div>

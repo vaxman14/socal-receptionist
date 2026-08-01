@@ -8,7 +8,7 @@
 const express = require('express');
 const { stripe } = require('../lib/stripe');
 const { supabase } = require('../lib/supabase');
-const { syncSubscription, recordSetupPayment, maybeRefundSetupFee } = require('../lib/billing');
+const { syncSubscription } = require('../lib/billing');
 const { enqueue } = require('../lib/jobs');
 
 async function enqueueNumberRelease(tenantId) {
@@ -68,8 +68,6 @@ async function handleEvent(event) {
       if (!tenantId || !session.subscription) return;
       const sub = await stripe.subscriptions.retrieve(session.subscription);
       await syncSubscription(tenantId, sub);
-      // Capture the setup-fee payment so the 14-day refund policy can act on it.
-      await recordSetupPayment(tenantId, session);
       // Billing is set up — kick off the provisioning pipeline.
       await enqueue(tenantId, 'provision_tenant', {});
       break;
@@ -83,14 +81,10 @@ async function handleEvent(event) {
         (sub.metadata && sub.metadata.tenant_id) || (await tenantIdForCustomer(sub.customer));
       if (!tenantId) break;
       await syncSubscription(tenantId, sub);
-      // Cancellation -> apply the 14-day setup-fee refund policy. No-ops if the
-      // window has closed or the refund was already issued.
-      const canceling =
-        event.type === 'customer.subscription.deleted' ||
-        sub.cancel_at_period_end === true ||
-        sub.status === 'canceled';
-      if (canceling) {
-        await maybeRefundSetupFee(tenantId);
+      // Keep service active through a scheduled cancellation. Release the number
+      // only after Stripe says the subscription has actually ended.
+      const ended = event.type === 'customer.subscription.deleted' || sub.status === 'canceled' || sub.status === 'unpaid';
+      if (ended) {
         await enqueueNumberRelease(tenantId);
       }
       break;

@@ -1,8 +1,3 @@
-// Wizard step 2 — review + e-sign the Service Agreement via SignWell (embedded).
-//   GET /onboarding/agreement              -> title/version + already_signed
-//   GET /onboarding/agreement/sign-url     -> SignWell embedded signing URL
-//   GET /onboarding/agreement/signwell-complete -> verify + record signature
-
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -14,113 +9,69 @@ export default function StepAgreement({ onSigned }) {
   const [agreement, setAgreement] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
-  const [signUrl, setSignUrl] = useState(null);
-  const [alreadySigned, setAlreadySigned] = useState(false);
-  const [checking, setChecking] = useState(false);
+  const [name, setName] = useState('');
+  const [title, setTitle] = useState('Owner');
+  const [consent, setConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const load = async () => {
+  async function load() {
     setLoading(true);
     setLoadError(null);
-    try {
-      const data = await api.get('/onboarding/agreement');
-      setAgreement(data);
-      if (data.already_signed) {
-        setAlreadySigned(true);
-      } else {
-        const s = await api.get('/onboarding/agreement/sign-url');
-        if (s.signed) setAlreadySigned(true);
-        else setSignUrl(s.url);
-      }
-    } catch (err) {
-      setLoadError(err.message || 'Could not load the agreement.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    try { setAgreement(await api.get('/onboarding/agreement')); }
+    catch (err) { setLoadError(err.message || 'Could not load the agreement.'); }
+    finally { setLoading(false); }
+  }
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  const checkSigned = async () => {
-    setChecking(true);
+  async function sign(event) {
+    event.preventDefault();
     setError(null);
+    if (!name.trim()) return setError('Enter your full legal name.');
+    if (!consent) return setError('You must consent to sign electronically.');
+    setBusy(true);
     try {
-      const r = await api.get('/onboarding/agreement/signwell-complete');
-      if (r.signed) onSigned({ provisioning_started: false });
-      else setError("We haven't received your signed agreement yet. Finish signing above, then click again.");
+      const result = await api.post('/onboarding/agreement/sign', {
+        signer_name: name.trim(),
+        signer_title: title.trim() || 'Owner',
+        signer_email: user?.email,
+        esign_consent: true,
+        acknowledged_version: agreement.version,
+      });
+      onSigned(result);
     } catch (err) {
-      setError(err.message || 'Could not verify your signature.');
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="card card-pad">
-        <Loading label="Loading your agreement…" />
-      </div>
-    );
+      setError(err.message || 'Could not record your signature.');
+    } finally { setBusy(false); }
   }
 
-  if (loadError) {
-    return (
-      <div className="card card-pad">
-        <ErrorState message={loadError} onRetry={load} />
-      </div>
-    );
-  }
+  if (loading) return <div className="card card-pad"><Loading label="Loading your agreement…" /></div>;
+  if (loadError) return <div className="card card-pad"><ErrorState message={loadError} onRetry={load} /></div>;
+  if (agreement.already_signed) return (
+    <div className="card card-pad">
+      <h1>Service Agreement</h1>
+      <div className="alert alert-success">Your current agreement is already signed.</div>
+      <button className="btn btn-primary" onClick={() => onSigned({ already: true })}>Continue →</button>
+    </div>
+  );
 
   return (
     <div className="card card-pad">
-      <h1>Sign your Service Agreement</h1>
-      <p className="muted" style={{ marginBottom: 16, fontSize: '0.92rem' }}>
-        {agreement.title} — version {agreement.version}. Review and sign below.
-      </p>
-
-      {alreadySigned ? (
-        <div className="alert alert-success" style={{ marginTop: 18 }}>
-          This agreement has already been signed for your business. You can continue.
-          <div style={{ marginTop: 12 }}>
-            <button className="btn btn-primary" onClick={() => onSigned({ already: true })}>
-              Continue
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <details style={{ marginBottom: 16 }}>
-            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Read the full agreement</summary>
-            <div style={{ marginTop: 12 }}>
-              <Markdown source={agreement.text} />
-            </div>
-          </details>
-
-          {signUrl ? (
-            <iframe
-              title="Sign Service Agreement"
-              src={signUrl}
-              style={{ width: '100%', height: 640, border: '1px solid #e5e7eb', borderRadius: 12 }}
-              allow="camera"
-            />
-          ) : (
-            <Loading label="Preparing your document…" />
-          )}
-
-          {error && <div className="alert alert-error" style={{ marginTop: 12 }}>{error}</div>}
-
-          <div style={{ marginTop: 16 }}>
-            <button className="btn btn-primary" disabled={checking || !signUrl} onClick={checkSigned}>
-              {checking ? 'Checking…' : "I've signed — continue"}
-            </button>
-            <p className="hint" style={{ marginTop: 8 }}>
-              Sign in the box above, then click to continue. Signing is powered by SignWell.
-            </p>
-          </div>
-        </>
-      )}
+      <h1>Review and sign</h1>
+      <p className="muted">{agreement.title} · version {agreement.version}</p>
+      <div style={{ maxHeight: 430, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 10, padding: 18, margin: '16px 0' }}>
+        <Markdown source={agreement.text} />
+      </div>
+      <form onSubmit={sign}>
+        {error && <div className="alert alert-error">{error}</div>}
+        <label className="field"><span className="label">Full legal name *</span><input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>
+        <label className="field"><span className="label">Title</span><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Owner" /></label>
+        <label className="checkbox" style={{ alignItems: 'flex-start', margin: '16px 0' }}>
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+          <span>{agreement.esign_consent}</span>
+        </label>
+        <button className="btn btn-primary btn-block" disabled={busy} type="submit">{busy ? 'Signing…' : 'Sign & continue →'}</button>
+      </form>
     </div>
   );
 }

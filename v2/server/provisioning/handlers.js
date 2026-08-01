@@ -153,7 +153,7 @@ async function a2pAttachNumber(job) {
   console.log(`[worker] attached ${phoneNumberSid} to messaging service ${serviceSid} (tenant ${job.tenant_id})`);
 }
 
-// Step 3 — flip the tenant live and auto-start the 7-day no-card trial.
+// Step 3 — flip the tenant live and ensure the 30-day no-card trial exists.
 async function finalizeOnboarding(job) {
   const { data: numbers, error } = await supabase
     .from('phone_numbers')
@@ -169,7 +169,7 @@ async function finalizeOnboarding(job) {
     metadata: { job_id: job.id },
   });
 
-  // Auto-start 7-day no-card trial if no subscription exists yet.
+  // Auto-start 30-day no-card trial if no subscription exists yet.
   const { data: existingSub } = await supabase
     .from('subscriptions')
     .select('id')
@@ -178,7 +178,7 @@ async function finalizeOnboarding(job) {
 
   if (!existingSub || existingSub.length === 0) {
     const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + 7);
+    trialEnd.setDate(trialEnd.getDate() + 30);
     const trialEndIso = trialEnd.toISOString();
 
     await supabase.from('subscriptions').insert({
@@ -188,7 +188,7 @@ async function finalizeOnboarding(job) {
       current_period_end: trialEndIso,
       cancel_at_period_end: false,
     });
-    console.log(`[worker] started 7-day trial for tenant ${job.tenant_id}, ends ${trialEndIso}`);
+    console.log(`[worker] started 30-day trial for tenant ${job.tenant_id}, ends ${trialEndIso}`);
   }
 }
 

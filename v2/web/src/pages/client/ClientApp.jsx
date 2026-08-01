@@ -27,7 +27,7 @@ const LINKS = [
   { to: '/leads', label: 'Leads' },
   { to: '/chat', label: 'Live Chat' },
   { to: '/calls', label: 'Calls' },
-  { to: '/integrations', label: 'Integrations' },
+  { to: '/integrations', label: 'Calendar' },
   { to: '/marketing', label: 'Marketing' },
   { to: '/reminders', label: 'Reminders' },
   { to: '/settings', label: 'Settings' },
