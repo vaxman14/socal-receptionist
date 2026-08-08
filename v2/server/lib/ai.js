@@ -28,7 +28,9 @@ const MAX_TOOL_ROUNDS = 3;
 
 // Default models per channel. Override per-tenant via ai_model column.
 const DEFAULT_VOICE_MODEL = 'gpt-4o';
-const DEFAULT_SMS_MODEL = 'llama-3.3-70b-versatile';
+// llama-3.3-70b-versatile is deprecated by Groq on 2026-08-16 and had started
+// leaking its tool-call syntax as plain text into customer replies.
+const DEFAULT_SMS_MODEL = 'openai/gpt-oss-120b';
 
 // Appended to every system prompt — including tenant-supplied custom prompts —
 // so no tenant configuration can accidentally ship an unguarded assistant.
@@ -254,6 +256,20 @@ async function groqChatCompletion({ model, messages }) {
   return res.json();
 }
 
+// Some models (notably llama on Groq) occasionally emit their tool-call syntax
+// as plain text in the reply instead of a structured tool_calls payload. That
+// raw markup must never reach a customer: strip any such block. If nothing
+// readable remains, the caller falls back to a safe canned reply.
+function stripLeakedToolSyntax(text) {
+  if (!text) return '';
+  return text
+    .replace(/<function[=\s][\s\S]*?(?:<\/function>|$)/g, '')
+    .replace(/<tool_call>[\s\S]*?(?:<\/tool_call>|$)/g, '')
+    .replace(/<\|[a-z_]+\|>/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 // Handle one inbound message (SMS or voice turn). Persists the inbound +
 // outbound turns to the transcript and returns the reply text.
 // opts: { channel: 'sms' | 'voice', model: optional override }
@@ -296,9 +312,9 @@ async function handleMessage(tenant, conversation, customerPhone, userText, opts
     rounds += 1;
   }
 
+  const fallbackReply = `Thanks for contacting ${tenant.business_name}! I'll have someone follow up with you shortly.`;
   const reply =
-    (message.content && message.content.trim()) ||
-    `Thanks for contacting ${tenant.business_name}! I'll have someone follow up with you shortly.`;
+    stripLeakedToolSyntax(message.content) || fallbackReply;
 
   const costCents = channel === 'voice' ? estimateOpenaiCostCents(promptTokens, completionTokens) : 0;
 
