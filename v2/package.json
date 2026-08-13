@@ -10,7 +10,8 @@
   },
   "scripts": {
     "start": "node server/index.js",
-    "worker": "node server/provisioning/run-worker.js"
+    "worker": "node server/provisioning/run-worker.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
@@ -24,7 +25,6 @@
     "groq-sdk": "^0.7.0",
     "helmet": "^8.2.0",
     "node-fetch": "^2.7.0",
-    "nodemailer": "^8.0.10",
     "openai": "^4.56.0",
     "rate-limit-redis": "^4.3.1",
     "redis": "^4.7.1",

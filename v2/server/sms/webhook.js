@@ -15,6 +15,7 @@ const { supabase } = require('../lib/supabase');
 const { checkInbound } = require('../lib/ratelimit');
 const { overLimit } = require('../lib/abuse-guard');
 const { withinCaps, recordUsage, notifyCapBreach } = require('../lib/usage');
+const { smsLanguage, smsCopy } = require('../lib/language');
 const logger = require('../lib/logger');
 
 const router = express.Router();
@@ -66,6 +67,11 @@ router.post('/sms', async (req, res) => {
     return res.send(twiml.toString()); // unknown number — drop silently
   }
 
+  // Localized fixed copy: 'en' (exact legacy strings) for normal tenants; for
+  // language-menu tenants Hebrew by default, Russian when the inbound message
+  // is predominantly Cyrillic. Keyword handling below is language-independent.
+  const msgLang = smsLanguage(tenant, body);
+
   const word = body.toUpperCase();
   try {
     // Opt-out is honored in any tenant/consent state. Twilio sends its own
@@ -78,43 +84,37 @@ router.post('/sms', async (req, res) => {
     const status = await consent.getStatus(tenant.id, from);
 
     if (HELP_WORDS.has(word)) {
-      twiml.message(
-        `${tenant.business_name}: automated virtual receptionist. Reply STOP to opt out. Msg & data rates may apply.`
-      );
+      twiml.message(smsCopy(tenant, 'help', msgLang));
       return res.send(twiml.toString());
     }
 
     if (status === 'opted_out') {
       if (START_WORDS.has(word)) {
         await consent.setStatus(tenant.id, from, 'opted_in');
-        twiml.message("You're opted back in. How can I help you today?");
+        twiml.message(smsCopy(tenant, 'opted_back_in', msgLang));
       }
       return res.send(twiml.toString());
     }
 
     if (status === 'unknown') {
       await consent.setStatus(tenant.id, from, 'pending');
-      twiml.message(
-        `Hi! You've reached ${tenant.business_name}. Reply YES to chat with our virtual receptionist, or STOP to opt out. Msg & data rates may apply.`
-      );
+      twiml.message(smsCopy(tenant, 'consent_prompt', msgLang));
       return res.send(twiml.toString());
     }
 
     if (status === 'pending') {
       if (START_WORDS.has(word)) {
         await consent.setStatus(tenant.id, from, 'opted_in');
-        twiml.message("You're all set! How can I help you today?");
+        twiml.message(smsCopy(tenant, 'opted_in_confirm', msgLang));
       } else {
-        twiml.message('Reply YES to continue or STOP to opt out.');
+        twiml.message(smsCopy(tenant, 'pending_reprompt', msgLang));
       }
       return res.send(twiml.toString());
     }
 
     // status === 'opted_in' — gate on the tenant being live, then hand to AI.
     if (tenant.status !== 'active') {
-      twiml.message(
-        `Thanks for reaching ${tenant.business_name}! Our virtual receptionist isn't live yet — please try again soon.`
-      );
+      twiml.message(smsCopy(tenant, 'not_live', msgLang));
       return res.send(twiml.toString());
     }
 
@@ -147,9 +147,7 @@ router.post('/sms', async (req, res) => {
     if (!caps.ok) {
       logger.warn('sms.spend_cap', { tenant_id: tenant.id, reason: caps.reason });
       notifyCapBreach(tenant, caps.reason);
-      twiml.message(
-        `Thanks for contacting ${tenant.business_name}! We're unavailable right now — please try again later.`
-      );
+      twiml.message(smsCopy(tenant, 'unavailable', msgLang));
       return res.send(twiml.toString());
     }
 
@@ -163,9 +161,7 @@ router.post('/sms', async (req, res) => {
     return res.send(twiml.toString());
   } catch (err) {
     console.error('[sms] handler error:', err);
-    twiml.message(
-      `Thanks for contacting ${tenant.business_name}! We're having a brief technical hiccup — someone will follow up shortly.`
-    );
+    twiml.message(smsCopy(tenant, 'error_fallback', msgLang));
     return res.send(twiml.toString());
   }
 });

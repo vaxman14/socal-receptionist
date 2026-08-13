@@ -27,7 +27,15 @@ const { sendEmail } = require('../lib/email');
 const { fireWebhooks } = require('../lib/public-api');
 const { withinCaps, notifyCapBreach } = require('../lib/usage');
 const { isBlockedVoiceCaller } = require('../lib/voice-spam');
+const {
+  languageMenuEnabled,
+  menuSettings,
+  languageFromDigits,
+  hebrewMenuGreeting,
+  RUSSIAN_MENU_PROMPT,
+} = require('../lib/language');
 const logger = require('../lib/logger');
+const { issueStreamCapability } = require('./stream-capability');
 
 const router = express.Router();
 
@@ -83,6 +91,53 @@ function menuGather(vr, tenant) {
     `Otherwise, stay on the line and I'll be happy to help you.` +
     `</prosody></speak>`;
   gather.say(voice(tenant), ssml);
+}
+
+// Media-stream URL for the OpenAI Realtime bridge. The stream must hit the
+// backend origin (API_PUBLIC_BASE_URL), not APP_BASE_URL which is the SPA
+// origin and cannot serve WebSockets.
+function streamUrl() {
+  const baseUrl =
+    process.env.API_PUBLIC_BASE_URL ||
+    process.env.APP_BASE_URL ||
+    'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
+  return baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
+}
+
+// <Connect><Stream> TwiML for the Realtime bridge. selectedLanguage is added
+// ONLY for language-menu tenants — existing tenants' TwiML is unchanged.
+function connectStream(vr, tenant, { from, to, callSid, selectedLanguage, isCallback = false, leadName = null }) {
+  const connect = vr.connect();
+  const stream = connect.stream({ url: streamUrl() });
+  const capability = issueStreamCapability({
+    tenantId: tenant.id, callSid, from, to, selectedLanguage, isCallback, leadName,
+  });
+  stream.parameter({ name: 'stream_capability', value: capability });
+}
+
+// Language menu for tenants with voice_settings.language_menu.enabled: the
+// Hebrew greeting (tenant.voice_greeting or a Hebrew fallback) plays first,
+// then the Russian option is offered ONLY in Russian — the Hebrew greeting
+// never explains it. One DTMF digit: 2 = Russian, timeout/other = Hebrew.
+function languageMenuGather(vr, tenant) {
+  const ms = menuSettings(tenant);
+  const gather = vr.gather({
+    numDigits: 1,
+    action: '/voice/language-select',
+    method: 'POST',
+    timeout: ms.timeout || 4,
+  });
+  gather.say(
+    { voice: ms.voice_he || 'Google.he-IL-Wavenet-A', language: 'he-IL' },
+    hebrewMenuGreeting(tenant)
+  );
+  gather.pause({ length: 1 });
+  gather.say(
+    { voice: ms.voice_ru || 'Google.ru-RU-Wavenet-A', language: 'ru-RU' },
+    RUSSIAN_MENU_PROMPT
+  );
+  // No digit -> fall through to the selector, which defaults to Hebrew.
+  vr.redirect({ method: 'POST' }, '/voice/language-select');
 }
 
 // --- Entry: a call arrives --------------------------------------------------
@@ -153,21 +208,70 @@ router.post('/voice', async (req, res) => {
     );
   }
 
+  const vr = new VoiceResponse();
+
+  // Language-menu tenants (tenants.voice_settings.language_menu.enabled): play
+  // the Hebrew greeting + Russian-only option and gather one digit before the
+  // Realtime stream starts. For these tenants 2 selects Russian at the initial
+  // menu — it does NOT transfer to staff. All other tenants connect straight
+  // to the stream exactly as before.
+  if (languageMenuEnabled(tenant)) {
+    languageMenuGather(vr, tenant);
+    return sendTwiml(res, vr);
+  }
+
   // Use OpenAI Realtime API — stream audio directly, no TTS/STT round trips.
-  // The media stream must hit the backend origin (API_PUBLIC_BASE_URL), not
-  // APP_BASE_URL which is the SPA origin and cannot serve WebSockets.
-  const baseUrl =
-    process.env.API_PUBLIC_BASE_URL ||
-    process.env.APP_BASE_URL ||
-    'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
-  const wsUrl = baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
+  connectStream(vr, tenant, { from, to, callSid });
+  sendTwiml(res, vr);
+});
+
+// --- Language selection (language-menu tenants only) -------------------------
+//
+// The gather in /voice posts here with the caller's digit. 2 = Russian;
+// timeout or any other digit = Hebrew. The selection is passed to the media
+// stream as a custom parameter; the Realtime handler re-validates it against
+// the tenant row loaded from the DB, so a forged stream cannot pick a language
+// the tenant doesn't offer.
+
+router.post('/voice/language-select', async (req, res) => {
+  if (!isValidTwilioRequest(req)) {
+    return res.status(403).send('Invalid Twilio signature');
+  }
+
+  const from = req.body.From;
+  const to = req.body.To;
+  const callSid = req.body.CallSid;
+
+  if (await isBlockedVoiceCaller(from)) {
+    logger.warn('voice.language_select.spam_caller_rejected', { from, to, callSid });
+    return rejectCall(res);
+  }
+
+  let tenant;
+  try {
+    tenant = await resolveTenantByNumber(to);
+  } catch (err) {
+    logger.error('voice.language_select.tenant_lookup_failed', { error: err.message });
+    return sayAndHangup(res, 'We are unable to take your call right now. Please try again later.', null);
+  }
+  if (!tenant) return sayAndHangup(res, 'This number is not in service. Goodbye.', null);
+  if (!languageMenuEnabled(tenant)) {
+    logger.warn('voice.language_select.menu_not_enabled', { tenant: tenant.id });
+    return rejectCall(res);
+  }
+  if (tenant.status !== 'active') return sayAndHangup(res, 'This number is not in service. Goodbye.', tenant);
+  if (tenant.voice_enabled === false) return sayAndHangup(res, `Thank you for calling ${tenant.business_name}. Please send us a text message and we will get right back to you.`, tenant);
+  if (overLimit('voice', `${tenant.id}:${from}`, 10)) return sayAndHangup(res, `Thank you for calling ${tenant.business_name}. We've received several calls from this number today — someone from the team will follow up with you directly. Goodbye.`, tenant);
+  const caps = withinCaps(tenant);
+  if (!caps.ok) {
+    logger.warn('voice.language_select.spend_cap', { tenant_id: tenant.id, reason: caps.reason });
+    notifyCapBreach(tenant, caps.reason);
+    return sayAndHangup(res, `Thank you for calling ${tenant.business_name}. We are unable to take your call right now. Please try again later.`, tenant);
+  }
 
   const vr = new VoiceResponse();
-  const connect = vr.connect();
-  const stream = connect.stream({ url: wsUrl });
-  stream.parameter({ name: 'tenant_id',   value: tenant.id });
-  stream.parameter({ name: 'from_number', value: from });
-  stream.parameter({ name: 'to_number',   value: to });
+  const selectedLanguage = languageFromDigits(req.body.Digits);
+  connectStream(vr, tenant, { from, to, callSid, selectedLanguage });
   sendTwiml(res, vr);
 });
 
@@ -195,21 +299,11 @@ router.post('/voice/callback', async (req, res) => {
     return sayAndHangup(res, 'This call could not be connected. Goodbye.', null);
   }
 
-  const baseUrl =
-    process.env.API_PUBLIC_BASE_URL ||
-    process.env.APP_BASE_URL ||
-    'https://socal-receptionist-v2-spbrw.ondigitalocean.app';
-  const wsUrl = baseUrl.replace(/^https?:\/\//, 'wss://') + '/voice/stream';
-
   const vr = new VoiceResponse();
-  const connect = vr.connect();
-  const stream = connect.stream({ url: wsUrl });
   const leadName = (req.query.lead_name || '').toString().slice(0, 80);
-  stream.parameter({ name: 'tenant_id',   value: tenant.id });
-  stream.parameter({ name: 'from_number', value: customerNum });
-  stream.parameter({ name: 'to_number',   value: ourNum });
-  stream.parameter({ name: 'is_callback', value: 'true' });
-  if (leadName) stream.parameter({ name: 'lead_name', value: leadName });
+  connectStream(vr, tenant, {
+    from: customerNum, to: ourNum, callSid: req.body.CallSid, isCallback: true, leadName,
+  });
   sendTwiml(res, vr);
 });
 

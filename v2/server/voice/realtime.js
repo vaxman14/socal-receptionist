@@ -4,8 +4,10 @@
 //   Caller → Twilio Media Stream (WebSocket) → this handler → OpenAI Realtime (WebSocket)
 //   No round-trip TTS/STT loop — audio streams bidirectionally in real time.
 //
-// Twilio sends G.711 μ-law (mulaw/pcmu) audio; OpenAI Realtime accepts audio/pcmu natively.
-// No audio format conversion needed.
+// Twilio sends G.711 μ-law (mulaw/pcmu) audio; OpenAI Realtime accepts audio/pcmu
+// natively on input. Output is requested as PCM16 @ 24kHz and transcoded to
+// mu-law by us (see voice/audio.js) — asking OpenAI for audio/pcmu output
+// produced garbled "wind/roar" audio.
 
 const WebSocket = require('ws');
 const twilio = require('twilio');
@@ -23,6 +25,9 @@ const {
   blockVoiceCaller,
   isGoogleVoiceSearchSpam,
 } = require('../lib/voice-spam');
+const { resolveSelectedLanguage, realtimeGreeting } = require('../lib/language');
+const { FRAME_BYTES, createPcmToMulawTranscoder, takeDueFrames, flushFinalFrame } = require('./audio');
+const { verifyStreamCapability } = require('./stream-capability');
 const logger = require('../lib/logger');
 const OpenAI = require('openai');
 
@@ -99,22 +104,6 @@ async function calendarForTenant(tenantId) {
   if (connected.has('google_calendar')) return googleCalendar;
   if (connected.has('microsoft_calendar')) return microsoftCalendar;
   throw new Error('No calendar connected');
-}
-
-// We request PCM16 (24kHz) from OpenAI and transcode to G.711 mu-law (8kHz)
-// ourselves, then feed Twilio. Asking OpenAI for audio/pcmu directly produced
-// garbled "wind/roar" audio (PCM bytes played as mu-law). This is bulletproof.
-function linearToMulaw(sample) {
-  const BIAS = 0x84;
-  const CLIP = 32635;
-  let sign = (sample >> 8) & 0x80;
-  if (sign) sample = -sample;
-  if (sample > CLIP) sample = CLIP;
-  sample += BIAS;
-  let exponent = 7;
-  for (let expMask = 0x4000; (sample & expMask) === 0 && exponent > 0; exponent--, expMask >>= 1) {}
-  const mantissa = (sample >> (exponent + 3)) & 0x0F;
-  return (~(sign | (exponent << 4) | mantissa)) & 0xFF;
 }
 
 // Hard per-call duration ceiling. A real receptionist call wraps inside 10
@@ -215,24 +204,13 @@ function handleMediaStream(twilioWs, req) {
   // sound. We instead generate a reply only after a MEANINGFUL transcription
   // arrives — so dings/beeps/breaths (which transcribe to nothing) are ignored.
   let manualTurnMode = false;
-  let pcmRemainder = Buffer.alloc(0); // leftover PCM16 bytes between deltas
-  const FRAME_BYTES = 160; // 20ms of 8kHz G.711 mu-law
-
-  // Decode base64 PCM16@24kHz from OpenAI → downsample to 8kHz (avg 3 samples)
-  // → mu-law encode. We own the telephony audio format end to end.
-  function pcmDeltaToMulaw(b64) {
-    const buf = Buffer.concat([pcmRemainder, Buffer.from(b64, 'base64')]);
-    const samples = Math.floor(buf.length / 2);
-    const groups = Math.floor(samples / 3);
-    const out = Buffer.alloc(groups);
-    for (let g = 0; g < groups; g++) {
-      const i = g * 6;
-      const avg = ((buf.readInt16LE(i) + buf.readInt16LE(i + 2) + buf.readInt16LE(i + 4)) / 3) | 0;
-      out[g] = linearToMulaw(avg);
-    }
-    pcmRemainder = buf.subarray(groups * 6);
-    return out;
-  }
+  // Language selected at the IVR (validated against the tenant row on 'start').
+  // 'en' for tenants without the language menu.
+  let selectedLanguage = 'en';
+  // Decode base64 PCM16@24kHz from OpenAI → downsample to 8kHz → mu-law encode,
+  // carrying leftover bytes between deltas. We own the telephony audio format
+  // end to end (see voice/audio.js).
+  const transcoder = createPcmToMulawTranscoder();
 
   function startDrain() {
     if (drainTimer) return;
@@ -244,21 +222,20 @@ function handleMediaStream(twilioWs, req) {
     let nextFrameAt = Date.now();
     drainTimer = setInterval(() => {
       if (!streamSid || playQueue.length === 0) { nextFrameAt = Date.now(); return; }
-      const now = Date.now();
-      while (playQueue.length > 0 && nextFrameAt <= now) {
-        const frame = playQueue.subarray(0, FRAME_BYTES);
-        playQueue = playQueue.subarray(frame.length);
+      const due = takeDueFrames(playQueue, nextFrameAt, Date.now(), FRAME_BYTES);
+      playQueue = due.queue;
+      nextFrameAt = due.nextFrameAt;
+      for (const frame of due.frames) {
         try {
           twilioWs.send(JSON.stringify({ event: 'media', streamSid, media: { payload: frame.toString('base64') } }));
         } catch {}
-        nextFrameAt += 20;
       }
     }, 20);
   }
 
   function flushPlayback() {
     playQueue = Buffer.alloc(0);
-    pcmRemainder = Buffer.alloc(0);
+    transcoder.reset();
     if (streamSid) {
       try { twilioWs.send(JSON.stringify({ event: 'clear', streamSid })); } catch {}
     }
@@ -277,7 +254,8 @@ function handleMediaStream(twilioWs, req) {
 
   logger.info('voice.realtime.stream_connected');
 
-  // Open the OpenAI Realtime WebSocket immediately.
+  // OpenAI is created only after the Twilio-provided capability and tenant are validated.
+  function openOpenAI() {
   openaiWs = new WebSocket(OPENAI_WS_URL, {
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
   });
@@ -287,7 +265,12 @@ function handleMediaStream(twilioWs, req) {
   });
 
   openaiWs.on('message', async (data) => {
-    const event = JSON.parse(data);
+    let event;
+    try { event = JSON.parse(data); } catch (_) {
+      logger.warn('voice.realtime.openai_malformed_json');
+      closeBoth();
+      return;
+    }
 
     switch (event.type) {
 
@@ -307,7 +290,7 @@ function handleMediaStream(twilioWs, req) {
       // Queue AI audio, transcoded to mu-law and paced to Twilio in 20ms frames.
       case 'response.output_audio.delta': {
         if (event.delta) {
-          try { playQueue = Buffer.concat([playQueue, Buffer.from(event.delta, 'base64')]); } catch {}
+          try { playQueue = Buffer.concat([playQueue, transcoder.push(event.delta)]); } catch {}
         }
         break;
       }
@@ -374,7 +357,7 @@ function handleMediaStream(twilioWs, req) {
         // → we stay silent, killing the "it heard a noise and started talking"
         // problem. Real speech ("yes", "next Tuesday") always has alphanumerics.
         if (manualTurnMode) {
-          const hasWords = /[a-z0-9]/i.test(t) && t.replace(/[^a-z0-9]/gi, '').length >= 2;
+          const hasWords = (t.match(/[\p{L}\p{N}]/gu) || []).length >= 2;
           if (hasWords) {
             if (assistantSpeaking) {
               // Genuine barge-in: caller spoke over the AI. Cancel + clear, then reply.
@@ -395,6 +378,7 @@ function handleMediaStream(twilioWs, req) {
 
       // Each completed response reports token usage — accumulate the cost.
       case 'response.done': {
+        padFinalPlayback();
         assistantSpeaking = false;
         realtimeCostCents += estimateRealtimeCostCents(event.response?.usage);
         break;
@@ -409,6 +393,22 @@ function handleMediaStream(twilioWs, req) {
 
   openaiWs.on('close', () => logger.info('voice.realtime.openai_closed'));
   openaiWs.on('error', (err) => logger.error('voice.realtime.openai_ws_error', { error: err.message }));
+  }
+
+  function closeBoth() {
+    try { if (openaiWs && openaiWs.readyState === WebSocket.OPEN) openaiWs.close(); } catch {}
+    try { if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close(); } catch {}
+  }
+
+  function padFinalPlayback() {
+    const remainderBytes = playQueue.length % FRAME_BYTES;
+    if (!remainderBytes) return;
+    const padded = flushFinalFrame(playQueue.subarray(playQueue.length - remainderBytes));
+    playQueue = Buffer.concat([
+      playQueue.subarray(0, playQueue.length - remainderBytes),
+      padded,
+    ]);
+  }
 
   function configureSession() {
     if (!openaiWs || openaiWs.readyState !== WebSocket.OPEN) return;
@@ -429,7 +429,7 @@ function handleMediaStream(twilioWs, req) {
     };
     // When auto-response is off, we drive replies manually off transcriptions.
     manualTurnMode = turnDetection.create_response === false;
-    let instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber });
+    let instructions = buildSystemPrompt(tenant, { channel: 'voice', callerPhone: fromNumber, selectedLanguage });
     // Outbound callback: override the inbound "qualify + promise a callback" flow.
     // We already have the lead's name/phone/email from the website form, and THIS
     // call is the callback — so don't re-ask for their info and never promise to
@@ -453,11 +453,18 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
             turn_detection: turnDetection,
             // Caller speech transcription. GA API: lives under input, not output —
             // output transcripts arrive automatically via response.output_audio_transcript.*
-            transcription: { model: 'gpt-4o-transcribe', language: 'en' },
+            // Language follows the validated IVR selection; 'en' for all
+            // tenants without the language menu.
+            transcription: {
+              model: 'gpt-4o-transcribe',
+              language: selectedLanguage === 'he' || selectedLanguage === 'ru' ? selectedLanguage : 'en',
+            },
           },
           output: {
-            // Mu-law 8kHz direct from OpenAI, forwarded straight to Twilio (no transcode).
-            format: { type: 'audio/pcmu' },
+            // PCM16 @ 24kHz from OpenAI; we transcode to mu-law 8kHz and pace
+            // 20ms frames ourselves (voice/audio.js). Requesting audio/pcmu
+            // here produced garbled audio — do not switch back.
+            format: { type: 'audio/pcm', rate: 24000 },
             voice: realtimeVoice,
           },
         },
@@ -485,16 +492,24 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
     const callbackGreeting = leadName
       ? `Hi ${leadName}, this is ${tenant.business_name} returning the request you just submitted on our website. What can we help you with today?`
       : `Hi, this is ${tenant.business_name} returning the request you just submitted on our website. What can we help you with today?`;
-    logger.info('voice.realtime.greeting', { isCallback, hasLeadName: !!leadName });
+    logger.info('voice.realtime.greeting', { isCallback, hasLeadName: !!leadName, selectedLanguage });
+    // Language-menu tenants: the business greeting already played (in Hebrew)
+    // at the IVR, so the AI opens with a short natural greeting in the selected
+    // language instead of repeating it.
+    let greetingInstruction;
+    if (isCallback) {
+      greetingInstruction = `${disclosurePrefix}You are calling the person back. Say this greeting exactly, and do not wait for them to speak first: "${callbackGreeting}"`;
+    } else if (selectedLanguage === 'he' || selectedLanguage === 'ru') {
+      const langName = selectedLanguage === 'he' ? 'Hebrew' : 'Russian';
+      greetingInstruction = `${disclosurePrefix}Say this ${langName} greeting exactly, in ${langName}: "${realtimeGreeting(tenant, selectedLanguage)}"`;
+    } else if (tenant.voice_greeting) {
+      greetingInstruction = `${disclosurePrefix}Say this greeting exactly: "${tenant.voice_greeting}"`;
+    } else {
+      greetingInstruction = `${disclosurePrefix}greet the caller by saying "Thank you for calling ${tenant.business_name}," then ask how you can help. One sentence. Do not mention AI or virtual receptionist.`;
+    }
     openaiWs.send(JSON.stringify({
       type: 'response.create',
-      response: {
-        instructions: isCallback
-          ? `${disclosurePrefix}You are calling the person back. Say this greeting exactly, and do not wait for them to speak first: "${callbackGreeting}"`
-          : tenant.voice_greeting
-            ? `${disclosurePrefix}Say this greeting exactly: "${tenant.voice_greeting}"`
-            : `${disclosurePrefix}greet the caller by saying "Thank you for calling ${tenant.business_name}," then ask how you can help. One sentence. Do not mention AI or virtual receptionist.`,
-      },
+      response: { instructions: greetingInstruction },
     }));
   }
 
@@ -655,45 +670,61 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
 
   // Handle messages from Twilio.
   twilioWs.on('message', async (data) => {
-    const msg = JSON.parse(data);
+    let msg;
+    try { msg = JSON.parse(data); } catch (_) {
+      logger.warn('voice.realtime.twilio_malformed_json');
+      closeBoth();
+      return;
+    }
 
     switch (msg.event) {
 
       case 'start': {
-        streamSid = msg.start.streamSid;
-        startDrain(); // begin paced 20ms outbound audio frames
-        callSid   = msg.start.callSid;
-        // Custom parameters passed from the TwiML <Stream>.
-        const params = msg.start.customParameters || {};
-        tenantId   = params.tenant_id;
-        fromNumber = params.from_number;
-        isCallback = params.is_callback === 'true';
-        leadName   = params.lead_name || null;
-        ourNumber  = params.to_number || '+19514776060';
-
-        // Load the tenant and set up the call record.
-        if (tenantId) {
-          const { data: t } = await supabase
-            .from('tenants')
-            .select('*')
-            .eq('id', tenantId)
-            .maybeSingle();
-          tenant = t;
-
-          // Decide recording (and therefore the consent disclosure) the moment we
-          // know the tenant — BEFORE the greeting is generated — so a recorded call
-          // is never missing the "this call may be recorded" disclosure.
-          recordingEnabled = !!(tenant?.recording_enabled || RECORDING_TENANT_IDS.has(tenantId));
-
-          if (tenant) {
-            const conv = await getOrCreateConversation(tenant.id, fromNumber).catch(() => null);
-            conversationId = conv?.id || null;
-          }
+        const start = msg.start || {};
+        const params = start.customParameters || {};
+        const claims = verifyStreamCapability(params.stream_capability);
+        if (!claims || !claims.tenantId || !claims.callSid || claims.callSid !== start.callSid) {
+          logger.warn('voice.realtime.invalid_stream_capability', { callSid: start.callSid || null });
+          closeBoth();
+          return;
         }
 
-        if (callSid) {
-          await recordCallStart({ tenantId, callSid, from: fromNumber, to: null }).catch(() => {});
+        streamSid = start.streamSid;
+        callSid = claims.callSid;
+        tenantId = claims.tenantId;
+        fromNumber = claims.from;
+        ourNumber = claims.to;
+        isCallback = claims.isCallback === true;
+        leadName = claims.leadName || null;
+
+        let lookup;
+        try {
+          lookup = await supabase.from('tenants').select('*').eq('id', tenantId).maybeSingle();
+        } catch (err) {
+          logger.error('voice.realtime.tenant_lookup_failed', { tenant_id: tenantId, error: err.message });
+          closeBoth();
+          return;
         }
+        if (lookup.error || !lookup.data || lookup.data.status !== 'active') {
+          logger.warn('voice.realtime.tenant_rejected', {
+            tenant_id: tenantId,
+            status: lookup.data?.status || null,
+            error: lookup.error?.message || null,
+          });
+          closeBoth();
+          return;
+        }
+        tenant = lookup.data;
+        selectedLanguage = resolveSelectedLanguage(tenant, claims.selectedLanguage);
+        recordingEnabled = !!(tenant.recording_enabled || RECORDING_TENANT_IDS.has(tenantId));
+
+        // No billable AI connection or tenant side effect occurs before capability
+        // verification and active-tenant resolution complete successfully.
+        openOpenAI();
+        startDrain();
+        const conv = await getOrCreateConversation(tenant.id, fromNumber).catch(() => null);
+        conversationId = conv?.id || null;
+        await recordCallStart({ tenantId, callSid, from: fromNumber, to: ourNumber }).catch(() => {});
 
         // Start recording for enabled tenants (DB flag; env var is legacy override).
         if (callSid && (tenant?.recording_enabled || RECORDING_TENANT_IDS.has(tenantId))) {

@@ -9,6 +9,11 @@ const { loadTranscript, appendMessage } = require('./conversations');
 const { recordUsage, estimateOpenaiCostCents } = require('./usage');
 const { sendEmail } = require('./email');
 const { fireWebhooks } = require('./public-api');
+const {
+  resolveSelectedLanguage,
+  voiceLanguageInstructions,
+  smsLanguagePolicy,
+} = require('./language');
 
 // Lazy singletons — SDKs throw if the key is missing at import time.
 let _openai;
@@ -62,9 +67,24 @@ Additional information from ${tenant.business_name} (authoritative — you MAY s
 ${list}`;
 }
 
+// Language appendix per channel. Empty string for tenants without the
+// language menu (tenants.voice_settings.language_menu.enabled), so existing
+// tenants' prompts stay byte-identical.
+function languageBlock(tenant, opts) {
+  if (opts.channel === 'voice') {
+    return voiceLanguageInstructions(resolveSelectedLanguage(tenant, opts.selectedLanguage));
+  }
+  return smsLanguagePolicy(tenant);
+}
+
 function buildSystemPrompt(tenant, opts = {}) {
   if (tenant.ai_system_prompt) {
-    return tenant.ai_system_prompt + extraInfoBlock(tenant) + guardrails(tenant.business_name);
+    return (
+      tenant.ai_system_prompt +
+      extraInfoBlock(tenant) +
+      guardrails(tenant.business_name) +
+      languageBlock(tenant, opts)
+    );
   }
 
   const isVoice = opts.channel === 'voice';
@@ -97,7 +117,7 @@ Rules:
 - Do not invent or guess pricing. If specific pricing is listed in the "Additional information" section below, you may share exactly that; otherwise say "I don't have pricing details — someone from our team will go over that with you when they call back."
 - Never invent availability, medical or professional advice, or policies.
 - Do not volunteer unsolicited information. Answer what was asked, then stop and listen.
-- Stay on topic: you represent ${tenant.business_name} only.${extraInfo}${guardrails(tenant.business_name)}`;
+- Stay on topic: you represent ${tenant.business_name} only.${extraInfo}${guardrails(tenant.business_name)}${languageBlock(tenant, opts)}`;
   }
 
   return `You are the virtual receptionist for ${tenant.business_name}.
@@ -122,7 +142,7 @@ Rules:
 - Keep replies short and text-message friendly: 1-3 short sentences.
 - Ask for only one or two pieces of information at a time — do not interrogate.
 - Do not invent prices, availability, medical or professional advice, or policies. You may share any specifics listed in the "Additional information" section below.
-- Stay on topic: you represent ${tenant.business_name} only.${extraInfo}${guardrails(tenant.business_name)}`;
+- Stay on topic: you represent ${tenant.business_name} only.${extraInfo}${guardrails(tenant.business_name)}${languageBlock(tenant, opts)}`;
 }
 
 const tools = [
