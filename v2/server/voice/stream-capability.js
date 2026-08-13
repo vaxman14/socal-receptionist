@@ -10,7 +10,18 @@ function signingKey() {
 }
 
 function issueStreamCapability(claims, { now = Date.now(), ttlMs = DEFAULT_TTL_MS } = {}) {
-  const payload = Buffer.from(JSON.stringify({ v: 1, exp: now + ttlMs, claims })).toString('base64url');
+  // Compact wire keys keep the Twilio <Parameter> below its 500-character
+  // name+value limit, including non-ASCII callback names.
+  const compact = {
+    t: claims.tenantId,
+    c: claims.callSid,
+    f: claims.from,
+    o: claims.to,
+    l: claims.selectedLanguage,
+    b: claims.isCallback === true ? 1 : 0,
+    n: claims.leadName || null,
+  };
+  const payload = Buffer.from(JSON.stringify({ v: 1, e: now + ttlMs, c: compact })).toString('base64url');
   const signature = crypto.createHmac('sha256', signingKey()).update(payload).digest('base64url');
   return `${payload}.${signature}`;
 }
@@ -25,8 +36,17 @@ function verifyStreamCapability(token, { now = Date.now() } = {}) {
     const actual = Buffer.from(supplied, 'base64url');
     if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
     const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    if (decoded.v !== 1 || !Number.isFinite(decoded.exp) || decoded.exp < now || !decoded.claims) return null;
-    return decoded.claims;
+    if (decoded.v !== 1 || !Number.isFinite(decoded.e) || decoded.e <= now || !decoded.c) return null;
+    const c = decoded.c;
+    return {
+      tenantId: c.t,
+      callSid: c.c,
+      from: c.f,
+      to: c.o,
+      ...(c.l ? { selectedLanguage: c.l } : {}),
+      isCallback: c.b === 1,
+      leadName: c.n || null,
+    };
   } catch (_) {
     return null;
   }

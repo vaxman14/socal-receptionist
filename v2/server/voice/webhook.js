@@ -31,6 +31,7 @@ const {
   languageMenuEnabled,
   menuSettings,
   languageFromDigits,
+  resolveSelectedLanguage,
   hebrewMenuGreeting,
   RUSSIAN_MENU_PROMPT,
 } = require('../lib/language');
@@ -112,6 +113,9 @@ function connectStream(vr, tenant, { from, to, callSid, selectedLanguage, isCall
   const capability = issueStreamCapability({
     tenantId: tenant.id, callSid, from, to, selectedLanguage, isCallback, leadName,
   });
+  if ('stream_capability'.length + capability.length > 500) {
+    throw new Error('stream capability exceeds Twilio parameter limit');
+  }
   stream.parameter({ name: 'stream_capability', value: capability });
 }
 
@@ -300,9 +304,12 @@ router.post('/voice/callback', async (req, res) => {
   }
 
   const vr = new VoiceResponse();
-  const leadName = (req.query.lead_name || '').toString().slice(0, 80);
+  // Keep callback context inside Twilio's 500-character Stream Parameter cap.
+  const leadName = Array.from((req.query.lead_name || '').toString()).slice(0, 24).join('');
+  const selectedLanguage = resolveSelectedLanguage(tenant, req.query.selected_language);
   connectStream(vr, tenant, {
-    from: customerNum, to: ourNum, callSid: req.body.CallSid, isCallback: true, leadName,
+    from: customerNum, to: ourNum, callSid: req.body.CallSid,
+    selectedLanguage, isCallback: true, leadName,
   });
   sendTwiml(res, vr);
 });

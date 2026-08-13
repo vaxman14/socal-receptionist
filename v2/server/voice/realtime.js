@@ -489,16 +489,21 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
     // Outbound: WE called THEM because they requested a callback on the website.
     // Greet by name (we have it from the form) and ask what they need — do NOT
     // ask their name and do NOT imply a future callback.
-    const callbackGreeting = leadName
-      ? `Hi ${leadName}, this is ${tenant.business_name} returning the request you just submitted on our website. What can we help you with today?`
-      : `Hi, this is ${tenant.business_name} returning the request you just submitted on our website. What can we help you with today?`;
+    const callbackGreeting = selectedLanguage === 'ru'
+      ? `${leadName ? `${leadName}, ` : ''}здравствуйте! Это ${tenant.business_name}. Мы перезваниваем по вашему запросу. Чем можем помочь?`
+      : selectedLanguage === 'he'
+        ? `${leadName ? `${leadName}, ` : ''}שלום! כאן ${tenant.business_name}. אנחנו חוזרים אליך בעקבות הפנייה שלך. איך אפשר לעזור?`
+        : leadName
+          ? `Hi ${leadName}, this is ${tenant.business_name} returning the request you just submitted on our website. What can we help you with today?`
+          : `Hi, this is ${tenant.business_name} returning the request you just submitted on our website. What can we help you with today?`;
     logger.info('voice.realtime.greeting', { isCallback, hasLeadName: !!leadName, selectedLanguage });
     // Language-menu tenants: the business greeting already played (in Hebrew)
     // at the IVR, so the AI opens with a short natural greeting in the selected
     // language instead of repeating it.
     let greetingInstruction;
     if (isCallback) {
-      greetingInstruction = `${disclosurePrefix}You are calling the person back. Say this greeting exactly, and do not wait for them to speak first: "${callbackGreeting}"`;
+      const callbackLanguage = selectedLanguage === 'ru' ? 'Russian' : selectedLanguage === 'he' ? 'Hebrew' : 'English';
+      greetingInstruction = `${disclosurePrefix}You are calling the person back. Say this greeting exactly in ${callbackLanguage}, and do not wait for them to speak first: "${callbackGreeting}"`;
     } else if (selectedLanguage === 'he' || selectedLanguage === 'ru') {
       const langName = selectedLanguage === 'he' ? 'Hebrew' : 'Russian';
       greetingInstruction = `${disclosurePrefix}Say this ${langName} greeting exactly, in ${langName}: "${realtimeGreeting(tenant, selectedLanguage)}"`;
@@ -917,7 +922,7 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
               twilioClient.calls.create({
                 to: fromNumber,
                 from: callbackFrom,
-                url: `${baseUrl}/voice/callback`,
+                url: `${baseUrl}/voice/callback?selected_language=${encodeURIComponent(selectedLanguage)}`,
               }).catch(err => logger.error('voice.callback.create_failed', { error: err.message }));
             }, 30000);
             logger.info('voice.callback.scheduled', { to: fromNumber, from: callbackFrom });
