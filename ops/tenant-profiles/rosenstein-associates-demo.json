@@ -7,6 +7,7 @@
     "slug": "rosenstein-associates-demo",
     "business_name": "Rosenstein & Associates",
     "alternate_name": "The Temecula Law Firm",
+    "voice_pronunciation": "Rosenstein is pronounced Rosensteen (ROH-zen-steen); written channels retain Rosenstein.",
     "phone_e164": "+19514000234",
     "timezone": "America/Los_Angeles",
     "status": "active",
