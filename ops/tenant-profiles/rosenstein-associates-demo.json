@@ -1,0 +1,97 @@
+{
+  "profile_version": 1,
+  "created_at": "2026-08-14",
+  "purpose": "Temporary favor-test tenant; not a representation agreement or production client onboarding",
+  "tenant": {
+    "id": "4de05b65-4d8a-4797-b474-c9b8adc46fea",
+    "slug": "rosenstein-associates-demo",
+    "business_name": "Rosenstein & Associates",
+    "alternate_name": "The Temecula Law Firm",
+    "phone_e164": "+19514000234",
+    "timezone": "America/Los_Angeles",
+    "status": "active",
+    "voice_enabled": true,
+    "recording_enabled": true,
+    "booking_enabled": false,
+    "outbound_enabled": false,
+    "staff_transfer_enabled": false,
+    "notification_owner": "roman@socalreceptionist.com"
+  },
+  "business_profile": {
+    "website": "https://www.thetemeculalawfirm.com/",
+    "legal_name_on_site": "Robert Bryce Rosenstein, APLC",
+    "address": "28600 Mercedes Street, Suite 100, Temecula, CA 92590",
+    "main_phone": "(951) 296-3888",
+    "information_email": "info@thetemeculalawfirm.com",
+    "hours": {
+      "monday_friday": "8:30 a.m.–5:30 p.m.",
+      "saturday": "Closed",
+      "sunday": "Closed"
+    },
+    "consultation": "The firm advertises a free and confidential initial consultation; its About page says the initial half-hour is at no charge. Any consultation remains subject to scheduling, conflict review, and firm acceptance.",
+    "practice_areas": [
+      "Business formations",
+      "General business and corporate matters",
+      "Employer defense",
+      "PAGA defense",
+      "Wage-and-hour disputes",
+      "Transactional law, contracts and lease agreements",
+      "Business litigation",
+      "Wills, trusts and estate planning",
+      "Trademark and copyright law",
+      "Commercial real estate",
+      "Business tax planning, audits and litigation",
+      "Asset protection",
+      "Business reorganizations",
+      "Chapter 11 bankruptcy"
+    ],
+    "service_area": "Temecula Valley and Riverside County, including Temecula, Murrieta, Lake Elsinore, Fallbrook, Menifee and surrounding Southwest Riverside County; the site also describes work elsewhere in California and beyond."
+  },
+  "receptionist_policy": {
+    "may_answer": [
+      "Office hours, address, phone and information email",
+      "Published practice areas",
+      "Published initial-consultation terms",
+      "Brief non-confidential intake and message capture"
+    ],
+    "must_not": [
+      "Give legal advice or interpret laws or documents",
+      "Assess claims, predict outcomes or calculate deadlines",
+      "Promise representation, confidentiality, privilege, fees or results",
+      "Create or imply an attorney-client relationship",
+      "Collect detailed sensitive facts",
+      "Book appointments or transfer calls during the demo"
+    ],
+    "intake_fields": [
+      "Name",
+      "Callback number",
+      "Optional email",
+      "Broad practice area",
+      "Brief non-confidential description",
+      "Optional names of other parties for conflict review"
+    ],
+    "urgent_matters": "State that the automated system cannot protect deadlines or handle emergencies and direct the caller to a qualified attorney or appropriate emergency/court resource immediately."
+  },
+  "telephony": {
+    "previous_friendly_name": "josi-engine TESTER tenant",
+    "previous_voice_url": "https://engine.heyjosi.com/webhooks/twilio/voice",
+    "previous_sms_url": "https://engine.heyjosi.com/webhooks/twilio/sms",
+    "current_friendly_name": "Rosenstein & Associates - Test",
+    "current_voice_url": "https://socal-receptionist-v3-ecjpk.ondigitalocean.app/voice",
+    "current_sms_url": "https://socal-receptionist-v3-ecjpk.ondigitalocean.app/sms",
+    "a2p_note": "The number is not enrolled in a Twilio Messaging Service/A2P campaign. SMS is test-only until the firm has compliant registration."
+  },
+  "sources": [
+    "https://www.thetemeculalawfirm.com/",
+    "https://www.thetemeculalawfirm.com/practice-areas",
+    "https://www.thetemeculalawfirm.com/contact",
+    "https://www.thetemeculalawfirm.com/about"
+  ],
+  "verification": {
+    "signed_voice_webhook": "HTTP 200 with Twilio media stream",
+    "signed_sms_consent": "Firm-branded consent prompt and confirmation",
+    "signed_sms_ai": "HTTP 200 with law-firm-scoped response and no technical fallback",
+    "unsigned_voice_sms": "HTTP 403",
+    "physical_call": "Not yet placed; Roman will have the firm test the number"
+  }
+}
