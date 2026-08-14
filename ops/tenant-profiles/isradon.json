@@ -1,0 +1,70 @@
+{
+  "profile_version": 1,
+  "tenant_slug": "isradon",
+  "business_name": "Isradon",
+  "phone_e164": "+972533882851",
+  "timezone": "Asia/Jerusalem",
+  "status": "active",
+  "voice_enabled": true,
+  "booking_enabled": false,
+  "staff_phone": "+972773622996",
+  "business_hours": "Online support: Sunday–Thursday 09:00–17:00. Retail store hours vary by location; use the location-specific hours in the business information.",
+  "business_services": "Russian-language books for adults, children and young people; books about Israel, Jewish history, Hebrew study and Judaism; gifts, Judaica, tableware, home décor, toys, board games, hobby goods, stationery, puzzles, beauty and health products, groceries, gift cards, online ordering and delivery.",
+  "voice_greeting": "תודה שהתקשרתם לאיסרדון. שמחים לעזור.",
+  "voice_settings": {
+    "language_menu": {
+      "enabled": true,
+      "timeout": 4,
+      "ai_greeting_he": "שלום! איך אפשר לעזור לך היום?",
+      "ai_greeting_ru": "Здравствуйте! Чем я могу вам помочь?"
+    },
+    "turn_detection": {
+      "type": "server_vad",
+      "threshold": 0.75,
+      "prefix_padding_ms": 300,
+      "silence_duration_ms": 700
+    }
+  },
+  "public_contacts": {
+    "website": "https://www.isradon.com/",
+    "support_phone": "077-362-2996",
+    "store_switchboard": "077-990-7999",
+    "catalog_phone": "077-362-2999",
+    "whatsapp": "+972549616262",
+    "management_email": "isradon@list.ru",
+    "careers_email": "misradon@gmail.com"
+  },
+  "locations": [
+    {"name":"Ashdod","address":"HaTsiyonut 41/6","extension":"10","hours":"Sun–Thu 09:00–20:00; Fri 09:00–16:00"},
+    {"name":"Bat Yam","address":"Balfour 129","extension":"11","hours":"Sun–Thu 10:00–19:00; Fri 09:30–15:00"},
+    {"name":"Jerusalem","address":"Agripas 10","extension":"9","hours":"Sun–Thu 10:00–20:00; Fri 09:30–14:30"},
+    {"name":"Netanya","address":"Shmuel HaNatziv 12","extension":"2","hours":"Sun–Thu 09:30–19:30; Fri 09:30–15:00; listed break 14:00–14:30"},
+    {"name":"Petah Tikva","address":"Haim Ozer 11","extension":"4","hours":"Sun–Thu 09:00–19:30; Fri 09:00–15:00","verification_note":"Current visible page says 11; stale hidden map data says 13. Verify before directions."},
+    {"name":"Rehovot","address":"Ahad Ha’Am 9","extension":"6","hours":"Sun–Thu 10:00–20:00; Fri 10:00–15:00"},
+    {"name":"Rishon LeZion (Rothschild)","address":"Rothschild 36","extension":"7","hours":"Sun–Thu 10:00–20:00; Fri 10:00–15:00"},
+    {"name":"Rishon LeZion (Tiv Ta’am)","address":"HaMaccabim 62, inside Tiv Ta’am","extension":"8","hours":"Tue–Thu 12:00–20:00; Fri and Sat 10:00–20:00"},
+    {"name":"Tel Aviv","address":"Allenby 95","extension":"3","hours":"Sun–Thu 10:00–20:00; Fri 09:30–15:00"},
+    {"name":"Haifa (Hadar)","address":"HaNevi’im 24","extension":"0","hours":"Sun–Thu 09:00–19:00; Fri 09:30–15:00"},
+    {"name":"Haifa (Kiryat Eliezer)","address":"Kikar Meirhoff, Kiryat Eliezer","extension":"1","hours":"Sun–Thu 09:30–19:00; Fri 09:30–15:00"},
+    {"name":"Holon","address":"Sokolov 77","extension":"5","hours":"Sun–Thu 09:30–19:30; Fri 09:30–15:00","verification_note":"Current visible page says Sokolov 77; stale hidden map data says Arye Shenkar 42. Verify before directions."}
+  ],
+  "warehouse": {
+    "address": "Mefalsim Street 10, Petah Tikva",
+    "phone": "077-362-2996"
+  },
+  "social_handles": {
+    "facebook": "https://www.facebook.com/isradon.net",
+    "instagram": [
+      "https://www.instagram.com/isradon.israel",
+      "https://www.instagram.com/isradon.tlv",
+      "https://www.instagram.com/isradonhaifa"
+    ],
+    "youtube": "https://www.youtube.com/@Isradon_Israel"
+  },
+  "sources": [
+    "https://www.isradon.com/",
+    "https://www.isradon.com/index.php?route=information/contact",
+    "https://www.isradon.com/index.php?route=information/information&information_id=36"
+  ],
+  "operational_note": "Lead and usage notifications intentionally remain routed to the platform operator during testing; do not notify Isradon contacts without authorization."
+}
