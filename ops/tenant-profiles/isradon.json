@@ -12,9 +12,7 @@
   "business_services": "Russian-language books for adults, children and young people; books about Israel, Jewish history, Hebrew study and Judaism; gifts, Judaica, tableware, home décor, toys, board games, hobby goods, stationery, puzzles, beauty and health products, groceries, gift cards, online ordering and delivery.",
   "voice_greeting": "תודה שהתקשרתם לאיסרדון. שמחים לעזור.",
   "voice_settings": {
-    "tts_provider_he": "azure",
-    "azure_voice_he": "he-IL-AvriNeural",
-    "realtime_voice_he": "sage",
+    "realtime_voice_he": "coral",
     "realtime_voice_ru": "coral",
     "language_menu": {
       "enabled": true,

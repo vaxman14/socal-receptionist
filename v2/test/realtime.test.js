@@ -12,7 +12,7 @@ process.env.TWILIO_ACCOUNT_SID = 'ACtest00000000000000000000000000';
 process.env.TWILIO_AUTH_TOKEN = 'testtoken';
 process.env.API_PUBLIC_BASE_URL = 'https://api.test.example';
 
-const state = { tenant: null, tenantError: null, callStarts: 0, azureTexts: [], azureSignals: [], azureImpl: null };
+const state = { tenant: null, tenantError: null, callStarts: 0 };
 
 class FakeWS extends EventEmitter {
   static OPEN = 1;
@@ -69,15 +69,6 @@ stubModule('server/integrations/google-calendar', {});
 stubModule('server/integrations/microsoft-calendar', {});
 stubModule('server/lib/voice-spam', { blockVoiceCaller: async () => {}, isGoogleVoiceSearchSpam: () => false });
 stubModule('server/lib/logger', { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} });
-stubModule('server/voice/azure-tts', {
-  isAzureHebrewConfigured: (tenant) => tenant?.voice_settings?.tts_provider_he === 'azure',
-  synthesizeHebrew: async (text, options = {}) => {
-    state.azureTexts.push(text);
-    state.azureSignals.push(options.signal);
-    if (state.azureImpl) return state.azureImpl(text, options);
-    return Buffer.alloc(1920);
-  },
-});
 
 const { handleMediaStream } = loadReal('server/voice/realtime');
 const audio = loadReal('server/voice/audio');
@@ -182,57 +173,6 @@ test('Israel chooses the configured Realtime voice for each selected language', 
   const russian = await startCall(t, tenant, { selected_language: 'ru' });
   assert.equal(russian.session.audio.output.voice, 'coral');
   russian.twilioWs.emit('close');
-});
-
-test('Azure-enabled Hebrew converts OpenAI text to paced Twilio audio while Russian stays Realtime audio', async (t) => {
-  state.azureTexts = [];
-  state.azureSignals = [];
-  state.azureImpl = null;
-  const tenant = {
-    ...IL_TENANT,
-    voice_settings: {
-      ...IL_TENANT.voice_settings,
-      tts_provider_he: 'azure',
-      realtime_voice_ru: 'coral',
-    },
-  };
-
-  const hebrew = await startCall(t, tenant, {});
-  assert.deepEqual(hebrew.session.output_modalities, ['text']);
-  hebrew.oaiWs.emit('message', JSON.stringify({ type: 'response.output_text.done', text: 'שלום, איך אפשר לעזור?' }));
-  hebrew.oaiWs.emit('message', JSON.stringify({ type: 'response.done', response: { status: 'completed' } }));
-  await tick(150);
-  assert.deepEqual(state.azureTexts, ['שלום, איך אפשר לעזור?']);
-  assert.ok(hebrew.twilioWs.sent.some((message) => message.event === 'media'));
-  hebrew.twilioWs.emit('close');
-
-  const russian = await startCall(t, tenant, { selected_language: 'ru' });
-  assert.deepEqual(russian.session.output_modalities, ['audio']);
-  assert.equal(russian.session.audio.output.voice, 'coral');
-  russian.twilioWs.emit('close');
-});
-
-test('caller speech aborts pending Azure Hebrew synthesis and clears Twilio playback', async (t) => {
-  state.azureTexts = [];
-  state.azureSignals = [];
-  state.azureImpl = () => new Promise(() => {});
-  t.after(() => { state.azureImpl = null; });
-  const tenant = {
-    ...IL_TENANT,
-    voice_settings: { ...IL_TENANT.voice_settings, tts_provider_he: 'azure' },
-  };
-  const call = await startCall(t, tenant, {});
-  call.oaiWs.emit('message', JSON.stringify({ type: 'response.output_text.done', text: 'שלום' }));
-  call.oaiWs.emit('message', JSON.stringify({ type: 'response.done', response: { status: 'completed' } }));
-  await tick();
-  assert.equal(state.azureSignals.length, 1);
-  assert.equal(state.azureSignals[0].aborted, false);
-
-  call.oaiWs.emit('message', JSON.stringify({ type: 'input_audio_buffer.speech_started' }));
-  await tick();
-  assert.equal(state.azureSignals[0].aborted, true);
-  assert.ok(call.twilioWs.sent.some((message) => message.event === 'clear'));
-  call.twilioWs.emit('close');
 });
 
 test('Israel + forged selection is rejected to Hebrew', async (t) => {
