@@ -157,6 +157,24 @@ test('Israel + no selection (timeout path): Hebrew everywhere', async (t) => {
   twilioWs.emit('close');
 });
 
+test('Israel chooses the configured Realtime voice for each selected language', async (t) => {
+  const tenant = {
+    ...IL_TENANT,
+    voice_settings: {
+      ...IL_TENANT.voice_settings,
+      realtime_voice_he: 'sage',
+      realtime_voice_ru: 'coral',
+    },
+  };
+  const hebrew = await startCall(t, tenant, {});
+  assert.equal(hebrew.session.audio.output.voice, 'sage');
+  hebrew.twilioWs.emit('close');
+
+  const russian = await startCall(t, tenant, { selected_language: 'ru' });
+  assert.equal(russian.session.audio.output.voice, 'coral');
+  russian.twilioWs.emit('close');
+});
+
 test('Israel + forged selection is rejected to Hebrew', async (t) => {
   const { twilioWs, session } = await startCall(t, IL_TENANT, { selected_language: 'en"><injected>' });
   assert.equal(session.audio.input.transcription.language, 'he');

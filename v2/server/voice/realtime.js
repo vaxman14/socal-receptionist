@@ -414,7 +414,12 @@ function handleMediaStream(twilioWs, req) {
     if (!openaiWs || openaiWs.readyState !== WebSocket.OPEN) return;
     // Live-tunable voice settings from the DB (tenants.voice_settings jsonb) — no redeploy.
     const vs = tenant.voice_settings || {};
-    const realtimeVoice = vs.voice || POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
+    const languageVoice = selectedLanguage === 'he'
+      ? vs.realtime_voice_he
+      : selectedLanguage === 'ru'
+        ? vs.realtime_voice_ru
+        : null;
+    const realtimeVoice = languageVoice || vs.voice || POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
     // Turn detection — ported from the Business Line known-good config: server_vad
     // at threshold 0.75 resists barge-in on echo / notification dings / breaths
     // far better than semantic_vad, which was cutting the AI off mid-greeting.
