@@ -27,6 +27,7 @@ const {
 } = require('../lib/voice-spam');
 const { resolveSelectedLanguage, realtimeGreeting } = require('../lib/language');
 const { FRAME_BYTES, createPcmToMulawTranscoder, takeDueFrames, flushFinalFrame } = require('./audio');
+const { isAzureHebrewConfigured, synthesizeHebrew } = require('./azure-tts');
 const { verifyStreamCapability } = require('./stream-capability');
 const logger = require('../lib/logger');
 const OpenAI = require('openai');
@@ -199,6 +200,11 @@ function handleMediaStream(twilioWs, req) {
   let drainTimer = null;
   let currentResponseId = null;
   let assistantSpeaking = false;
+  let useAzureHebrew = false;
+  let pendingAzureText = '';
+  let azureSpeechGeneration = 0;
+  let azureSpeechPending = false;
+  let azureAbortController = null;
   // Manual turn mode: when the tenant sets voice_settings.turn_detection
   // create_response=false, OpenAI's VAD no longer auto-replies on every detected
   // sound. We instead generate a reply only after a MEANINGFUL transcription
@@ -221,7 +227,11 @@ function handleMediaStream(twilioWs, req) {
     // elapsed time calls for, and reset the clock whenever the queue runs dry.
     let nextFrameAt = Date.now();
     drainTimer = setInterval(() => {
-      if (!streamSid || playQueue.length === 0) { nextFrameAt = Date.now(); return; }
+      if (!streamSid || playQueue.length === 0) {
+        nextFrameAt = Date.now();
+        if (useAzureHebrew && !azureSpeechPending) assistantSpeaking = false;
+        return;
+      }
       const due = takeDueFrames(playQueue, nextFrameAt, Date.now(), FRAME_BYTES);
       playQueue = due.queue;
       nextFrameAt = due.nextFrameAt;
@@ -230,6 +240,7 @@ function handleMediaStream(twilioWs, req) {
           twilioWs.send(JSON.stringify({ event: 'media', streamSid, media: { payload: frame.toString('base64') } }));
         } catch {}
       }
+      if (useAzureHebrew && playQueue.length === 0 && !azureSpeechPending) assistantSpeaking = false;
     }, 20);
   }
 
@@ -238,6 +249,35 @@ function handleMediaStream(twilioWs, req) {
     transcoder.reset();
     if (streamSid) {
       try { twilioWs.send(JSON.stringify({ event: 'clear', streamSid })); } catch {}
+    }
+  }
+
+  async function speakAzureHebrew(text) {
+    const generation = ++azureSpeechGeneration;
+    azureAbortController = new AbortController();
+    azureSpeechPending = true;
+    assistantSpeaking = true;
+    try {
+      const pcm = await synthesizeHebrew(text, {
+        voice: tenant?.voice_settings?.azure_voice_he || 'he-IL-AvriNeural',
+        signal: azureAbortController.signal,
+      });
+      if (generation !== azureSpeechGeneration) return;
+      playQueue = Buffer.concat([
+        playQueue,
+        transcoder.push(pcm.toString('base64')),
+      ]);
+      padFinalPlayback();
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        logger.error('voice.realtime.azure_tts_failed', { callSid, error: err.message });
+      }
+    } finally {
+      if (generation === azureSpeechGeneration) {
+        azureSpeechPending = false;
+        azureAbortController = null;
+        if (playQueue.length === 0) assistantSpeaking = false;
+      }
     }
   }
 
@@ -284,6 +324,7 @@ function handleMediaStream(twilioWs, req) {
       case 'response.created': {
         currentResponseId = (event.response && event.response.id) || currentResponseId;
         assistantSpeaking = true;
+        if (useAzureHebrew) pendingAzureText = '';
         break;
       }
 
@@ -291,6 +332,33 @@ function handleMediaStream(twilioWs, req) {
       case 'response.output_audio.delta': {
         if (event.delta) {
           try { playQueue = Buffer.concat([playQueue, transcoder.push(event.delta)]); } catch {}
+        }
+        break;
+      }
+
+      case 'response.output_text.delta': {
+        if (useAzureHebrew && event.delta) pendingAzureText += event.delta;
+        break;
+      }
+
+      case 'response.output_text.done': {
+        if (useAzureHebrew && event.text) {
+          pendingAzureText = event.text;
+          transcript.push({ role: 'ai', text: event.text.trim() });
+        }
+        break;
+      }
+
+      case 'input_audio_buffer.speech_started': {
+        if (useAzureHebrew && (assistantSpeaking || azureSpeechPending || playQueue.length > 0)) {
+          azureSpeechGeneration++;
+          if (azureAbortController) azureAbortController.abort();
+          azureAbortController = null;
+          azureSpeechPending = false;
+          pendingAzureText = '';
+          try { openaiWs.send(JSON.stringify({ type: 'response.cancel' })); } catch {}
+          flushPlayback();
+          assistantSpeaking = false;
         }
         break;
       }
@@ -378,9 +446,16 @@ function handleMediaStream(twilioWs, req) {
 
       // Each completed response reports token usage — accumulate the cost.
       case 'response.done': {
-        padFinalPlayback();
-        assistantSpeaking = false;
         realtimeCostCents += estimateRealtimeCostCents(event.response?.usage);
+        if (useAzureHebrew) {
+          const text = pendingAzureText.trim();
+          pendingAzureText = '';
+          if (text) void speakAzureHebrew(text);
+          else assistantSpeaking = false;
+        } else {
+          padFinalPlayback();
+          assistantSpeaking = false;
+        }
         break;
       }
 
@@ -420,6 +495,7 @@ function handleMediaStream(twilioWs, req) {
         ? vs.realtime_voice_ru
         : null;
     const realtimeVoice = languageVoice || vs.voice || POLLY_TO_REALTIME[tenant.voice_id] || 'coral';
+    useAzureHebrew = selectedLanguage === 'he' && isAzureHebrewConfigured(tenant);
     // Turn detection — ported from the Business Line known-good config: server_vad
     // at threshold 0.75 resists barge-in on echo / notification dings / breaths
     // far better than semantic_vad, which was cutting the AI off mid-greeting.
@@ -451,7 +527,7 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
       type: 'session.update',
       session: {
         type: 'realtime',
-        output_modalities: ['audio'],
+        output_modalities: [useAzureHebrew ? 'text' : 'audio'],
         audio: {
           input: {
             format: { type: 'audio/pcmu' },
@@ -465,13 +541,15 @@ OUTBOUND CALLBACK CONTEXT (overrides the inbound flow above):
               language: selectedLanguage === 'he' || selectedLanguage === 'ru' ? selectedLanguage : 'en',
             },
           },
-          output: {
-            // PCM16 @ 24kHz from OpenAI; we transcode to mu-law 8kHz and pace
-            // 20ms frames ourselves (voice/audio.js). Requesting audio/pcmu
-            // here produced garbled audio — do not switch back.
-            format: { type: 'audio/pcm', rate: 24000 },
-            voice: realtimeVoice,
-          },
+          ...(useAzureHebrew ? {} : {
+            output: {
+              // PCM16 @ 24kHz from OpenAI; we transcode to mu-law 8kHz and pace
+              // 20ms frames ourselves (voice/audio.js). Requesting audio/pcmu
+              // here produced garbled audio — do not switch back.
+              format: { type: 'audio/pcm', rate: 24000 },
+              voice: realtimeVoice,
+            },
+          }),
         },
         instructions,
         tools: buildTools(tenant),
