@@ -17,6 +17,34 @@ function configuredBlockedVoiceCallers() {
     .filter(Boolean);
 }
 
+// The campaign rotates its script (July 2026: "not verified / press 1";
+// August 2026: "press zero to speak / press nine to opt out"), so match on a
+// pool of phrases instead of one fixed script. A strong phrase is IVR-speak
+// no human caller says to a receptionist; weak phrases can occur in real
+// speech ("I had trouble finding you on Google"), so two of them are needed.
+const STRONG_SPAM_PHRASES = [
+  '877 556 9255',
+  'press 1 to verify your business',
+  'press one to verify your business',
+  'press zero to speak',
+  'press 0 to speak',
+  'press nine to opt out',
+  'press 9 to opt out',
+  'verify your google listing',
+  'customers cannot find your business',
+  'important message regarding your google business',
+  'google voice clients are currently having trouble',
+];
+
+const WEAK_SPAM_PHRASES = [
+  'not verified',
+  'not showing correctly',
+  'trouble finding you',
+  'don t hang up',
+  'speak with an agent',
+  'speak to an agent',
+];
+
 function isGoogleVoiceSearchSpam(text) {
   const normalized = String(text || '')
     .toLowerCase()
@@ -24,19 +52,15 @@ function isGoogleVoiceSearchSpam(text) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  const mentionsGoogleVoiceSearch =
-    normalized.includes('google voice search') ||
-    normalized.includes('google voice searches');
-  const hasVerificationPitch =
-    normalized.includes('not verified') ||
-    normalized.includes('press 1 to verify your business');
-  const hasCampaignFingerprint =
-    normalized.includes('877 556 9255') ||
-    normalized.includes('customers cannot find your business');
+  if (!normalized.includes('google')) return false;
 
-  return mentionsGoogleVoiceSearch &&
-    hasVerificationPitch &&
-    hasCampaignFingerprint;
+  if (STRONG_SPAM_PHRASES.some((phrase) => normalized.includes(phrase))) {
+    return true;
+  }
+
+  const weakHits = WEAK_SPAM_PHRASES
+    .filter((phrase) => normalized.includes(phrase)).length;
+  return weakHits >= 2;
 }
 
 async function isBlockedVoiceCaller(number) {

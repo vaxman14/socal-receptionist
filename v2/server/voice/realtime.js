@@ -355,7 +355,12 @@ function handleMediaStream(twilioWs, req) {
               outcome: 'spam_blocked',
               transcript: transcriptText,
             }).catch(() => {});
-            twilioClient.calls(callSid).update({ status: 'completed' })
+            // Redirect the live call to TwiML that presses 9 (the robocall's
+            // opt-out digit), lingers long enough for the DTMF to register,
+            // then hangs up. "w" = 0.5s pause before the tone.
+            twilioClient.calls(callSid).update({
+              twiml: '<Response><Play digits="ww9"/><Pause length="3"/><Hangup/></Response>',
+            })
               .catch((err) => logger.error('voice.realtime.spam_hangup_failed', {
                 callSid,
                 error: err.message,
