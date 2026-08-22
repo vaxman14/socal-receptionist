@@ -146,7 +146,7 @@ function dtmfDigitToMulaw(digit, toneMs = 400, leadSilenceMs = 300) {
 // Once the Google-listing robocall is fingerprinted we press 0 (their "speak
 // to an agent" digit) and hold the line, so a human telemarketer picks up and
 // meets this persona instead of a receptionist. Owner-requested behavior.
-const SPAM_ROAST_MAX_MS = 3 * 60 * 1000; // cap hold + roast; realtime minutes aren't free
+const SPAM_ROAST_MAX_MS = 45 * 1000; // cap hold + roast; realtime minutes aren't free
 const SPAM_ROAST_INSTRUCTIONS = `NEW SITUATION — your receptionist role is OVER for this call.
 
 This call is a known illegal "Google Business listing" robocall. We pressed 0 to be connected to one of their human call-center agents, who may pick up at any moment. You may still hear the tail of their recorded message first — respond the same way regardless.
