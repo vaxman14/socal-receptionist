@@ -85,6 +85,21 @@ function menuGather(vr, tenant) {
   gather.say(voice(tenant), ssml);
 }
 
+// Twilio Marketplace add-on (Nomorobo Spam Score) attaches a robocall verdict
+// to the webhook before the call is answered; score 1 = known robocaller.
+// Until the add-on is enabled in the Twilio Console, AddOns is absent and this
+// is a no-op.
+function isFlaggedRobocall(body) {
+  if (!body || !body.AddOns) return false;
+  try {
+    const addOns = JSON.parse(body.AddOns);
+    const score = addOns?.results?.nomorobo_spamscore?.result?.score;
+    return Number(score) === 1;
+  } catch {
+    return false;
+  }
+}
+
 // --- Entry: a call arrives --------------------------------------------------
 
 router.post('/voice', async (req, res) => {
@@ -98,6 +113,11 @@ router.post('/voice', async (req, res) => {
 
   if (await isBlockedVoiceCaller(from)) {
     logger.warn('voice.spam_caller_rejected', { from, to, callSid });
+    return rejectCall(res);
+  }
+
+  if (isFlaggedRobocall(req.body)) {
+    logger.warn('voice.robocall_rejected_preanswer', { from, to, callSid });
     return rejectCall(res);
   }
 
